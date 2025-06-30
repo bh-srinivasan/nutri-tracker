@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white">
+                    <h3 class="card-title m-0">
+                        <i class="fas fa-upload me-2"></i>Bulk Upload Foods
+                    </h3>
+                </div>
+                <div class="card-body p-4">
+                    <div class="alert alert-info" role="alert">
+                        <h5 class="alert-heading">
+                            <i class="fas fa-info-circle me-2"></i>Upload Instructions
+                        </h5>
+                        <p class="mb-2">
+                            Upload a CSV file with the following columns:
+                        </p>
+                        <ul class="mb-3">
+                            <li><strong>name</strong> - Food name (required)</li>
+                            <li><strong>category</strong> - Food category (required)</li>
+                            <li><strong>brand</strong> - Brand name (optional)</li>
+                            <li><strong>serving_size</strong> - Serving size in grams (required)</li>
+                            <li><strong>calories</strong> - Calories per serving (required)</li>
+                            <li><strong>protein</strong> - Protein in grams (required)</li>
+                            <li><strong>carbs</strong> - Carbohydrates in grams (required)</li>
+                            <li><strong>fat</strong> - Fat in grams (required)</li>
+                            <li><strong>fiber</strong> - Fiber in grams (optional)</li>
+                            <li><strong>sugar</strong> - Sugar in grams (optional)</li>
+                            <li><strong>sodium</strong> - Sodium in mg (optional)</li>
+                        </ul>
+                        <a href="{{ url_for('static', filename='templates/food_upload_template.csv') }}" 
+                           class="btn btn-outline-info btn-sm">
+                            <i class="fas fa-download me-2"></i>Download Template
+                        </a>
+                    </div>
+                    
+                    <form method="POST" enctype="multipart/form-data">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-4">
+                            {{ form.file.label(class="form-label") }}
+                            {{ form.file(class="form-control") }}
+                            {% for error in form.file.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                            {% endfor %}
+                            <div class="form-text">
+                                Maximum file size: 10MB. Supported formats: CSV
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('admin.foods') }}" class="btn btn-secondary me-md-2">
+                                <i class="fas fa-times me-2"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-info">
+                                <i class="fas fa-upload me-2"></i>Upload Foods
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

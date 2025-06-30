@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+
+{% block title %}Challenges{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-10 mx-auto">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">Nutrition Challenges</h1>
+                <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
+
+            <!-- Active Challenges -->
+            {% if active_challenges %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-fire"></i> Your Active Challenges
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for user_challenge in active_challenges %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card border-primary">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <h6 class="card-title">{{ user_challenge.challenge.title }}</h6>
+                                        <span class="badge bg-primary">Active</span>
+                                    </div>
+                                    <p class="card-text text-muted small">{{ user_challenge.challenge.description }}</p>
+                                    
+                                    <div class="mb-2">
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <small>Progress</small>
+                                            <small>{{ user_challenge.current_progress }} / {{ user_challenge.challenge.target_value }} {{ user_challenge.challenge.unit }}</small>
+                                        </div>
+                                        <div class="progress">
+                                            {% set progress_pct = (user_challenge.current_progress / user_challenge.challenge.target_value * 100) if user_challenge.challenge.target_value else 0 %}
+                                            <div class="progress-bar" role="progressbar" 
+                                                 style="width: {{ progress_pct if progress_pct <= 100 else 100 }}%">
+                                                {{ "%.0f"|format(progress_pct) }}%
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row text-center small">
+                                        <div class="col-6">
+                                            <div class="text-muted">Started</div>
+                                            <div>{{ user_challenge.start_date.strftime('%m/%d/%y') }}</div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="text-muted">Ends</div>
+                                            <div>{{ user_challenge.end_date.strftime('%m/%d/%y') }}</div>
+                                        </div>
+                                    </div>
+                                    
+                                    {% if user_challenge.challenge.reward_points %}
+                                    <div class="text-center mt-2">
+                                        <span class="badge bg-warning">
+                                            <i class="fas fa-trophy"></i> {{ user_challenge.challenge.reward_points }} points
+                                        </span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Available Challenges -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-plus-circle"></i> Available Challenges
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if available_challenges %}
+                    <div class="row">
+                        {% for challenge in available_challenges %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <h6 class="card-title">{{ challenge.title }}</h6>
+                                        <span class="badge bg-success">Available</span>
+                                    </div>
+                                    <p class="card-text text-muted">{{ challenge.description }}</p>
+                                    
+                                    <div class="mb-3">
+                                        <div class="row text-center small">
+                                            <div class="col-4">
+                                                <div class="text-muted">Target</div>
+                                                <div class="fw-bold">{{ challenge.target_value }} {{ challenge.unit }}</div>
+                                            </div>
+                                            <div class="col-4">
+                                                <div class="text-muted">Duration</div>
+                                                <div class="fw-bold">{{ challenge.duration_days }} days</div>
+                                            </div>
+                                            <div class="col-4">
+                                                <div class="text-muted">Reward</div>
+                                                <div class="fw-bold text-warning">
+                                                    {% if challenge.reward_points %}
+                                                        <i class="fas fa-trophy"></i> {{ challenge.reward_points }}
+                                                    {% else %}
+                                                        Badge
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="d-grid">
+                                        <button type="button" class="btn btn-primary" 
+                                                onclick="joinChallenge({{ challenge.id }})">
+                                            <i class="fas fa-play"></i> Start Challenge
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-trophy fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No challenges available</h5>
+                        <p class="text-muted">Check back later for new challenges!</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Completed Challenges -->
+            {% if completed_challenges %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-check-circle"></i> Completed Challenges
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for user_challenge in completed_challenges %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card border-success">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <h6 class="card-title">{{ user_challenge.challenge.title }}</h6>
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check"></i> Completed
+                                        </span>
+                                    </div>
+                                    <p class="card-text text-muted small">{{ user_challenge.challenge.description }}</p>
+                                    
+                                    <div class="row text-center small">
+                                        <div class="col-4">
+                                            <div class="text-muted">Achieved</div>
+                                            <div class="fw-bold text-success">{{ user_challenge.current_progress }} {{ user_challenge.challenge.unit }}</div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-muted">Completed</div>
+                                            <div class="fw-bold">{{ user_challenge.completed_at.strftime('%m/%d/%y') if user_challenge.completed_at else 'N/A' }}</div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-muted">Earned</div>
+                                            <div class="fw-bold text-warning">
+                                                {% if user_challenge.challenge.reward_points %}
+                                                    <i class="fas fa-trophy"></i> {{ user_challenge.challenge.reward_points }}
+                                                {% else %}
+                                                    Badge
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function joinChallenge(challengeId) {
+    if (confirm('Are you sure you want to start this challenge?')) {
+        fetch('/api/challenges/join', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ challenge_id: challengeId })
+        })
+        .then(response => {
+            if (response.ok) {
+                NutriTracker.utils.showToast('Challenge started successfully!', 'success');
+                location.reload();
+            } else {
+                throw new Error('Failed to join challenge');
+            }
+        })
+        .catch(error => {
+            console.error('Error joining challenge:', error);
+            NutriTracker.utils.showToast('Error starting challenge', 'danger');
+        });
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,421 @@
+{% extends "base.html" %}
+
+{% block title %}Nutrition Goals{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">Nutrition Goals</h1>
+                <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
+
+            <!-- Current Goals Display -->
+            {% if current_goal %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-target"></i> Current Goals
+                        <small class="text-muted">({{ current_goal.start_date.strftime('%B %d, %Y') }} - {{ current_goal.end_date.strftime('%B %d, %Y') }})</small>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-danger text-white">
+                                <div class="card-body py-3">
+                                    <div class="display-6">{{ current_goal.target_calories }}</div>
+                                    <small>Calories/day</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body py-3">
+                                    <div class="display-6">{{ current_goal.target_protein }}g</div>
+                                    <small>Protein/day</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body py-3">
+                                    <div class="display-6">{{ current_goal.target_carbs }}g</div>
+                                    <small>Carbs/day</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body py-3">
+                                    <div class="display-6">{{ current_goal.target_fat }}g</div>
+                                    <small>Fat/day</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% if current_goal.target_fiber %}
+                    <div class="text-center mt-3">
+                        <span class="badge bg-info fs-6">
+                            <i class="fas fa-seedling"></i> {{ current_goal.target_fiber }}g Fiber/day
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Set New Goals Form -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-{{ 'edit' if current_goal else 'plus' }}"></i> 
+                        {{ 'Update' if current_goal else 'Set' }} Nutrition Goals
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+
+                        <!-- Personal Information for Goal Calculation -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.weight.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.weight(class="form-control" + (" is-invalid" if form.weight.errors else "")) }}
+                                        <span class="input-group-text">kg</span>
+                                    </div>
+                                    {% if form.weight.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.weight.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.height.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.height(class="form-control" + (" is-invalid" if form.height.errors else "")) }}
+                                        <span class="input-group-text">cm</span>
+                                    </div>
+                                    {% if form.height.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.height.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.age.label(class="form-label") }}
+                                    {{ form.age(class="form-control" + (" is-invalid" if form.age.errors else "")) }}
+                                    {% if form.age.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.age.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.gender.label(class="form-label") }}
+                                    {{ form.gender(class="form-select" + (" is-invalid" if form.gender.errors else "")) }}
+                                    {% if form.gender.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.gender.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.activity_level.label(class="form-label") }}
+                                    {{ form.activity_level(class="form-select" + (" is-invalid" if form.activity_level.errors else "")) }}
+                                    {% if form.activity_level.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.activity_level.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.goal.label(class="form-label") }}
+                                    {{ form.goal(class="form-select" + (" is-invalid" if form.goal.errors else "")) }}
+                                    {% if form.goal.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.goal.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Auto-Calculate Goals</label>
+                                    <div>
+                                        <button type="button" class="btn btn-outline-info" onclick="calculateGoals()">
+                                            <i class="fas fa-calculator"></i> Calculate Recommended Goals
+                                        </button>
+                                    </div>
+                                    <small class="text-muted">This will calculate goals based on your information above.</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Manual Goal Setting -->
+                        <h6 class="mb-3">Daily Nutrition Targets:</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.target_calories.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.target_calories(class="form-control" + (" is-invalid" if form.target_calories.errors else ""), id="targetCalories") }}
+                                        <span class="input-group-text">calories</span>
+                                    </div>
+                                    {% if form.target_calories.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.target_calories.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.target_protein.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.target_protein(class="form-control" + (" is-invalid" if form.target_protein.errors else ""), id="targetProtein") }}
+                                        <span class="input-group-text">grams</span>
+                                    </div>
+                                    {% if form.target_protein.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.target_protein.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.target_carbs.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.target_carbs(class="form-control" + (" is-invalid" if form.target_carbs.errors else ""), id="targetCarbs") }}
+                                        <span class="input-group-text">grams</span>
+                                    </div>
+                                    {% if form.target_carbs.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.target_carbs.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.target_fat.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.target_fat(class="form-control" + (" is-invalid" if form.target_fat.errors else ""), id="targetFat") }}
+                                        <span class="input-group-text">grams</span>
+                                    </div>
+                                    {% if form.target_fat.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.target_fat.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.target_fiber.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.target_fiber(class="form-control" + (" is-invalid" if form.target_fiber.errors else ""), id="targetFiber") }}
+                                        <span class="input-group-text">grams</span>
+                                    </div>
+                                    {% if form.target_fiber.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.target_fiber.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Goal Duration -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.start_date.label(class="form-label") }}
+                                    {{ form.start_date(class="form-control" + (" is-invalid" if form.start_date.errors else "")) }}
+                                    {% if form.start_date.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.start_date.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.end_date.label(class="form-label") }}
+                                    {{ form.end_date(class="form-control" + (" is-invalid" if form.end_date.errors else "")) }}
+                                    {% if form.end_date.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.end_date.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="d-grid">
+                            {{ form.submit(class="btn btn-primary btn-lg") }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Goal History -->
+            {% if goal_history %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-history"></i> Goal History
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Period</th>
+                                    <th>Calories</th>
+                                    <th>Protein</th>
+                                    <th>Carbs</th>
+                                    <th>Fat</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for goal in goal_history %}
+                                <tr>
+                                    <td>
+                                        {{ goal.start_date.strftime('%m/%d/%y') }} - 
+                                        {{ goal.end_date.strftime('%m/%d/%y') }}
+                                    </td>
+                                    <td>{{ goal.target_calories }}</td>
+                                    <td>{{ goal.target_protein }}g</td>
+                                    <td>{{ goal.target_carbs }}g</td>
+                                    <td>{{ goal.target_fat }}g</td>
+                                    <td>
+                                        {% if goal.is_active %}
+                                            <span class="badge bg-success">Active</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Completed</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function calculateGoals() {
+    const weight = parseFloat(document.getElementById('weight').value);
+    const height = parseFloat(document.getElementById('height').value);
+    const age = parseInt(document.getElementById('age').value);
+    const gender = document.getElementById('gender').value;
+    const activityLevel = document.getElementById('activity_level').value;
+    const goal = document.getElementById('goal').value;
+
+    if (!weight || !height || !age || !gender || !activityLevel || !goal) {
+        NutriTracker.utils.showToast('Please fill in all personal information fields first.', 'warning');
+        return;
+    }
+
+    // Calculate BMR using Mifflin-St Jeor Equation
+    let bmr;
+    if (gender === 'male') {
+        bmr = 10 * weight + 6.25 * height - 5 * age + 5;
+    } else {
+        bmr = 10 * weight + 6.25 * height - 5 * age - 161;
+    }
+
+    // Activity multipliers
+    const activityMultipliers = {
+        'sedentary': 1.2,
+        'lightly_active': 1.375,
+        'moderately_active': 1.55,
+        'very_active': 1.725,
+        'extremely_active': 1.9
+    };
+
+    let tdee = bmr * activityMultipliers[activityLevel];
+
+    // Adjust for goal
+    if (goal === 'weight_loss') {
+        tdee -= 500; // 500 calorie deficit for ~1 lb/week weight loss
+    } else if (goal === 'weight_gain') {
+        tdee += 500; // 500 calorie surplus for weight gain
+    }
+
+    // Calculate macros
+    const protein = Math.round(weight * 2.2); // 1g per lb of body weight
+    const fat = Math.round(tdee * 0.25 / 9); // 25% of calories from fat
+    const carbs = Math.round((tdee - protein * 4 - fat * 9) / 4); // Remaining calories from carbs
+    const fiber = Math.round(tdee / 1000 * 14); // 14g per 1000 calories
+
+    // Fill in the form
+    document.getElementById('targetCalories').value = Math.round(tdee);
+    document.getElementById('targetProtein').value = protein;
+    document.getElementById('targetCarbs').value = carbs;
+    document.getElementById('targetFat').value = fat;
+    document.getElementById('targetFiber').value = fiber;
+
+    NutriTracker.utils.showToast('Goals calculated successfully!', 'success');
+}
+</script>
+{% endblock %}

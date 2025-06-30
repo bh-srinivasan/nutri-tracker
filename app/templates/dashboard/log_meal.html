@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+
+{% block title %}Log Meal{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">Log a Meal</h1>
+                <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST" id="mealLogForm">
+                        {{ form.hidden_tag() }}
+                        
+                        <!-- Food Search Section -->
+                        <div class="mb-4">
+                            <label class="form-label">Search for Food</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="foodSearch" placeholder="Start typing to search foods...">
+                                <button type="button" class="btn btn-outline-primary" onclick="searchFoods()">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                            <div id="foodSearchResults" class="mt-2"></div>
+                        </div>
+
+                        <!-- Selected Food Display -->
+                        <div id="selectedFoodSection" class="mb-4" style="display: none;">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-2">
+                                            <img id="selectedFoodImage" src="" alt="" class="img-fluid rounded" style="max-height: 80px;">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6 id="selectedFoodName" class="mb-1"></h6>
+                                            <span id="selectedFoodBrand" class="badge bg-secondary"></span>
+                                            <p id="selectedFoodDescription" class="text-muted small mb-0"></p>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="row text-center">
+                                                <div class="col-3">
+                                                    <small class="text-muted">Cal</small>
+                                                    <div id="selectedFoodCalories" class="fw-bold"></div>
+                                                </div>
+                                                <div class="col-3">
+                                                    <small class="text-muted">Protein</small>
+                                                    <div id="selectedFoodProtein" class="fw-bold"></div>
+                                                </div>
+                                                <div class="col-3">
+                                                    <small class="text-muted">Carbs</small>
+                                                    <div id="selectedFoodCarbs" class="fw-bold"></div>
+                                                </div>
+                                                <div class="col-3">
+                                                    <small class="text-muted">Fat</small>
+                                                    <div id="selectedFoodFat" class="fw-bold"></div>
+                                                </div>
+                                            </div>
+                                            <small class="text-muted">per 100g</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Food ID (Hidden) -->
+                        {{ form.food_id(class="form-control", style="display: none;") }}
+                        {% if form.food_id.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.food_id.errors %}
+                                    <span>{{ error }}</span>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        <!-- Meal Details -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.quantity.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.quantity(class="form-control" + (" is-invalid" if form.quantity.errors else "")) }}
+                                        <span class="input-group-text">grams</span>
+                                    </div>
+                                    {% if form.quantity.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.quantity.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.meal_type.label(class="form-label") }}
+                                    {{ form.meal_type(class="form-select" + (" is-invalid" if form.meal_type.errors else "")) }}
+                                    {% if form.meal_type.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.meal_type.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.date.label(class="form-label") }}
+                                    {{ form.date(class="form-control" + (" is-invalid" if form.date.errors else "")) }}
+                                    {% if form.date.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.date.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Nutrition Preview (will be calculated dynamically) -->
+                        <div id="nutritionPreview" class="mb-4" style="display: none;">
+                            <h6>Nutrition Summary for this serving:</h6>
+                            <div class="row text-center">
+                                <div class="col-md-3">
+                                    <div class="card bg-danger text-white">
+                                        <div class="card-body py-2">
+                                            <div id="previewCalories" class="h5 mb-0">0</div>
+                                            <small>Calories</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-primary text-white">
+                                        <div class="card-body py-2">
+                                            <div id="previewProtein" class="h5 mb-0">0g</div>
+                                            <small>Protein</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-success text-white">
+                                        <div class="card-body py-2">
+                                            <div id="previewCarbs" class="h5 mb-0">0g</div>
+                                            <small>Carbs</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-warning text-white">
+                                        <div class="card-body py-2">
+                                            <div id="previewFat" class="h5 mb-0">0g</div>
+                                            <small>Fat</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="d-grid">
+                            {{ form.submit(class="btn btn-primary btn-lg") }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Quick Add Section -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-clock"></i> Recently Logged Foods
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if recent_foods %}
+                        <div class="row">
+                            {% for food in recent_foods %}
+                            <div class="col-md-6 col-lg-4 mb-3">
+                                <div class="card border">
+                                    <div class="card-body p-2">
+                                        <div class="d-flex align-items-center">
+                                            {% if food.image_url %}
+                                            <img src="{{ food.image_url }}" alt="{{ food.name }}" 
+                                                 class="rounded me-2" style="width: 40px; height: 40px; object-fit: cover;">
+                                            {% endif %}
+                                            <div class="flex-grow-1">
+                                                <h6 class="mb-0">{{ food.name }}</h6>
+                                                {% if food.brand %}
+                                                <small class="text-muted">{{ food.brand }}</small>
+                                                {% endif %}
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                    onclick="quickSelectFood({{ food.id }})">
+                                                <i class="fas fa-plus"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0">No recently logged foods. Start by searching and logging your first meal!</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedFood = null;
+
+// Pre-fill form if food_id is provided in URL
+{% if request.args.get('food_id') and selected_food %}
+document.addEventListener('DOMContentLoaded', function() {
+    selectFood({{ selected_food.id }}, '{{ selected_food.name }}', '{{ selected_food.brand or "" }}', 
+               '{{ selected_food.description or "" }}', {{ selected_food.calories_per_100g }}, 
+               {{ selected_food.protein_per_100g }}, {{ selected_food.carbs_per_100g or 0 }}, 
+               {{ selected_food.fat_per_100g or 0 }}, '{{ selected_food.image_url or "" }}');
+});
+{% endif %}
+
+// Pre-fill meal type if provided in URL
+{% if request.args.get('meal_type') %}
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('meal_type').value = '{{ request.args.get('meal_type') }}';
+});
+{% endif %}
+
+function searchFoods() {
+    const query = document.getElementById('foodSearch').value;
+    if (query.length < 2) return;
+
+    fetch(`/api/foods/search?q=${encodeURIComponent(query)}`)
+        .then(response => response.json())
+        .then(data => {
+            displaySearchResults(data.foods);
+        })
+        .catch(error => {
+            console.error('Search error:', error);
+        });
+}
+
+function displaySearchResults(foods) {
+    const resultsDiv = document.getElementById('foodSearchResults');
+    if (foods.length === 0) {
+        resultsDiv.innerHTML = '<p class="text-muted">No foods found. Try a different search term.</p>';
+        return;
+    }
+
+    let html = '<div class="list-group">';
+    foods.forEach(food => {
+        html += `
+            <button type="button" class="list-group-item list-group-item-action" 
+                    onclick="selectFood(${food.id}, '${food.name}', '${food.brand || ''}', 
+                                      '${food.description || ''}', ${food.calories_per_100g}, 
+                                      ${food.protein_per_100g}, ${food.carbs_per_100g || 0}, 
+                                      ${food.fat_per_100g || 0}, '${food.image_url || ''}')">
+                <div class="d-flex align-items-center">
+                    ${food.image_url ? `<img src="${food.image_url}" alt="${food.name}" class="rounded me-3" style="width: 40px; height: 40px; object-fit: cover;">` : ''}
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1">${food.name}</h6>
+                        ${food.brand ? `<span class="badge bg-secondary me-2">${food.brand}</span>` : ''}
+                        <small class="text-muted">${food.calories_per_100g} cal, ${food.protein_per_100g}g protein per 100g</small>
+                    </div>
+                </div>
+            </button>
+        `;
+    });
+    html += '</div>';
+    resultsDiv.innerHTML = html;
+}
+
+function selectFood(id, name, brand, description, calories, protein, carbs, fat, imageUrl) {
+    selectedFood = { id, name, brand, description, calories, protein, carbs, fat, imageUrl };
+    
+    // Update form
+    document.getElementById('food_id').value = id;
+    
+    // Update selected food display
+    document.getElementById('selectedFoodName').textContent = name;
+    document.getElementById('selectedFoodBrand').textContent = brand;
+    document.getElementById('selectedFoodBrand').style.display = brand ? 'inline' : 'none';
+    document.getElementById('selectedFoodDescription').textContent = description;
+    document.getElementById('selectedFoodCalories').textContent = calories;
+    document.getElementById('selectedFoodProtein').textContent = protein + 'g';
+    document.getElementById('selectedFoodCarbs').textContent = carbs + 'g';
+    document.getElementById('selectedFoodFat').textContent = fat + 'g';
+    
+    if (imageUrl) {
+        document.getElementById('selectedFoodImage').src = imageUrl;
+        document.getElementById('selectedFoodImage').style.display = 'block';
+    } else {
+        document.getElementById('selectedFoodImage').style.display = 'none';
+    }
+    
+    // Show selected food section
+    document.getElementById('selectedFoodSection').style.display = 'block';
+    
+    // Clear search results
+    document.getElementById('foodSearchResults').innerHTML = '';
+    document.getElementById('foodSearch').value = '';
+    
+    // Calculate nutrition preview if quantity is set
+    updateNutritionPreview();
+}
+
+function quickSelectFood(foodId) {
+    fetch(`/api/foods/${foodId}`)
+        .then(response => response.json())
+        .then(food => {
+            selectFood(food.id, food.name, food.brand || '', food.description || '', 
+                      food.calories_per_100g, food.protein_per_100g, 
+                      food.carbs_per_100g || 0, food.fat_per_100g || 0, 
+                      food.image_url || '');
+        });
+}
+
+function updateNutritionPreview() {
+    if (!selectedFood) return;
+    
+    const quantity = parseFloat(document.getElementById('quantity').value) || 0;
+    if (quantity <= 0) {
+        document.getElementById('nutritionPreview').style.display = 'none';
+        return;
+    }
+    
+    const multiplier = quantity / 100;
+    
+    document.getElementById('previewCalories').textContent = Math.round(selectedFood.calories * multiplier);
+    document.getElementById('previewProtein').textContent = (selectedFood.protein * multiplier).toFixed(1) + 'g';
+    document.getElementById('previewCarbs').textContent = (selectedFood.carbs * multiplier).toFixed(1) + 'g';
+    document.getElementById('previewFat').textContent = (selectedFood.fat * multiplier).toFixed(1) + 'g';
+    
+    document.getElementById('nutritionPreview').style.display = 'block';
+}
+
+// Add event listener for quantity changes
+document.getElementById('quantity').addEventListener('input', updateNutritionPreview);
+
+// Add event listener for Enter key in search box
+document.getElementById('foodSearch').addEventListener('keyup', function(event) {
+    if (event.key === 'Enter') {
+        searchFoods();
+    } else if (this.value.length >= 2) {
+        // Auto-search as user types (with debounce)
+        clearTimeout(this.searchTimeout);
+        this.searchTimeout = setTimeout(searchFoods, 500);
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h3 class="card-title m-0">
+                        <i class="fas fa-plus-circle me-2"></i>Add New Food
+                    </h3>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    {{ form.name.label(class="form-label") }}
+                                    {{ form.name(class="form-control") }}
+                                    {% for error in form.name.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.category.label(class="form-label") }}
+                                    {{ form.category(class="form-control") }}
+                                    {% for error in form.category.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.brand.label(class="form-label") }}
+                                    {{ form.brand(class="form-control") }}
+                                    {% for error in form.brand.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.serving_size.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.serving_size(class="form-control") }}
+                                        <span class="input-group-text">g</span>
+                                    </div>
+                                    {% for error in form.serving_size.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <h5 class="mb-3">Nutritional Information (per serving)</h5>
+                        
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    {{ form.calories.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.calories(class="form-control") }}
+                                        <span class="input-group-text">kcal</span>
+                                    </div>
+                                    {% for error in form.calories.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    {{ form.protein.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.protein(class="form-control") }}
+                                        <span class="input-group-text">g</span>
+                                    </div>
+                                    {% for error in form.protein.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    {{ form.carbs.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.carbs(class="form-control") }}
+                                        <span class="input-group-text">g</span>
+                                    </div>
+                                    {% for error in form.carbs.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    {{ form.fat.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.fat(class="form-control") }}
+                                        <span class="input-group-text">g</span>
+                                    </div>
+                                    {% for error in form.fat.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.fiber.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.fiber(class="form-control") }}
+                                        <span class="input-group-text">g</span>
+                                    </div>
+                                    {% for error in form.fiber.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.sugar.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.sugar(class="form-control") }}
+                                        <span class="input-group-text">g</span>
+                                    </div>
+                                    {% for error in form.sugar.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.sodium.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.sodium(class="form-control") }}
+                                        <span class="input-group-text">mg</span>
+                                    </div>
+                                    {% for error in form.sodium.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('admin.foods') }}" class="btn btn-secondary me-md-2">
+                                <i class="fas fa-times me-2"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-plus-circle me-2"></i>Add Food
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

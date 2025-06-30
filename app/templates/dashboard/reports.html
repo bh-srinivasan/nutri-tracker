@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block title %}Reports{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">Nutrition Reports</h1>
+                <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
+
+            <!-- Report Period Selection -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Report Period</label>
+                            <select class="form-select" name="period" onchange="this.form.submit()">
+                                <option value="7" {{ 'selected' if period == 7 }}>Last 7 Days</option>
+                                <option value="30" {{ 'selected' if period == 30 }}>Last 30 Days</option>
+                                <option value="90" {{ 'selected' if period == 90 }}>Last 90 Days</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Summary Stats -->
+                <div class="col-md-12 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-chart-bar"></i> Summary (Last {{ period }} Days)
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center">
+                                <div class="col-md-3">
+                                    <div class="card bg-danger text-white">
+                                        <div class="card-body">
+                                            <div class="h4">{{ "%.0f"|format(summary.avg_calories) }}</div>
+                                            <small>Avg Calories/day</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-primary text-white">
+                                        <div class="card-body">
+                                            <div class="h4">{{ "%.1f"|format(summary.avg_protein) }}g</div>
+                                            <small>Avg Protein/day</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-success text-white">
+                                        <div class="card-body">
+                                            <div class="h4">{{ "%.1f"|format(summary.avg_carbs) }}g</div>
+                                            <small>Avg Carbs/day</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-warning text-white">
+                                        <div class="card-body">
+                                            <div class="h4">{{ "%.1f"|format(summary.avg_fat) }}g</div>
+                                            <small>Avg Fat/day</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Daily Breakdown -->
+                <div class="col-md-12 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-calendar-alt"></i> Daily Breakdown
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if daily_data %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Calories</th>
+                                            <th>Protein</th>
+                                            <th>Carbs</th>
+                                            <th>Fat</th>
+                                            <th>Meals Logged</th>
+                                            <th>Goal Achievement</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for day in daily_data %}
+                                        <tr>
+                                            <td>{{ day.date.strftime('%Y-%m-%d') }}</td>
+                                            <td>{{ "%.0f"|format(day.calories) }}</td>
+                                            <td>{{ "%.1f"|format(day.protein) }}g</td>
+                                            <td>{{ "%.1f"|format(day.carbs) }}g</td>
+                                            <td>{{ "%.1f"|format(day.fat) }}g</td>
+                                            <td>{{ day.meal_count }}</td>
+                                            <td>
+                                                {% if current_goal %}
+                                                    {% set calorie_progress = (day.calories / current_goal.target_calories * 100) if current_goal.target_calories else 0 %}
+                                                    <div class="progress" style="height: 20px;">
+                                                        <div class="progress-bar" role="progressbar" 
+                                                             style="width: {{ calorie_progress if calorie_progress <= 100 else 100 }}%">
+                                                            {{ "%.0f"|format(calorie_progress) }}%
+                                                        </div>
+                                                    </div>
+                                                {% else %}
+                                                    <span class="text-muted">No goal set</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <div class="text-center py-5">
+                                <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                                <h5 class="text-muted">No data available</h5>
+                                <p class="text-muted">Start logging meals to see your nutrition reports.</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top Foods -->
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-star"></i> Most Consumed Foods
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if top_foods %}
+                            <div class="list-group list-group-flush">
+                                {% for item in top_foods %}
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>{{ item.food_name }}</strong>
+                                        {% if item.brand %}
+                                        <span class="badge bg-secondary">{{ item.brand }}</span>
+                                        {% endif %}
+                                    </div>
+                                    <span class="badge bg-primary">{{ item.count }} times</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <p class="text-muted">No foods logged yet.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Meal Type Distribution -->
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-pie-chart"></i> Meal Distribution
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if meal_distribution %}
+                            {% for meal in meal_distribution %}
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-capitalize">{{ meal.meal_type }}</span>
+                                    <span>{{ meal.count }} meals ({{ "%.1f"|format(meal.percentage) }}%)</span>
+                                </div>
+                                <div class="progress">
+                                    <div class="progress-bar bg-{{ 'warning' if meal.meal_type == 'breakfast' else 'success' if meal.meal_type == 'lunch' else 'primary' if meal.meal_type == 'dinner' else 'info' }}" 
+                                         role="progressbar" style="width: {{ meal.percentage }}%">
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% else %}
+                            <p class="text-muted">No meal data available.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Export Options -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-download"></i> Export Data
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">Export your nutrition data for further analysis or record keeping.</p>
+                    <div class="btn-group" role="group">
+                        <a href="{{ url_for('dashboard.export_data', format='csv', period=period) }}" 
+                           class="btn btn-outline-success">
+                            <i class="fas fa-file-csv"></i> Export as CSV
+                        </a>
+                        <a href="{{ url_for('dashboard.export_data', format='pdf', period=period) }}" 
+                           class="btn btn-outline-danger">
+                            <i class="fas fa-file-pdf"></i> Export as PDF
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
