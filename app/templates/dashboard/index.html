@@ -204,13 +204,13 @@
                 </div>
                 <div class="card-body">
                     {% for user_challenge in user_challenges %}
-                    <div class="challenge-item mb-3 p-2 border rounded">
+                    {% set challenge_progress = (user_challenge.current_progress / user_challenge.challenge.target_value * 100) if user_challenge.challenge.target_value else 0 %}
+                    <div class="challenge-item mb-3 p-2 border rounded" style="--challenge-progress: {{ challenge_progress }}%;">
                         <h6 class="mb-1">{{ user_challenge.challenge.title }}</h6>
                         <p class="text-muted small mb-2">{{ user_challenge.challenge.description }}</p>
                         <div class="progress mb-2" style="height: 6px;">
-                            {% set challenge_progress = (user_challenge.current_progress / user_challenge.challenge.target_value * 100) if user_challenge.challenge.target_value else 0 %}
                             <div class="progress-bar" role="progressbar" 
-                                 style="width: {{ challenge_progress }}%"></div>
+                                 style="width: var(--challenge-progress);"></div>
                         </div>
                         <small class="text-muted">
                             {{ user_challenge.current_progress }} / {{ user_challenge.challenge.target_value }} {{ user_challenge.challenge.unit }}
