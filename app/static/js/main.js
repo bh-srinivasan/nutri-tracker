@@ -484,6 +484,11 @@ class NutritionCalculator {
 document.addEventListener('DOMContentLoaded', function() {
     NutriTracker.ui.init();
     
+    // Initialize meal logging if on log meal page
+    if (document.getElementById('mealLogForm')) {
+        NutriTracker.logMeal.init();
+    }
+    
     // Dashboard event delegation
     document.addEventListener('click', function(e) {
         // Handle edit meal buttons
@@ -502,6 +507,18 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target.closest('.join-challenge-btn')) {
             const challengeId = e.target.closest('.join-challenge-btn').dataset.challengeId;
             NutriTracker.dashboard.joinChallenge(challengeId);
+        }
+
+        // Handle show food details buttons
+        if (e.target.closest('.show-food-details-btn')) {
+            const foodId = e.target.closest('.show-food-details-btn').dataset.foodId;
+            NutriTracker.dashboard.showFoodDetails(foodId);
+        }
+
+        // Handle quick select food buttons
+        if (e.target.closest('.quick-select-food-btn')) {
+            const foodId = e.target.closest('.quick-select-food-btn').dataset.foodId;
+            NutriTracker.dashboard.quickSelectFood(foodId);
         }
     });
     
@@ -584,5 +601,302 @@ NutriTracker.dashboard = {
                 NutriTracker.utils.showToast('Error starting challenge', 'danger');
             });
         }
+    },
+
+    /**
+     * Show food details modal
+     */
+    showFoodDetails: function(foodId) {
+        fetch(`/api/foods/${foodId}`)
+            .then(response => response.json())
+            .then(food => {
+                // Update modal content
+                document.getElementById('modalFoodName').textContent = food.name;
+                document.getElementById('modalFoodBrand').textContent = food.brand || '';
+                document.getElementById('modalFoodDescription').textContent = food.description || '';
+                document.getElementById('modalFoodCalories').textContent = food.calories_per_100g;
+                document.getElementById('modalFoodProtein').textContent = food.protein_per_100g + 'g';
+                document.getElementById('modalFoodCarbs').textContent = (food.carbs_per_100g || 0) + 'g';
+                document.getElementById('modalFoodFat').textContent = (food.fat_per_100g || 0) + 'g';
+                
+                if (food.image_url) {
+                    document.getElementById('modalFoodImage').src = food.image_url;
+                    document.getElementById('modalFoodImage').style.display = 'block';
+                } else {
+                    document.getElementById('modalFoodImage').style.display = 'none';
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching food details:', error);
+                NutriTracker.utils.showToast('Error loading food details', 'danger');
+            });
+    },
+
+    /**
+     * Quick select food for meal logging
+     */
+    quickSelectFood: function(foodId) {
+        fetch(`/api/foods/${foodId}`)
+            .then(response => response.json())
+            .then(food => {
+                if (typeof NutriTracker.logMeal !== 'undefined' && NutriTracker.logMeal.selectFood) {
+                    NutriTracker.logMeal.selectFood(food.id, food.name, food.brand || '', food.description || '', 
+                                                   food.calories_per_100g, food.protein_per_100g, 
+                                                   food.carbs_per_100g || 0, food.fat_per_100g || 0, 
+                                                   food.image_url || '');
+                }
+            })
+            .catch(error => {
+                console.error('Error selecting food:', error);
+                NutriTracker.utils.showToast('Error selecting food', 'danger');
+            });
+    }
+};
+
+// Meal Logging Module
+NutriTracker.logMeal = {
+    selectedFood: null,
+
+    /**
+     * Initialize meal logging page
+     */
+    init: function() {
+        // Handle pre-selected food data
+        const preselectedFoodData = document.getElementById('preselected-food-data');
+        if (preselectedFoodData) {
+            try {
+                const foodData = JSON.parse(preselectedFoodData.textContent);
+                this.selectFood(foodData.id, foodData.name, foodData.brand || '', 
+                              foodData.description || '', foodData.calories_per_100g, 
+                              foodData.protein_per_100g, foodData.carbs_per_100g || 0, 
+                              foodData.fat_per_100g || 0, foodData.image_url || '');
+            } catch (e) {
+                console.error('Error parsing preselected food data:', e);
+            }
+        }
+
+        // Handle pre-selected meal type
+        const preselectedMealType = document.getElementById('preselected-meal-type');
+        if (preselectedMealType) {
+            try {
+                const mealType = JSON.parse(preselectedMealType.textContent);
+                const mealTypeSelect = document.getElementById('meal_type');
+                if (mealTypeSelect) {
+                    mealTypeSelect.value = mealType;
+                }
+            } catch (e) {
+                console.error('Error parsing preselected meal type:', e);
+            }
+        }
+
+        // Set up event listeners
+        this.setupEventListeners();
+    },
+
+    /**
+     * Set up event listeners for meal logging
+     */
+    setupEventListeners: function() {
+        // Quantity input changes
+        const quantityInput = document.getElementById('quantity');
+        if (quantityInput) {
+            quantityInput.addEventListener('input', () => this.updateNutritionPreview());
+        }
+
+        // Food search input
+        const foodSearchInput = document.getElementById('foodSearch');
+        if (foodSearchInput) {
+            foodSearchInput.addEventListener('keyup', (event) => {
+                if (event.key === 'Enter') {
+                    this.searchFoods();
+                } else if (foodSearchInput.value.length >= 2) {
+                    clearTimeout(foodSearchInput.searchTimeout);
+                    foodSearchInput.searchTimeout = setTimeout(() => this.searchFoods(), 500);
+                }
+            });
+        }
+
+        // Search button
+        const searchButton = document.querySelector('button[onclick="searchFoods()"]');
+        if (searchButton) {
+            searchButton.onclick = null; // Remove inline handler
+            searchButton.addEventListener('click', () => this.searchFoods());
+        }
+    },
+
+    /**
+     * Search for foods
+     */
+    searchFoods: function() {
+        const query = document.getElementById('foodSearch').value;
+        if (query.length < 2) return;
+
+        NutriTracker.utils.showLoading();
+        
+        fetch(`/api/foods/search?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                this.displaySearchResults(data.foods);
+            })
+            .catch(error => {
+                console.error('Search error:', error);
+                NutriTracker.utils.showToast('Error searching foods', 'danger');
+            })
+            .finally(() => {
+                NutriTracker.utils.hideLoading();
+            });
+    },
+
+    /**
+     * Display search results
+     */
+    displaySearchResults: function(foods) {
+        const resultsDiv = document.getElementById('foodSearchResults');
+        if (!resultsDiv) return;
+
+        if (foods.length === 0) {
+            resultsDiv.innerHTML = '<p class="text-muted">No foods found. Try a different search term.</p>';
+            return;
+        }
+
+        let html = '<div class="list-group">';
+        foods.forEach(food => {
+            html += `
+                <button type="button" class="list-group-item list-group-item-action" 
+                        data-food-id="${food.id}" data-food-name="${food.name}" 
+                        data-food-brand="${food.brand || ''}" data-food-description="${food.description || ''}"
+                        data-food-calories="${food.calories_per_100g}" data-food-protein="${food.protein_per_100g}"
+                        data-food-carbs="${food.carbs_per_100g || 0}" data-food-fat="${food.fat_per_100g || 0}"
+                        data-food-image="${food.image_url || ''}" onclick="NutriTracker.logMeal.selectFoodFromSearch(this)">
+                    <div class="d-flex align-items-center">
+                        ${food.image_url ? `<img src="${food.image_url}" alt="${food.name}" class="rounded me-3" style="width: 40px; height: 40px; object-fit: cover;">` : ''}
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">${food.name}</h6>
+                            ${food.brand ? `<span class="badge bg-secondary me-2">${food.brand}</span>` : ''}
+                            <small class="text-muted">${food.calories_per_100g} cal, ${food.protein_per_100g}g protein per 100g</small>
+                        </div>
+                    </div>
+                </button>
+            `;
+        });
+        html += '</div>';
+        resultsDiv.innerHTML = html;
+    },
+
+    /**
+     * Select food from search results
+     */
+    selectFoodFromSearch: function(element) {
+        const id = element.dataset.foodId;
+        const name = element.dataset.foodName;
+        const brand = element.dataset.foodBrand;
+        const description = element.dataset.foodDescription;
+        const calories = parseFloat(element.dataset.foodCalories);
+        const protein = parseFloat(element.dataset.foodProtein);
+        const carbs = parseFloat(element.dataset.foodCarbs);
+        const fat = parseFloat(element.dataset.foodFat);
+        const imageUrl = element.dataset.foodImage;
+
+        this.selectFood(id, name, brand, description, calories, protein, carbs, fat, imageUrl);
+    },
+
+    /**
+     * Select a food item
+     */
+    selectFood: function(id, name, brand, description, calories, protein, carbs, fat, imageUrl) {
+        this.selectedFood = { id, name, brand, description, calories, protein, carbs, fat, imageUrl };
+        
+        // Update form
+        const foodIdInput = document.getElementById('food_id');
+        if (foodIdInput) foodIdInput.value = id;
+        
+        // Update selected food display
+        this.updateSelectedFoodDisplay(name, brand, description, calories, protein, carbs, fat, imageUrl);
+        
+        // Clear search results
+        const resultsDiv = document.getElementById('foodSearchResults');
+        if (resultsDiv) resultsDiv.innerHTML = '';
+        
+        const searchInput = document.getElementById('foodSearch');
+        if (searchInput) searchInput.value = '';
+        
+        // Calculate nutrition preview if quantity is set
+        this.updateNutritionPreview();
+    },
+
+    /**
+     * Update selected food display
+     */
+    updateSelectedFoodDisplay: function(name, brand, description, calories, protein, carbs, fat, imageUrl) {
+        const elements = {
+            selectedFoodName: name,
+            selectedFoodBrand: brand,
+            selectedFoodDescription: description,
+            selectedFoodCalories: calories,
+            selectedFoodProtein: protein + 'g',
+            selectedFoodCarbs: carbs + 'g',
+            selectedFoodFat: fat + 'g'
+        };
+
+        for (const [elementId, value] of Object.entries(elements)) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = value;
+                if (elementId === 'selectedFoodBrand') {
+                    element.style.display = brand ? 'inline' : 'none';
+                }
+            }
+        }
+
+        // Handle image
+        const imageElement = document.getElementById('selectedFoodImage');
+        if (imageElement) {
+            if (imageUrl) {
+                imageElement.src = imageUrl;
+                imageElement.style.display = 'block';
+            } else {
+                imageElement.style.display = 'none';
+            }
+        }
+
+        // Show selected food section
+        const selectedSection = document.getElementById('selectedFoodSection');
+        if (selectedSection) {
+            selectedSection.style.display = 'block';
+        }
+    },
+
+    /**
+     * Update nutrition preview
+     */
+    updateNutritionPreview: function() {
+        if (!this.selectedFood) return;
+        
+        const quantityInput = document.getElementById('quantity');
+        const quantity = quantityInput ? parseFloat(quantityInput.value) || 0 : 0;
+        
+        const previewDiv = document.getElementById('nutritionPreview');
+        if (!previewDiv) return;
+
+        if (quantity <= 0) {
+            previewDiv.style.display = 'none';
+            return;
+        }
+        
+        const multiplier = quantity / 100;
+        
+        const previewElements = {
+            previewCalories: Math.round(this.selectedFood.calories * multiplier),
+            previewProtein: (this.selectedFood.protein * multiplier).toFixed(1) + 'g',
+            previewCarbs: (this.selectedFood.carbs * multiplier).toFixed(1) + 'g',
+            previewFat: (this.selectedFood.fat * multiplier).toFixed(1) + 'g'
+        };
+
+        for (const [elementId, value] of Object.entries(previewElements)) {
+            const element = document.getElementById(elementId);
+            if (element) element.textContent = value;
+        }
+        
+        previewDiv.style.display = 'block';
     }
 };

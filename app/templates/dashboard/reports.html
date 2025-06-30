@@ -112,9 +112,10 @@
                                             <td>
                                                 {% if current_goal %}
                                                     {% set calorie_progress = (day.calories / current_goal.target_calories * 100) if current_goal.target_calories else 0 %}
+                                                    {% set progress_width = calorie_progress if calorie_progress <= 100 else 100 %}
                                                     <div class="progress" style="height: 20px;">
                                                         <div class="progress-bar" role="progressbar" 
-                                                             style="width: {{ calorie_progress if calorie_progress <= 100 else 100 }}%">
+                                                             style="width: {{ progress_width }}%">
                                                             {{ "%.0f"|format(calorie_progress) }}%
                                                         </div>
                                                     </div>
@@ -185,8 +186,9 @@
                                     <span>{{ meal.count }} meals ({{ "%.1f"|format(meal.percentage) }}%)</span>
                                 </div>
                                 <div class="progress">
+                                    {% set meal_width = meal.percentage %}
                                     <div class="progress-bar bg-{{ 'warning' if meal.meal_type == 'breakfast' else 'success' if meal.meal_type == 'lunch' else 'primary' if meal.meal_type == 'dinner' else 'info' }}" 
-                                         role="progressbar" style="width: {{ meal.percentage }}%">
+                                         role="progressbar" style="width: {{ meal_width }}%">
                                     </div>
                                 </div>
                             </div>

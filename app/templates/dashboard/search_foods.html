@@ -107,8 +107,8 @@
                                        class="btn btn-primary btn-sm">
                                         <i class="fas fa-plus"></i> Log this Food
                                     </a>
-                                    <button type="button" class="btn btn-outline-info btn-sm" 
-                                            onclick="showFoodDetails({{ food.id }})" data-bs-toggle="modal" 
+                                    <button type="button" class="btn btn-outline-info btn-sm show-food-details-btn" 
+                                            data-food-id="{{ food.id }}" data-bs-toggle="modal" 
                                             data-bs-target="#foodDetailsModal">
                                         <i class="fas fa-info-circle"></i> View Details
                                     </button>
