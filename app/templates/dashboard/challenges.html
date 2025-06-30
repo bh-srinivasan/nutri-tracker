@@ -40,8 +40,9 @@
                                         </div>
                                         <div class="progress">
                                             {% set progress_pct = (user_challenge.current_progress / user_challenge.challenge.target_value * 100) if user_challenge.challenge.target_value else 0 %}
+                                            {% set progress_width = progress_pct if progress_pct <= 100 else 100 %}
                                             <div class="progress-bar" role="progressbar" 
-                                                 style="width: {{ progress_pct if progress_pct <= 100 else 100 }}%">
+                                                 style="width: {{ progress_width }}%">
                                                 {{ "%.0f"|format(progress_pct) }}%
                                             </div>
                                         </div>
@@ -118,8 +119,8 @@
                                     </div>
                                     
                                     <div class="d-grid">
-                                        <button type="button" class="btn btn-primary" 
-                                                onclick="joinChallenge({{ challenge.id }})">
+                                        <button type="button" class="btn btn-primary join-challenge-btn" 
+                                                data-challenge-id="{{ challenge.id }}">
                                             <i class="fas fa-play"></i> Start Challenge
                                         </button>
                                     </div>
@@ -191,30 +192,4 @@
         </div>
     </div>
 </div>
-
-<script>
-function joinChallenge(challengeId) {
-    if (confirm('Are you sure you want to start this challenge?')) {
-        fetch('/api/challenges/join', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ challenge_id: challengeId })
-        })
-        .then(response => {
-            if (response.ok) {
-                NutriTracker.utils.showToast('Challenge started successfully!', 'success');
-                location.reload();
-            } else {
-                throw new Error('Failed to join challenge');
-            }
-        })
-        .catch(error => {
-            console.error('Error joining challenge:', error);
-            NutriTracker.utils.showToast('Error starting challenge', 'danger');
-        });
-    }
-}
-</script>
 {% endblock %}

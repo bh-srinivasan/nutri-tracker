@@ -484,6 +484,27 @@ class NutritionCalculator {
 document.addEventListener('DOMContentLoaded', function() {
     NutriTracker.ui.init();
     
+    // Dashboard event delegation
+    document.addEventListener('click', function(e) {
+        // Handle edit meal buttons
+        if (e.target.closest('.edit-meal-btn')) {
+            const mealId = e.target.closest('.edit-meal-btn').dataset.mealId;
+            NutriTracker.dashboard.editMeal(mealId);
+        }
+        
+        // Handle delete meal buttons
+        if (e.target.closest('.delete-meal-btn')) {
+            const mealId = e.target.closest('.delete-meal-btn').dataset.mealId;
+            NutriTracker.dashboard.deleteMeal(mealId);
+        }
+        
+        // Handle join challenge buttons
+        if (e.target.closest('.join-challenge-btn')) {
+            const challengeId = e.target.closest('.join-challenge-btn').dataset.challengeId;
+            NutriTracker.dashboard.joinChallenge(challengeId);
+        }
+    });
+    
     // Global error handler
     window.addEventListener('error', function(e) {
         console.error('Global error:', e.error);
@@ -501,3 +522,67 @@ document.addEventListener('DOMContentLoaded', function() {
 window.NutriTracker = NutriTracker;
 window.FoodSearch = FoodSearch;
 window.NutritionCalculator = NutritionCalculator;
+
+// Dashboard functions
+NutriTracker.dashboard = {
+    /**
+     * Edit a meal entry
+     */
+    editMeal: function(mealId) {
+        // Redirect to log meal page with meal ID for editing
+        window.location.href = `/dashboard/log-meal?edit=${mealId}`;
+    },
+
+    /**
+     * Delete a meal entry
+     */
+    deleteMeal: function(mealId) {
+        if (confirm('Are you sure you want to delete this meal entry?')) {
+            fetch(`/api/meals/${mealId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    NutriTracker.utils.showToast('Meal deleted successfully', 'success');
+                    location.reload();
+                } else {
+                    throw new Error('Failed to delete meal');
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting meal:', error);
+                NutriTracker.utils.showToast('Error deleting meal', 'danger');
+            });
+        }
+    },
+
+    /**
+     * Join a challenge
+     */
+    joinChallenge: function(challengeId) {
+        if (confirm('Are you sure you want to start this challenge?')) {
+            fetch('/api/challenges/join', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ challenge_id: challengeId })
+            })
+            .then(response => {
+                if (response.ok) {
+                    NutriTracker.utils.showToast('Challenge started successfully!', 'success');
+                    location.reload();
+                } else {
+                    throw new Error('Failed to join challenge');
+                }
+            })
+            .catch(error => {
+                console.error('Error joining challenge:', error);
+                NutriTracker.utils.showToast('Error starting challenge', 'danger');
+            });
+        }
+    }
+};
