@@ -119,7 +119,7 @@
                         </div>
 
                         <!-- Pagination -->
-                        {% if pagination.pages > 1 %}
+                        {% if pagination and pagination.pages > 1 %}
                         <nav aria-label="Users pagination">
                             <ul class="pagination justify-content-center">
                                 {% if pagination.has_prev %}

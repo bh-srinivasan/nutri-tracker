@@ -84,15 +84,18 @@ def users():
                 User.last_name.like(search_filter)
             )
         
-        users = query.order_by(desc(User.created_at)).paginate(
+        users_pagination = query.order_by(desc(User.created_at)).paginate(
             page=page, per_page=20, error_out=False
         )
         
         return render_template('admin/users.html', title='User Management',
-                             users=users, search=search)
+                             users=users_pagination.items, pagination=users_pagination, search=search)
     except Exception as e:
+        current_app.logger.error(f'Error loading users: {str(e)}')
         flash(f'Error loading users: {str(e)}', 'danger')
-        return redirect(url_for('admin.dashboard'))
+        # Return empty data with safe defaults
+        return render_template('admin/users.html', title='User Management',
+                             users=[], pagination=None, search=search or '')
 
 @bp.route('/users/<int:user_id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -179,7 +182,7 @@ def foods():
         if category:
             query = query.filter(Food.category == category)
         
-        foods = query.order_by(desc(Food.created_at)).paginate(
+        foods_pagination = query.order_by(desc(Food.created_at)).paginate(
             page=page, per_page=20, error_out=False
         )
         
@@ -188,10 +191,15 @@ def foods():
         categories = [cat[0] for cat in categories if cat[0]]
         
         return render_template('admin/foods.html', title='Food Management',
-                             foods=foods, search=search, category=category, categories=categories)
+                             foods=foods_pagination.items, pagination=foods_pagination, 
+                             search=search, category=category, categories=categories)
     except Exception as e:
+        current_app.logger.error(f'Error loading foods: {str(e)}')
         flash(f'Error loading foods: {str(e)}', 'danger')
-        return redirect(url_for('admin.dashboard'))
+        # Return empty data with safe defaults
+        return render_template('admin/foods.html', title='Food Management',
+                             foods=[], pagination=None, search=search or '', 
+                             category=category or '', categories=[])
 
 @bp.route('/foods/add', methods=['GET', 'POST'])
 @login_required
