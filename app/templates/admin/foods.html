@@ -145,7 +145,7 @@
                             <ul class="pagination justify-content-center">
                                 {% if pagination.has_prev %}
                                     <li class="page-item">
-                                        <a class="page-link" href="{{ url_for('admin.foods', page=pagination.prev_num, **request.args) }}">Previous</a>
+                                        <a class="page-link" href="{{ url_for('admin.foods', page=pagination.prev_num, search=request.args.get('search', ''), category=request.args.get('category', '')) }}">Previous</a>
                                     </li>
                                 {% endif %}
                                 
@@ -153,7 +153,7 @@
                                     {% if page_num %}
                                         {% if page_num != pagination.page %}
                                             <li class="page-item">
-                                                <a class="page-link" href="{{ url_for('admin.foods', page=page_num, **request.args) }}">{{ page_num }}</a>
+                                                <a class="page-link" href="{{ url_for('admin.foods', page=page_num, search=request.args.get('search', ''), category=request.args.get('category', '')) }}">{{ page_num }}</a>
                                             </li>
                                         {% else %}
                                             <li class="page-item active">
@@ -169,7 +169,7 @@
                                 
                                 {% if pagination.has_next %}
                                     <li class="page-item">
-                                        <a class="page-link" href="{{ url_for('admin.foods', page=pagination.next_num, **request.args) }}">Next</a>
+                                        <a class="page-link" href="{{ url_for('admin.foods', page=pagination.next_num, search=request.args.get('search', ''), category=request.args.get('category', '')) }}">Next</a>
                                     </li>
                                 {% endif %}
                             </ul>

@@ -84,7 +84,7 @@ def users():
                 User.last_name.like(search_filter)
             )
         
-        users_pagination = query.order_by(desc(User.created_at)).paginate(
+        users_pagination = query.order_by(User.id.asc()).paginate(
             page=page, per_page=20, error_out=False
         )
         
@@ -182,7 +182,7 @@ def foods():
         if category:
             query = query.filter(Food.category == category)
         
-        foods_pagination = query.order_by(desc(Food.created_at)).paginate(
+        foods_pagination = query.order_by(Food.id.asc()).paginate(
             page=page, per_page=20, error_out=False
         )
         
