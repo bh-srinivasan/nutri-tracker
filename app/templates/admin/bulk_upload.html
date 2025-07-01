@@ -37,17 +37,17 @@
                         </a>
                     </div>
                     
-                    <form method="POST" enctype="multipart/form-data">
+                    <form method="POST">
                         {{ form.hidden_tag() }}
                         
                         <div class="mb-4">
-                            {{ form.file.label(class="form-label") }}
-                            {{ form.file(class="form-control") }}
-                            {% for error in form.file.errors %}
+                            {{ form.csv_data.label(class="form-label") }}
+                            {{ form.csv_data(class="form-control") }}
+                            {% for error in form.csv_data.errors %}
                                 <div class="text-danger small">{{ error }}</div>
                             {% endfor %}
                             <div class="form-text">
-                                Maximum file size: 10MB. Supported formats: CSV
+                                Paste your CSV data here. Use the template format above.
                             </div>
                         </div>
                         
@@ -55,9 +55,7 @@
                             <a href="{{ url_for('admin.foods') }}" class="btn btn-secondary me-md-2">
                                 <i class="fas fa-times me-2"></i>Cancel
                             </a>
-                            <button type="submit" class="btn btn-info">
-                                <i class="fas fa-upload me-2"></i>Upload Foods
-                            </button>
+                            {{ form.submit(class="btn btn-info") }}
                         </div>
                     </form>
                 </div>

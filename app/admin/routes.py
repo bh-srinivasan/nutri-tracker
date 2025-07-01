@@ -22,6 +22,13 @@ def admin_required(f):
     decorated_function.__name__ = f.__name__
     return decorated_function
 
+@bp.route('/')
+@login_required
+@admin_required
+def index():
+    """Admin root route - redirects to dashboard."""
+    return redirect(url_for('admin.dashboard'))
+
 @bp.route('/dashboard')
 @login_required
 @admin_required
@@ -63,24 +70,29 @@ def dashboard():
 @admin_required
 def users():
     """List all users."""
-    page = request.args.get('page', 1, type=int)
-    search = request.args.get('search', '', type=str)
-    
-    query = User.query
-    if search:
-        query = query.filter(
-            User.username.contains(search) |
-            User.email.contains(search) |
-            User.first_name.contains(search) |
-            User.last_name.contains(search)
+    try:
+        page = request.args.get('page', 1, type=int)
+        search = request.args.get('search', '', type=str)
+        
+        query = User.query
+        if search:
+            search_filter = f'%{search}%'
+            query = query.filter(
+                User.username.like(search_filter) |
+                User.email.like(search_filter) |
+                User.first_name.like(search_filter) |
+                User.last_name.like(search_filter)
+            )
+        
+        users = query.order_by(desc(User.created_at)).paginate(
+            page=page, per_page=20, error_out=False
         )
-    
-    users = query.order_by(desc(User.created_at)).paginate(
-        page=page, per_page=20, error_out=False
-    )
-    
-    return render_template('admin/users.html', title='User Management',
-                         users=users, search=search)
+        
+        return render_template('admin/users.html', title='User Management',
+                             users=users, search=search)
+    except Exception as e:
+        flash(f'Error loading users: {str(e)}', 'danger')
+        return redirect(url_for('admin.dashboard'))
 
 @bp.route('/users/<int:user_id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -152,29 +164,34 @@ def delete_user(user_id):
 @admin_required
 def foods():
     """List all food items."""
-    page = request.args.get('page', 1, type=int)
-    search = request.args.get('search', '', type=str)
-    category = request.args.get('category', '', type=str)
-    
-    query = Food.query
-    if search:
-        query = query.filter(
-            Food.name.contains(search) |
-            Food.brand.contains(search)
+    try:
+        page = request.args.get('page', 1, type=int)
+        search = request.args.get('search', '', type=str)
+        category = request.args.get('category', '', type=str)
+        
+        query = Food.query
+        if search:
+            search_filter = f'%{search}%'
+            query = query.filter(
+                Food.name.like(search_filter) |
+                (Food.brand.like(search_filter) & Food.brand.isnot(None))
+            )
+        if category:
+            query = query.filter(Food.category == category)
+        
+        foods = query.order_by(desc(Food.created_at)).paginate(
+            page=page, per_page=20, error_out=False
         )
-    if category:
-        query = query.filter(Food.category == category)
-    
-    foods = query.order_by(desc(Food.created_at)).paginate(
-        page=page, per_page=20, error_out=False
-    )
-    
-    # Get categories for filter
-    categories = db.session.query(Food.category).distinct().all()
-    categories = [cat[0] for cat in categories if cat[0]]
-    
-    return render_template('admin/foods.html', title='Food Management',
-                         foods=foods, search=search, category=category, categories=categories)
+        
+        # Get categories for filter
+        categories = db.session.query(Food.category).distinct().all()
+        categories = [cat[0] for cat in categories if cat[0]]
+        
+        return render_template('admin/foods.html', title='Food Management',
+                             foods=foods, search=search, category=category, categories=categories)
+    except Exception as e:
+        flash(f'Error loading foods: {str(e)}', 'danger')
+        return redirect(url_for('admin.dashboard'))
 
 @bp.route('/foods/add', methods=['GET', 'POST'])
 @login_required
@@ -328,6 +345,7 @@ def bulk_upload_foods():
         except Exception as e:
             db.session.rollback()
             flash(f'Error processing CSV: {str(e)}', 'danger')
+            return redirect(url_for('admin.bulk_upload_foods'))
     
     return render_template('admin/bulk_upload.html', title='Bulk Upload Foods', form=form)
 
