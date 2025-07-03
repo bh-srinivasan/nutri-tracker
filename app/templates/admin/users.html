@@ -40,7 +40,6 @@
                         <div class="col-md-2">
                             <select class="form-select" name="role">
                                 <option value="">All Roles</option>
-                                <option value="admin" {{ 'selected' if request.args.get('role') == 'admin' }}>Admin</option>
                                 <option value="user" {{ 'selected' if request.args.get('role') == 'user' }}>User</option>
                             </select>
                         </div>
@@ -48,6 +47,19 @@
                             <button type="submit" class="btn btn-outline-primary">
                                 <i class="fas fa-search"></i> Filter
                             </button>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="additional-info-toggle">
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" name="show_details" value="1" 
+                                           {{ 'checked' if show_details }} id="showDetails" onchange="this.form.submit()">
+                                    <label class="form-check-label" for="showDetails">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Show Additional Information
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
                         </div>
                     </form>
                 </div>
@@ -58,42 +70,88 @@
     <!-- Users Table -->
     <div class="row">
         <div class="col-md-12">
-            <div class="card">
+            <div class="table-container">
                 <div class="card-body">
                     {% if users %}
                         <div class="table-responsive">
-                            <table class="table table-hover">
+                            <table class="table table-hover user-management-table{{ ' show-details' if show_details }}">
                                 <thead>
                                     <tr>
-                                        <th>ID</th>
-                                        <th>Name</th>
-                                        <th>Email</th>
-                                        <th>Role</th>
-                                        <th>Status</th>
-                                        <th>Joined</th>
-                                        <th>Last Login</th>
-                                        <th>Actions</th>
+                                        <th scope="col">
+                                            <i class="fas fa-user me-1"></i>Name
+                                        </th>
+                                        <th scope="col" class="text-center">
+                                            <i class="fas fa-circle me-1"></i>Status
+                                        </th>
+                                        {% if show_details %}
+                                        <th scope="col" class="text-center">
+                                            <i class="fas fa-hashtag me-1"></i>ID
+                                        </th>
+                                        <th scope="col">
+                                            <i class="fas fa-envelope me-1"></i>Email
+                                        </th>
+                                        <th scope="col" class="text-center">
+                                            <i class="fas fa-user-tag me-1"></i>Role
+                                        </th>
+                                        <th scope="col" class="text-center">
+                                            <i class="fas fa-calendar me-1"></i>Joined
+                                        </th>
+                                        <th scope="col" class="text-center">
+                                            <i class="fas fa-clock me-1"></i>Last Login
+                                        </th>
+                                        {% endif %}
+                                        <th scope="col" class="text-center">
+                                            <i class="fas fa-cog me-1"></i>Actions
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for user in users %}
                                     <tr>
-                                        <td>{{ user.id }}</td>
-                                        <td>{{ user.first_name }} {{ user.last_name }}</td>
-                                        <td>{{ user.email }}</td>
                                         <td>
-                                            <span class="badge bg-{{ 'danger' if user.is_admin else 'primary' }}">
-                                                {{ 'Admin' if user.is_admin else 'User' }}
-                                            </span>
+                                            <div class="d-flex align-items-center">
+                                                <div class="user-avatar me-2">
+                                                    <i class="fas fa-user-circle fa-lg text-muted"></i>
+                                                </div>
+                                                <div>
+                                                    <strong>{{ user.first_name }} {{ user.last_name }}</strong>
+                                                    <small class="d-block text-muted">{{ user.username }}</small>
+                                                </div>
+                                            </div>
                                         </td>
-                                        <td>
+                                        <td class="text-center">
                                             <span class="badge bg-{{ 'success' if user.is_active else 'secondary' }}">
+                                                <i class="fas fa-{{ 'check' if user.is_active else 'times' }} me-1"></i>
                                                 {{ 'Active' if user.is_active else 'Inactive' }}
                                             </span>
                                         </td>
-                                        <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
-                                        <td>{{ user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else 'Never' }}</td>
+                                        {% if show_details %}
+                                        <td class="text-center">
+                                            <code>#{{ user.id }}</code>
+                                        </td>
                                         <td>
+                                            <a href="mailto:{{ user.email }}" class="text-decoration-none">
+                                                {{ user.email }}
+                                            </a>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-{{ 'danger' if user.is_admin else 'primary' }}">
+                                                <i class="fas fa-{{ 'crown' if user.is_admin else 'user' }} me-1"></i>
+                                                {{ 'Admin' if user.is_admin else 'User' }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <small class="text-muted">
+                                                {{ user.created_at.strftime('%m/%d/%Y') }}
+                                            </small>
+                                        </td>
+                                        <td class="text-center">
+                                            <small class="text-muted">
+                                                {{ user.last_login.strftime('%m/%d/%Y %H:%M') if user.last_login else 'Never' }}
+                                            </small>
+                                        </td>
+                                        {% endif %}
+                                        <td class="text-center">
                                             <div class="btn-group btn-group-sm" role="group">
                                                 <button type="button" class="btn btn-outline-primary edit-user-btn" 
                                                         data-user-id="{{ user.id }}" title="Edit User">
@@ -124,7 +182,7 @@
                             <ul class="pagination justify-content-center">
                                 {% if pagination.has_prev %}
                                     <li class="page-item">
-                                        <a class="page-link" href="{{ url_for('admin.users', page=pagination.prev_num, search=request.args.get('search', '')) }}">Previous</a>
+                                        <a class="page-link" href="{{ url_for('admin.users', page=pagination.prev_num, search=request.args.get('search', ''), status=request.args.get('status', ''), role=request.args.get('role', ''), show_details=request.args.get('show_details', '')) }}">Previous</a>
                                     </li>
                                 {% endif %}
                                 
@@ -132,7 +190,7 @@
                                     {% if page_num %}
                                         {% if page_num != pagination.page %}
                                             <li class="page-item">
-                                                <a class="page-link" href="{{ url_for('admin.users', page=page_num, search=request.args.get('search', '')) }}">{{ page_num }}</a>
+                                                <a class="page-link" href="{{ url_for('admin.users', page=page_num, search=request.args.get('search', ''), status=request.args.get('status', ''), role=request.args.get('role', ''), show_details=request.args.get('show_details', '')) }}">{{ page_num }}</a>
                                             </li>
                                         {% else %}
                                             <li class="page-item active">
@@ -148,17 +206,20 @@
                                 
                                 {% if pagination.has_next %}
                                     <li class="page-item">
-                                        <a class="page-link" href="{{ url_for('admin.users', page=pagination.next_num, search=request.args.get('search', '')) }}">Next</a>
+                                        <a class="page-link" href="{{ url_for('admin.users', page=pagination.next_num, search=request.args.get('search', ''), status=request.args.get('status', ''), role=request.args.get('role', ''), show_details=request.args.get('show_details', '')) }}">Next</a>
                                     </li>
                                 {% endif %}
                             </ul>
                         </nav>
                         {% endif %}
                     {% else %}
-                        <div class="text-center py-5">
-                            <i class="fas fa-users fa-3x text-muted mb-3"></i>
-                            <h5 class="text-muted">No users found</h5>
-                            <p class="text-muted">Try adjusting your search criteria.</p>
+                        <div class="table-empty-state">
+                            <i class="fas fa-users"></i>
+                            <h5>No users found</h5>
+                            <p>Try adjusting your search criteria or add a new user.</p>
+                            <button type="button" class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                                <i class="fas fa-user-plus me-1"></i> Add First User
+                            </button>
                         </div>
                     {% endif %}
                 </div>

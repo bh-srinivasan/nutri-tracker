@@ -73,8 +73,13 @@ def users():
     try:
         page = request.args.get('page', 1, type=int)
         search = request.args.get('search', '', type=str)
+        status = request.args.get('status', '', type=str)
+        role = request.args.get('role', '', type=str)
+        show_details = request.args.get('show_details', '') == '1'
         
-        query = User.query
+        # Filter out admin users from the main list
+        query = User.query.filter(User.is_admin == False)
+        
         if search:
             search_filter = f'%{search}%'
             query = query.filter(
@@ -84,18 +89,29 @@ def users():
                 User.last_name.like(search_filter)
             )
         
+        # Status filter
+        if status == 'active':
+            query = query.filter(User.is_active == True)
+        elif status == 'inactive':
+            query = query.filter(User.is_active == False)
+        
+        # Role filter (although all non-admin users will be 'user' role)
+        if role == 'user':
+            query = query.filter(User.is_admin == False)
+        
         users_pagination = query.order_by(User.id.asc()).paginate(
             page=page, per_page=20, error_out=False
         )
         
         return render_template('admin/users.html', title='User Management',
-                             users=users_pagination.items, pagination=users_pagination, search=search)
+                             users=users_pagination.items, pagination=users_pagination, 
+                             search=search, show_details=show_details)
     except Exception as e:
         current_app.logger.error(f'Error loading users: {str(e)}')
         flash(f'Error loading users: {str(e)}', 'danger')
         # Return empty data with safe defaults
         return render_template('admin/users.html', title='User Management',
-                             users=[], pagination=None, search=search or '')
+                             users=[], pagination=None, search=search or '', show_details=show_details)
 
 @bp.route('/users/<int:user_id>/edit', methods=['GET', 'POST'])
 @login_required

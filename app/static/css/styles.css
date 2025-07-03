@@ -230,6 +230,174 @@ body {
     background-color: rgba(40, 167, 69, 0.05);
 }
 
+/* User Management Table Specific Styles */
+.user-management-table {
+    margin-bottom: 0;
+}
+
+.user-management-table th,
+.user-management-table td {
+    vertical-align: middle;
+    padding: 0.75rem;
+}
+
+/* Dynamic column widths for better responsive design */
+.user-management-table th:nth-child(1), /* Name */
+.user-management-table td:nth-child(1) {
+    min-width: 150px;
+    width: auto;
+}
+
+.user-management-table th:nth-child(2), /* Status */
+.user-management-table td:nth-child(2) {
+    width: 100px;
+    text-align: center;
+}
+
+/* Additional Information columns (when show_details is enabled) */
+.user-management-table.show-details th:nth-child(3), /* ID */
+.user-management-table.show-details td:nth-child(3) {
+    width: 60px;
+    text-align: center;
+}
+
+.user-management-table.show-details th:nth-child(4), /* Email */
+.user-management-table.show-details td:nth-child(4) {
+    min-width: 200px;
+    width: auto;
+}
+
+.user-management-table.show-details th:nth-child(5), /* Role */
+.user-management-table.show-details td:nth-child(5) {
+    width: 80px;
+    text-align: center;
+}
+
+.user-management-table.show-details th:nth-child(6), /* Joined */
+.user-management-table.show-details td:nth-child(6) {
+    width: 100px;
+    text-align: center;
+}
+
+.user-management-table.show-details th:nth-child(7), /* Last Login */
+.user-management-table.show-details td:nth-child(7) {
+    width: 140px;
+    text-align: center;
+}
+
+/* Actions column - always last */
+.user-management-table th:last-child,
+.user-management-table td:last-child {
+    width: 140px;
+    text-align: center;
+}
+
+/* Badge styling improvements */
+.user-management-table .badge {
+    font-size: 0.75rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: var(--border-radius-sm);
+}
+
+/* Button group improvements */
+.user-management-table .btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    margin: 0 1px;
+}
+
+/* Responsive improvements for user management table */
+@media (max-width: 992px) {
+    .user-management-table {
+        font-size: 0.875rem;
+    }
+    
+    .user-management-table th,
+    .user-management-table td {
+        padding: 0.5rem;
+    }
+    
+    .user-management-table .btn-group-sm .btn {
+        padding: 0.2rem 0.4rem;
+        font-size: 0.7rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .user-management-table {
+        font-size: 0.8rem;
+    }
+    
+    /* Stack action buttons vertically on small screens */
+    .user-management-table .btn-group {
+        flex-direction: column;
+        gap: 2px;
+    }
+    
+    .user-management-table .btn-group .btn {
+        margin: 0;
+        width: 100%;
+    }
+    
+    /* Reduce padding on mobile */
+    .user-management-table th,
+    .user-management-table td {
+        padding: 0.4rem 0.3rem;
+    }
+}
+
+/* Additional Information Toggle Styling */
+.additional-info-toggle {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: var(--border-radius);
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.additional-info-toggle .form-check-label {
+    font-weight: 500;
+    color: var(--dark-color);
+    cursor: pointer;
+}
+
+.additional-info-toggle .form-check-input:checked {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+/* Table container improvements */
+.table-container {
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    overflow: hidden;
+}
+
+.table-container .table-responsive {
+    border-radius: var(--border-radius);
+}
+
+/* Loading state styles */
+.table-loading {
+    opacity: 0.6;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+/* Empty state styling */
+.table-empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--secondary-color);
+}
+
+.table-empty-state i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
 /* Modal Enhancements */
 .modal-content {
     border: none;
