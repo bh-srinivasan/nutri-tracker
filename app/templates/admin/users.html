@@ -323,3 +323,39 @@
 // User management JavaScript functions will be added in static/js/admin.js
 </script>
 {% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+
+<!-- Debug script to test edit button functionality -->
+<script>
+console.log('Debug: Users page scripts loaded');
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Debug: DOM loaded, looking for edit buttons');
+    
+    const editButtons = document.querySelectorAll('.edit-user-btn');
+    console.log('Debug: Found', editButtons.length, 'edit buttons');
+    
+    // Add direct click listeners as backup
+    editButtons.forEach(function(button, index) {
+        console.log('Debug: Setting up button', index, 'with user ID:', button.dataset.userId);
+        
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Debug: Edit button clicked for user ID:', this.dataset.userId);
+            
+            // Test if Admin object exists
+            if (typeof Admin !== 'undefined' && Admin.users && Admin.users.edit) {
+                console.log('Debug: Calling Admin.users.edit');
+                Admin.users.edit(this.dataset.userId);
+            } else {
+                console.error('Debug: Admin object or Admin.users.edit not found');
+                console.log('Debug: Admin object:', typeof Admin !== 'undefined' ? Admin : 'undefined');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

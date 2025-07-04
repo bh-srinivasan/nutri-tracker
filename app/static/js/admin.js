@@ -165,7 +165,7 @@ Admin.users = {
                 first_name: firstName.trim(),
                 last_name: lastName.trim(),
                 is_admin: formData.get('is_admin') === 'on',
-                is_active: formData.get('is_active') === 'on'
+                is_active: formData.get('is_active') !== null ? formData.get('is_active') === 'on' : true
             };
             
             const response = await fetch(`/api/admin/users/${userId}`, {

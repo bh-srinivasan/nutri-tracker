@@ -103,6 +103,12 @@ def users():
             page=page, per_page=20, error_out=False
         )
         
+        # Debug logging
+        current_app.logger.info(f'Users page accessed - Page: {page}, Search: "{search}", Show details: {show_details}')
+        current_app.logger.info(f'Query found {len(users_pagination.items)} users')
+        for user in users_pagination.items:
+            current_app.logger.info(f'  - {user.username} ({user.email}) - Admin: {user.is_admin}, Active: {user.is_active}')
+        
         return render_template('admin/users.html', title='User Management',
                              users=users_pagination.items, pagination=users_pagination, 
                              search=search, show_details=show_details)
