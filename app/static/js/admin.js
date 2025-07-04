@@ -71,34 +71,6 @@ Admin.users = {
     },
 
     /**
-     * Reset user password
-     */
-    resetPassword: async function(userId) {
-        NutriTracker.ui.confirmAction(
-            'Are you sure you want to reset this user\'s password? They will receive an email with a new temporary password.',
-            async () => {
-                try {
-                    const response = await fetch(`/api/admin/users/${userId}/reset-password`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    
-                    if (response.ok) {
-                        NutriTracker.utils.showToast('Password reset email sent successfully', 'success');
-                    } else {
-                        throw new Error('Failed to reset password');
-                    }
-                } catch (error) {
-                    console.error('Error resetting password:', error);
-                    NutriTracker.utils.showToast('Error resetting password', 'danger');
-                }
-            }
-        );
-    },
-
-    /**
      * Submit add user form
      */
     submitAddForm: async function(formData) {
@@ -200,12 +172,31 @@ Admin.users = {
      * Open password reset modal
      */
     openPasswordResetModal: function(userId, username) {
-        // Set the user ID and username in the modal
-        document.getElementById('resetUserId').value = userId;
-        document.getElementById('resetUsername').textContent = username;
+        console.log('Opening password reset modal for user:', userId, username);
+        
+        // Set the user ID and username in the modal with null checks
+        const resetUserIdElement = document.getElementById('resetUserId');
+        const resetUsernameElement = document.getElementById('resetUsername');
+        
+        if (resetUserIdElement) {
+            resetUserIdElement.value = userId;
+            console.log('Set resetUserId to:', userId);
+        } else {
+            console.error('Element with ID "resetUserId" not found');
+        }
+        
+        if (resetUsernameElement) {
+            resetUsernameElement.textContent = username;
+            console.log('Set resetUsername to:', username);
+        } else {
+            console.error('Element with ID "resetUsername" not found');
+        }
         
         // Clear the form
-        document.getElementById('resetPasswordForm').reset();
+        const resetPasswordForm = document.getElementById('resetPasswordForm');
+        if (resetPasswordForm) {
+            resetPasswordForm.reset();
+        }
         
         // Reset password strength meter
         const strengthBar = document.getElementById('passwordStrength');
@@ -240,8 +231,14 @@ Admin.users = {
         }
         
         // Show the modal
-        const modal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
-        modal.show();
+        const modalElement = document.getElementById('resetPasswordModal');
+        if (modalElement) {
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+        } else {
+            console.error('Reset password modal element not found');
+            NutriTracker.utils.showToast('Error: Password reset modal not found', 'danger');
+        }
     },
 
     /**
@@ -290,14 +287,34 @@ Admin.users = {
             
             if (response.ok) {
                 // Close the reset modal
-                bootstrap.Modal.getInstance(document.getElementById('resetPasswordModal')).hide();
+                const resetModalElement = document.getElementById('resetPasswordModal');
+                if (resetModalElement) {
+                    bootstrap.Modal.getInstance(resetModalElement).hide();
+                }
                 
                 // Show success modal with the new password
-                document.getElementById('successUsername').textContent = result.username;
-                document.getElementById('generatedPassword').value = newPassword;
+                const successUsernameElement = document.getElementById('successUsername');
+                const generatedPasswordElement = document.getElementById('generatedPassword');
                 
-                const successModal = new bootstrap.Modal(document.getElementById('passwordSuccessModal'));
-                successModal.show();
+                if (successUsernameElement) {
+                    successUsernameElement.textContent = result.username;
+                } else {
+                    console.error('Element with ID "successUsername" not found');
+                }
+                
+                if (generatedPasswordElement) {
+                    generatedPasswordElement.value = newPassword;
+                } else {
+                    console.error('Element with ID "generatedPassword" not found');
+                }
+                
+                const successModalElement = document.getElementById('passwordSuccessModal');
+                if (successModalElement) {
+                    const successModal = new bootstrap.Modal(successModalElement);
+                    successModal.show();
+                } else {
+                    console.error('Success modal element not found');
+                }
                 
                 NutriTracker.utils.showToast('Password reset successfully', 'success');
             } else {
@@ -496,8 +513,15 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Reset Password buttons
         if (e.target.closest('.reset-password-btn')) {
-            const userId = e.target.closest('.reset-password-btn').dataset.userId;
-            Admin.users.resetPassword(userId);
+            const btn = e.target.closest('.reset-password-btn');
+            const userId = btn.dataset.userId;
+            const username = btn.dataset.username;
+            if (userId && username) {
+                Admin.users.openPasswordResetModal(userId, username);
+            } else {
+                console.error('Missing user data for password reset:', {userId, username});
+                NutriTracker.utils.showToast('Error: Missing user information', 'danger');
+            }
         }
         
         // Toggle User Status buttons

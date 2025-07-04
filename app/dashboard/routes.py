@@ -32,7 +32,13 @@ def index():
     current_goal = current_user.get_current_nutrition_goal()
     
     # Calculate progress percentages
-    progress = {}
+    progress = {
+        'calories': 0,
+        'protein': 0,
+        'carbs': 0,
+        'fat': 0,
+        'fiber': 0
+    }
     if current_goal:
         progress = {
             'calories': (today_nutrition['calories'] / current_goal.target_calories * 100) if current_goal.target_calories else 0,
@@ -62,7 +68,7 @@ def index():
     return render_template('dashboard/index.html', title='Dashboard',
                          today_nutrition=today_nutrition, current_goal=current_goal,
                          progress=progress, streak=streak, user_challenges=user_challenges,
-                         meals_by_type=meals_by_type)
+                         meals_by_type=meals_by_type, current_datetime=datetime.now())
 
 @bp.route('/log-meal', methods=['GET', 'POST'])
 @login_required

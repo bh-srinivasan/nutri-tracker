@@ -31,7 +31,7 @@
                     <div class="row">
                         <div class="col-12">
                             <div class="progress mb-2" style="height: 10px;">
-                                {% set calories_width = progress.calories if progress.calories <= 100 else 100 %}
+                                {% set calories_width = progress['calories'] if progress['calories'] <= 100 else 100 %}
                                 <div class="progress-bar bg-danger" role="progressbar" 
                                      style="width: {{ calories_width }}%"></div>
                             </div>
@@ -51,7 +51,7 @@
             <div class="card text-center">
                 <div class="card-body">
                     <div class="progress mb-2" style="height: 10px;">
-                        {% set protein_width = progress.protein if progress.protein <= 100 else 100 %}
+                        {% set protein_width = progress['protein'] if progress['protein'] <= 100 else 100 %}
                         <div class="progress-bar bg-primary" role="progressbar" 
                              style="width: {{ protein_width }}%"></div>
                     </div>
@@ -69,7 +69,7 @@
             <div class="card text-center">
                 <div class="card-body">
                     <div class="progress mb-2" style="height: 10px;">
-                        {% set carbs_width = progress.carbs if progress.carbs <= 100 else 100 %}
+                        {% set carbs_width = progress['carbs'] if progress['carbs'] <= 100 else 100 %}
                         <div class="progress-bar bg-success" role="progressbar" 
                              style="width: {{ carbs_width }}%"></div>
                     </div>
@@ -87,7 +87,7 @@
             <div class="card text-center">
                 <div class="card-body">
                     <div class="progress mb-2" style="height: 10px;">
-                        {% set fat_width = progress.fat if progress.fat <= 100 else 100 %}
+                        {% set fat_width = progress['fat'] if progress['fat'] <= 100 else 100 %}
                         <div class="progress-bar bg-warning" role="progressbar" 
                              style="width: {{ fat_width }}%"></div>
                     </div>
@@ -236,7 +236,7 @@
                         <a href="{{ url_for('dashboard.log_meal') }}" class="btn btn-outline-primary">
                             <i class="fas fa-plus"></i> Log Meal
                         </a>
-                        <a href="{{ url_for('dashboard.food_search') }}" class="btn btn-outline-success">
+                        <a href="{{ url_for('dashboard.search_foods') }}" class="btn btn-outline-success">
                             <i class="fas fa-search"></i> Search Foods
                         </a>
                         <a href="{{ url_for('dashboard.nutrition_goals') }}" class="btn btn-outline-info">
