@@ -15,6 +15,7 @@ class User(UserMixin, db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
+    password_changed_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # User profile information
     first_name = db.Column(db.String(50))
@@ -40,17 +41,23 @@ class User(UserMixin, db.Model):
     @staticmethod
     def validate_password(password):
         """Validate password against policy."""
+        errors = []
+        
         if len(password) < 8:
-            return False, "Password must be at least 8 characters long"
+            errors.append("Password must be at least 8 characters long")
         if not re.search(r'[A-Z]', password):
-            return False, "Password must contain at least one uppercase letter"
+            errors.append("Password must contain at least one uppercase letter")
         if not re.search(r'[a-z]', password):
-            return False, "Password must contain at least one lowercase letter"
+            errors.append("Password must contain at least one lowercase letter")
         if not re.search(r'\d', password):
-            return False, "Password must contain at least one number"
+            errors.append("Password must contain at least one number")
         if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
-            return False, "Password must contain at least one special character"
-        return True, "Password is valid"
+            errors.append("Password must contain at least one special character")
+        
+        return {
+            'is_valid': len(errors) == 0,
+            'errors': errors
+        }
     
     def get_current_nutrition_goal(self):
         """Get the user's current nutrition goal."""

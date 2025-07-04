@@ -6,6 +6,7 @@ from app.api import bp
 from app.models import Food, MealLog, User
 from app import db
 from functools import wraps
+from datetime import datetime
 import logging
 
 # Set up logging
@@ -402,3 +403,66 @@ def toggle_user_status(user_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+@bp.route('/admin/users/<int:user_id>/reset-password', methods=['POST'])
+@login_required
+@admin_required
+def reset_user_password(user_id):
+    """API endpoint for admin-initiated password reset."""
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        # Prevent admin from resetting their own password this way
+        if user.id == current_user.id:
+            return jsonify({
+                'success': False,
+                'message': 'You cannot reset your own password using this method. Use the change password feature instead.'
+            }), 400
+        
+        # Prevent resetting admin passwords
+        if user.is_admin:
+            return jsonify({
+                'success': False,
+                'message': 'Admin passwords cannot be reset using this method for security reasons.'
+            }), 400
+        
+        # Get password from request
+        data = request.get_json()
+        if not data or 'new_password' not in data:
+            return jsonify({
+                'success': False,
+                'message': 'New password is required.'
+            }), 400
+        
+        new_password = data['new_password']
+        
+        # Validate password strength
+        validation_result = User.validate_password(new_password)
+        if not validation_result['is_valid']:
+            return jsonify({
+                'success': False,
+                'message': 'Password does not meet security requirements.',
+                'errors': validation_result['errors']
+            }), 400
+        
+        # Set the new password
+        user.set_password(new_password)
+        user.password_changed_at = datetime.utcnow()
+        db.session.commit()
+        
+        # Log the password reset action
+        logger.info(f'Admin {current_user.username} reset password for user {user.username}')
+        
+        return jsonify({
+            'success': True,
+            'message': f'Password successfully reset for user {user.username}',
+            'username': user.username
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f'Error resetting password for user {user_id}: {str(e)}')
+        return jsonify({
+            'success': False,
+            'message': 'An error occurred while resetting the password. Please try again.'
+        }), 500

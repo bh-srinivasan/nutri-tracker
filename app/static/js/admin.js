@@ -194,6 +194,119 @@ Admin.users = {
             console.error('Error updating user:', error);
             NutriTracker.utils.showToast(error.message || 'Error updating user', 'danger');
         }
+    },
+
+    /**
+     * Open password reset modal
+     */
+    openPasswordResetModal: function(userId, username) {
+        // Set the user ID and username in the modal
+        document.getElementById('resetUserId').value = userId;
+        document.getElementById('resetUsername').textContent = username;
+        
+        // Clear the form
+        document.getElementById('resetPasswordForm').reset();
+        
+        // Reset password strength meter
+        const strengthBar = document.getElementById('passwordStrength');
+        const strengthText = document.getElementById('passwordStrengthText');
+        if (strengthBar) {
+            strengthBar.style.width = '0%';
+            strengthBar.className = 'progress-bar';
+        }
+        if (strengthText) {
+            strengthText.textContent = 'Enter a password to see strength';
+            strengthText.className = 'form-text text-muted';
+        }
+        
+        // Reset requirements checklist
+        const requirements = ['req-length', 'req-uppercase', 'req-lowercase', 'req-number', 'req-special'];
+        requirements.forEach(reqId => {
+            const element = document.getElementById(reqId);
+            if (element) {
+                const icon = element.querySelector('i');
+                if (icon) {
+                    icon.className = 'fas fa-times text-danger';
+                }
+                element.classList.remove('text-success');
+                element.classList.add('text-danger');
+            }
+        });
+        
+        // Disable submit button
+        const resetBtn = document.getElementById('resetPasswordBtn');
+        if (resetBtn) {
+            resetBtn.disabled = true;
+        }
+        
+        // Show the modal
+        const modal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
+        modal.show();
+    },
+
+    /**
+     * Submit password reset form
+     */
+    submitPasswordReset: async function(event) {
+        event.preventDefault();
+        
+        const form = document.getElementById('resetPasswordForm');
+        const formData = new FormData(form);
+        const userId = formData.get('user_id');
+        const newPassword = formData.get('new_password');
+        const confirmPassword = formData.get('confirm_password');
+        
+        // Final validation
+        if (newPassword !== confirmPassword) {
+            NutriTracker.utils.showToast('Passwords do not match', 'danger');
+            return;
+        }
+        
+        // Validate password strength
+        const isValidPassword = newPassword.length >= 8 && 
+                              /[A-Z]/.test(newPassword) && 
+                              /[a-z]/.test(newPassword) && 
+                              /\d/.test(newPassword) && 
+                              /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
+        
+        if (!isValidPassword) {
+            NutriTracker.utils.showToast('Password does not meet security requirements', 'danger');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/admin/users/${userId}/reset-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    new_password: newPassword
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                // Close the reset modal
+                bootstrap.Modal.getInstance(document.getElementById('resetPasswordModal')).hide();
+                
+                // Show success modal with the new password
+                document.getElementById('successUsername').textContent = result.username;
+                document.getElementById('generatedPassword').value = newPassword;
+                
+                const successModal = new bootstrap.Modal(document.getElementById('passwordSuccessModal'));
+                successModal.show();
+                
+                NutriTracker.utils.showToast('Password reset successfully', 'success');
+            } else {
+                throw new Error(result.message || 'Failed to reset password');
+            }
+        } catch (error) {
+            console.error('Error resetting password:', error);
+            NutriTracker.utils.showToast(error.message || 'Error resetting password', 'danger');
+        }
     }
 };
 
@@ -410,7 +523,21 @@ document.addEventListener('DOMContentLoaded', function() {
             const foodId = e.target.closest('.delete-food-btn').dataset.foodId;
             Admin.foods.delete(foodId);
         }
+        
+        // Reset Password buttons
+        if (e.target.closest('.reset-password-btn')) {
+            const btn = e.target.closest('.reset-password-btn');
+            const userId = btn.dataset.userId;
+            const username = btn.dataset.username;
+            Admin.users.openPasswordResetModal(userId, username);
+        }
     });
+
+    // Password reset form submission
+    const resetPasswordForm = document.getElementById('resetPasswordForm');
+    if (resetPasswordForm) {
+        resetPasswordForm.addEventListener('submit', Admin.users.submitPasswordReset);
+    }
 
     // Real-time search for user and food tables
     const searchInputs = document.querySelectorAll('input[name="search"]');
