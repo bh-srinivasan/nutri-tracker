@@ -282,6 +282,10 @@
                 <div class="modal-body">
                     <input type="hidden" id="editUserId" name="user_id">
                     <div class="mb-3">
+                        <label for="editUsername" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="editUsername" name="username" required>
+                    </div>
+                    <div class="mb-3">
                         <label for="editFirstName" class="form-label">First Name</label>
                         <input type="text" class="form-control" id="editFirstName" name="first_name" required>
                     </div>
@@ -297,6 +301,12 @@
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="editIsAdmin" name="is_admin">
                             <label class="form-check-label" for="editIsAdmin">Admin User</label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="editIsActive" name="is_active">
+                            <label class="form-check-label" for="editIsActive">Active User</label>
                         </div>
                     </div>
                 </div>

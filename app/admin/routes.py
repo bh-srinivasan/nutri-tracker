@@ -119,19 +119,23 @@ def users():
 def edit_user(user_id):
     """Edit user details."""
     user = User.query.get_or_404(user_id)
-    form = UserManagementForm()
+    form = UserManagementForm(user_id=user_id)
     
     if form.validate_on_submit():
-        user.username = form.username.data
-        user.email = form.email.data
-        user.first_name = form.first_name.data
-        user.last_name = form.last_name.data
-        user.is_admin = form.is_admin.data
-        user.is_active = form.is_active.data
-        
-        db.session.commit()
-        flash(f'User {user.username} updated successfully!', 'success')
-        return redirect(url_for('admin.users'))
+        try:
+            user.username = form.username.data
+            user.email = form.email.data
+            user.first_name = form.first_name.data
+            user.last_name = form.last_name.data
+            user.is_admin = form.is_admin.data
+            user.is_active = form.is_active.data
+            
+            db.session.commit()
+            flash(f'User {user.username} updated successfully!', 'success')
+            return redirect(url_for('admin.users'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error updating user: {str(e)}', 'danger')
     
     elif request.method == 'GET':
         form.username.data = user.username

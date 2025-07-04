@@ -87,6 +87,28 @@ class UserManagementForm(FlaskForm):
     is_active = BooleanField('Active User')
     submit = SubmitField('Update User')
 
+    def __init__(self, user_id=None, *args, **kwargs):
+        super(UserManagementForm, self).__init__(*args, **kwargs)
+        self.user_id = user_id
+
+    def validate_username(self, username):
+        """Validate username is not already taken by another user."""
+        query = User.query.filter_by(username=username.data)
+        if self.user_id:
+            query = query.filter(User.id != self.user_id)
+        user = query.first()
+        if user:
+            raise ValidationError('Username already exists. Please choose a different one.')
+
+    def validate_email(self, email):
+        """Validate email is not already taken by another user.""" 
+        query = User.query.filter_by(email=email.data)
+        if self.user_id:
+            query = query.filter(User.id != self.user_id)
+        user = query.first()
+        if user:
+            raise ValidationError('Email already exists. Please choose a different one.')
+
 class AdminPasswordForm(FlaskForm):
     """Form for admin to change their password."""
     current_password = PasswordField('Current Password', validators=[DataRequired()])

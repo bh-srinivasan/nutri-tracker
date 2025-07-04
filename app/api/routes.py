@@ -1,8 +1,24 @@
 from flask import jsonify, request
 from flask_login import login_required, current_user
+from flask_wtf.csrf import validate_csrf
+from wtforms.validators import ValidationError
 from app.api import bp
 from app.models import Food, MealLog, User
 from app import db
+from functools import wraps
+import logging
+
+# Set up logging
+logger = logging.getLogger(__name__)
+
+def admin_required(f):
+    """Decorator to require admin access for API endpoints."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_admin:
+            return jsonify({'error': 'Admin access required'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
 
 @bp.route('/foods/search')
 @login_required
@@ -251,3 +267,138 @@ def user_profile():
     }
     
     return jsonify({'profile': profile})
+
+# Admin API Endpoints
+@bp.route('/admin/users/<int:user_id>')
+@login_required
+@admin_required
+def get_user(user_id):
+    """Get user details for editing."""
+    try:
+        user = User.query.get_or_404(user_id)
+        return jsonify({
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'is_admin': user.is_admin,
+            'is_active': user.is_active,
+            'created_at': user.created_at.isoformat() if user.created_at else None,
+            'last_login': user.last_login.isoformat() if user.last_login else None
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/admin/users/<int:user_id>', methods=['PUT'])
+@login_required
+@admin_required  
+def update_user(user_id):
+    """Update user details."""
+    try:
+        user = User.query.get_or_404(user_id)
+        data = request.get_json()
+        
+        # Validate required fields
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+            
+        # Validate CSRF token if provided
+        csrf_token = request.headers.get('X-CSRFToken')
+        if csrf_token:
+            try:
+                validate_csrf(csrf_token)
+            except ValidationError:
+                return jsonify({'error': 'CSRF token validation failed'}), 400
+        
+        # Validate email format if provided
+        if 'email' in data and data['email']:
+            import re
+            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            if not re.match(email_pattern, data['email']):
+                return jsonify({'error': 'Invalid email format'}), 400
+                
+            # Check for duplicate email (excluding current user)
+            existing_user = User.query.filter(User.email == data['email'], User.id != user_id).first()
+            if existing_user:
+                return jsonify({'error': 'Email already exists'}), 400
+        
+        # Validate username if provided
+        if 'username' in data and data['username']:
+            if len(data['username']) < 3:
+                return jsonify({'error': 'Username must be at least 3 characters'}), 400
+                
+            # Check for duplicate username (excluding current user)
+            existing_user = User.query.filter(User.username == data['username'], User.id != user_id).first()
+            if existing_user:
+                return jsonify({'error': 'Username already exists'}), 400
+        
+        # Validate required fields
+        required_fields = ['first_name', 'last_name', 'email', 'username']
+        for field in required_fields:
+            if field in data and not data[field].strip():
+                return jsonify({'error': f'{field.replace("_", " ").title()} is required'}), 400
+        
+        # Prevent self-deactivation
+        if 'is_active' in data and not data['is_active'] and user.id == current_user.id:
+            return jsonify({'error': 'Cannot deactivate your own account'}), 400
+        
+        # Update user fields
+        if 'first_name' in data:
+            user.first_name = data['first_name'].strip()
+        if 'last_name' in data:
+            user.last_name = data['last_name'].strip()
+        if 'email' in data:
+            user.email = data['email'].strip()
+        if 'username' in data:
+            user.username = data['username'].strip()
+        if 'is_admin' in data:
+            user.is_admin = bool(data['is_admin'])
+        if 'is_active' in data:
+            user.is_active = bool(data['is_active'])
+            
+        db.session.commit()
+        logger.info(f'User {user.id} updated by admin {current_user.id}')
+        
+        return jsonify({
+            'message': 'User updated successfully',
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'is_admin': user.is_admin,
+                'is_active': user.is_active
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f'Error updating user {user_id}: {str(e)}')
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/admin/users/<int:user_id>/toggle-status', methods=['POST'])
+@login_required
+@admin_required
+def toggle_user_status(user_id):
+    """Toggle user active status."""
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        # Prevent deactivating the current admin user
+        if user.id == current_user.id:
+            return jsonify({'error': 'Cannot deactivate your own account'}), 400
+            
+        user.is_active = not user.is_active
+        db.session.commit()
+        
+        status = 'activated' if user.is_active else 'deactivated'
+        return jsonify({
+            'message': f'User {status} successfully',
+            'is_active': user.is_active
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500

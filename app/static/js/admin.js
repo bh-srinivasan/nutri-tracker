@@ -18,21 +18,26 @@ Admin.users = {
     edit: async function(userId) {
         try {
             const response = await fetch(`/api/admin/users/${userId}`);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
             const user = await response.json();
             
             // Populate edit form
             document.getElementById('editUserId').value = user.id;
-            document.getElementById('editFirstName').value = user.first_name;
-            document.getElementById('editLastName').value = user.last_name;
-            document.getElementById('editEmail').value = user.email;
-            document.getElementById('editIsAdmin').checked = user.is_admin;
+            document.getElementById('editUsername').value = user.username || '';
+            document.getElementById('editFirstName').value = user.first_name || '';
+            document.getElementById('editLastName').value = user.last_name || '';
+            document.getElementById('editEmail').value = user.email || '';
+            document.getElementById('editIsAdmin').checked = user.is_admin || false;
+            document.getElementById('editIsActive').checked = user.is_active !== false; // Default to true if undefined
             
             // Show modal
             const modal = new bootstrap.Modal(document.getElementById('editUserModal'));
             modal.show();
         } catch (error) {
             console.error('Error fetching user:', error);
-            NutriTracker.utils.showToast('Error loading user data', 'danger');
+            NutriTracker.utils.showToast('Error loading user data: ' + error.message, 'danger');
         }
     },
 
@@ -126,22 +131,64 @@ Admin.users = {
     submitEditForm: async function(formData) {
         const userId = formData.get('user_id');
         
+        // Basic validation
+        const username = formData.get('username');
+        const email = formData.get('email');
+        const firstName = formData.get('first_name');
+        const lastName = formData.get('last_name');
+        
+        if (!username || username.trim().length < 3) {
+            NutriTracker.utils.showToast('Username must be at least 3 characters', 'danger');
+            return;
+        }
+        
+        if (!email || !email.includes('@')) {
+            NutriTracker.utils.showToast('Please enter a valid email address', 'danger');
+            return;
+        }
+        
+        if (!firstName || !firstName.trim()) {
+            NutriTracker.utils.showToast('First name is required', 'danger');
+            return;
+        }
+        
+        if (!lastName || !lastName.trim()) {
+            NutriTracker.utils.showToast('Last name is required', 'danger');
+            return;
+        }
+        
         try {
+            // Convert checkbox value properly
+            const requestData = {
+                username: username.trim(),
+                email: email.trim(),
+                first_name: firstName.trim(),
+                last_name: lastName.trim(),
+                is_admin: formData.get('is_admin') === 'on',
+                is_active: formData.get('is_active') === 'on'
+            };
+            
             const response = await fetch(`/api/admin/users/${userId}`, {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: JSON.stringify(Object.fromEntries(formData))
+                body: JSON.stringify(requestData)
             });
+            
+            const result = await response.json();
             
             if (response.ok) {
                 NutriTracker.utils.showToast('User updated successfully', 'success');
                 bootstrap.Modal.getInstance(document.getElementById('editUserModal')).hide();
-                location.reload();
+                
+                // Refresh the page to show updated data
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
             } else {
-                const error = await response.json();
-                throw new Error(error.message || 'Failed to update user');
+                throw new Error(result.error || 'Failed to update user');
             }
         } catch (error) {
             console.error('Error updating user:', error);
