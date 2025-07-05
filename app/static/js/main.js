@@ -68,9 +68,9 @@ NutriTracker.utils = {
     },
 
     /**
-     * Show toast notification
+     * Show toast notification with enhanced options
      */
-    showToast: function(message, type = 'info') {
+    showToast: function(message, type = 'info', duration = 3000) {
         const toast = document.createElement('div');
         toast.className = `toast align-items-center text-white bg-${type} border-0`;
         toast.style.position = 'fixed';
@@ -78,6 +78,9 @@ NutriTracker.utils = {
         toast.style.right = '20px';
         toast.style.zIndex = '1055';
         toast.setAttribute('role', 'alert');
+        
+        // Support HTML content in messages
+        const isHtml = message.includes('<');
         
         toast.innerHTML = `
             <div class="d-flex">
@@ -87,13 +90,19 @@ NutriTracker.utils = {
         `;
         
         document.body.appendChild(toast);
-        const bsToast = new bootstrap.Toast(toast);
+        
+        // Create toast with custom delay
+        const bsToast = new bootstrap.Toast(toast, {
+            delay: duration
+        });
         bsToast.show();
         
-        // Auto-remove after shown
+        // Auto-remove after hidden
         toast.addEventListener('hidden.bs.toast', () => {
             toast.remove();
         });
+        
+        return bsToast;
     },
 
     /**

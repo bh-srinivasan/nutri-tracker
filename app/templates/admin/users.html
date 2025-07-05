@@ -480,6 +480,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
+    // Initialize admin preferences and UI
+    if (typeof Admin !== 'undefined' && Admin.users && Admin.users.initializeAdminPreferences) {
+        Admin.users.initializeAdminPreferences();
+    }
+    
     // Reset password button handlers
     const resetPasswordButtons = document.querySelectorAll('.reset-password-btn');
     console.log('Debug: Found', resetPasswordButtons.length, 'reset password buttons');

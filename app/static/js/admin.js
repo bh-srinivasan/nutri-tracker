@@ -293,7 +293,7 @@ Admin.users = {
     },
 
     /**
-     * Handle successful password reset with streamlined admin flow
+     * Handle successful password reset with ultra-streamlined admin flow
      */
     handlePasswordResetSuccess: function(userId, username, newPassword) {
         // Close the reset modal immediately
@@ -305,15 +305,50 @@ Admin.users = {
         // Log the action for audit purposes
         console.log(`Admin password reset completed for user: ${username} (ID: ${userId}) at ${new Date().toISOString()}`);
         
-        // Show streamlined success banner with auto-navigation
-        Admin.users.showStreamlinedSuccessBanner(userId, username, newPassword);
+        // Check if user prefers instant navigation (can be configured)
+        const instantNavigation = localStorage.getItem('admin-instant-navigation') === 'true';
+        
+        if (instantNavigation) {
+            // Ultra-fast flow: Show brief toast and navigate immediately
+            Admin.users.showInstantSuccessAndNavigate(userId, username, newPassword);
+        } else {
+            // Standard streamlined flow: Show banner with 2.5s auto-navigation
+            Admin.users.showStreamlinedSuccessBanner(userId, username, newPassword);
+        }
     },
 
     /**
-     * Show streamlined success banner with auto-navigation
+     * Ultra-fast success flow with immediate navigation
+     */
+    showInstantSuccessAndNavigate: function(userId, username, newPassword) {
+        // Show success toast with password
+        const toastMessage = `
+            <div class="d-flex align-items-center">
+                <i class="fas fa-check-circle me-2"></i>
+                <div>
+                    <strong>Password reset for ${username}</strong><br>
+                    <small>New password: <code class="bg-light px-1 rounded">${newPassword}</code></small>
+                </div>
+            </div>
+        `;
+        
+        // Show extended toast (5 seconds to allow password copying)
+        NutriTracker.utils.showToast(toastMessage, 'success', 5000);
+        
+        // Highlight the user row briefly
+        Admin.users.highlightUserRow(userId);
+        
+        // Navigate immediately with smooth transition
+        setTimeout(() => {
+            Admin.users.immediateNavigateToManageUsers();
+        }, 800);
+    },
+
+    /**
+     * Show streamlined success banner with immediate auto-navigation
      */
     showStreamlinedSuccessBanner: function(userId, username, newPassword) {
-        // Create a sleek, non-dismissible success banner
+        // Create a sleek, non-dismissible success banner with faster flow
         const bannerContainer = document.querySelector('.container-fluid') || document.body;
         const bannerElement = document.createElement('div');
         bannerElement.className = 'alert alert-success border-0 shadow-sm fade show mt-3 streamlined-success-banner';
@@ -323,6 +358,7 @@ Admin.users = {
             color: white;
             border-radius: 8px;
             animation: slideInDown 0.3s ease-out;
+            z-index: 1050;
         `;
         
         bannerElement.innerHTML = `
@@ -331,10 +367,10 @@ Admin.users = {
                     <i class="fas fa-check-circle fa-2x"></i>
                 </div>
                 <div class="flex-grow-1">
-                    <h6 class="mb-1 fw-bold">Password Reset Complete</h6>
+                    <h6 class="mb-1 fw-bold">Password Reset Complete!</h6>
                     <p class="mb-2">Successfully reset password for <strong>${username}</strong></p>
                     <div class="d-flex align-items-center">
-                        <div class="input-group me-3" style="max-width: 300px;">
+                        <div class="input-group me-3" style="max-width: 280px;">
                             <input type="text" class="form-control form-control-sm bg-light border-0" 
                                    value="${newPassword}" readonly id="stream-password-${userId}">
                             <button class="btn btn-light btn-sm" type="button" 
@@ -344,14 +380,14 @@ Admin.users = {
                         </div>
                         <small class="text-white-50">
                             <i class="fas fa-arrow-left me-1"></i>
-                            Returning to Manage Users...
+                            <span id="redirect-message-${userId}">Returning to users...</span>
                         </small>
                     </div>
                 </div>
                 <div class="text-end">
-                    <div class="spinner-border spinner-border-sm text-light" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
+                    <button class="btn btn-light btn-sm" onclick="Admin.users.navigateBackToManageUsers()" title="Return now">
+                        <i class="fas fa-arrow-left"></i> Return Now
+                    </button>
                 </div>
             </div>
         `;
@@ -366,19 +402,31 @@ Admin.users = {
         // Add visual row highlight to indicate which user was updated
         Admin.users.highlightUserRow(userId);
         
-        // Auto-navigate back to the page after 3 seconds (preserving filters)
+        // Show immediate success toast as well
+        NutriTracker.utils.showToast(`Password reset for ${username}`, 'success');
+        
+        // Auto-navigate back after 2.5 seconds (reduced from 3 seconds for faster flow)
         setTimeout(() => {
-            Admin.users.navigateBackToManageUsers();
-        }, 3000);
+            // Update message to show imminent navigation
+            const redirectMessage = document.getElementById(`redirect-message-${userId}`);
+            if (redirectMessage) {
+                redirectMessage.innerHTML = '<i class="fas fa-sync fa-spin me-1"></i>Navigating...';
+            }
+            
+            // Navigate after brief delay to show the "navigating" message
+            setTimeout(() => {
+                Admin.users.navigateBackToManageUsers();
+            }, 300);
+        }, 2200);
         
         // Also provide immediate copy feedback
         setTimeout(() => {
-            const copyBtn = bannerElement.querySelector('button');
+            const copyBtn = bannerElement.querySelector('button[onclick*="copyStreamPassword"]');
             if (copyBtn) {
                 copyBtn.innerHTML = '<i class="fas fa-copy text-success"></i>';
                 copyBtn.title = 'Ready to copy';
             }
-        }, 500);
+        }, 400);
     },
 
     /**
@@ -443,16 +491,44 @@ Admin.users = {
     },
 
     /**
-     * Navigate back to Manage Users page preserving context
+     * Navigate back to Manage Users page with enhanced context preservation
      */
     navigateBackToManageUsers: function() {
-        // Get current URL parameters to preserve filters
+        // Get current URL to preserve all parameters
         const currentUrl = new URL(window.location);
-        const params = currentUrl.searchParams;
         
-        // Simply reload the current page to maintain all filters and state
-        // This is more reliable than trying to reconstruct the URL
-        window.location.reload();
+        // If we're already on the manage users page, just reload to refresh data
+        if (currentUrl.pathname.includes('/admin/users') || currentUrl.pathname === '/admin/users') {
+            // Preserve all query parameters (filters, search, pagination)
+            window.location.reload();
+        } else {
+            // Navigate to manage users page, preserving any applicable filters
+            const managersUsersUrl = new URL('/admin/users', window.location.origin);
+            
+            // Copy over relevant query parameters if they exist
+            const relevantParams = ['search', 'status', 'role', 'show_details', 'page'];
+            relevantParams.forEach(param => {
+                if (currentUrl.searchParams.has(param)) {
+                    managersUsersUrl.searchParams.set(param, currentUrl.searchParams.get(param));
+                }
+            });
+            
+            window.location.href = managersUsersUrl.toString();
+        }
+    },
+
+    /**
+     * Enhanced immediate navigation with smooth transition
+     */
+    immediateNavigateToManageUsers: function() {
+        // Add a smooth fade effect before navigation
+        const body = document.body;
+        body.style.transition = 'opacity 0.2s ease-out';
+        body.style.opacity = '0.9';
+        
+        setTimeout(() => {
+            Admin.users.navigateBackToManageUsers();
+        }, 150);
     },
 
     /**
@@ -533,6 +609,68 @@ Admin.users = {
             // Use the current page URL to maintain context
             window.location.href = window.location.pathname + window.location.search;
         }, 300);
+    },
+
+    /**
+     * Toggle instant navigation preference
+     */
+    toggleInstantNavigation: function() {
+        const current = localStorage.getItem('admin-instant-navigation') === 'true';
+        const newValue = !current;
+        localStorage.setItem('admin-instant-navigation', newValue.toString());
+        
+        const message = newValue 
+            ? 'Instant navigation enabled - password resets will redirect immediately'
+            : 'Standard flow enabled - password resets will show banner for 2.5 seconds';
+            
+        NutriTracker.utils.showToast(message, 'info');
+        
+        // Update UI toggle if it exists
+        const toggleBtn = document.getElementById('instant-nav-toggle');
+        if (toggleBtn) {
+            toggleBtn.checked = newValue;
+            toggleBtn.nextElementSibling.textContent = newValue ? 'Instant Navigation' : 'Standard Flow';
+        }
+    },
+
+    /**
+     * Initialize admin preferences
+     */
+    initializeAdminPreferences: function() {
+        // Add navigation preference toggle to the user management page
+        const pageHeader = document.querySelector('.d-flex.justify-content-between.align-items-center');
+        if (pageHeader && window.location.pathname.includes('/admin/users')) {
+            const currentPreference = localStorage.getItem('admin-instant-navigation') === 'true';
+            
+            const preferencesToggle = document.createElement('div');
+            preferencesToggle.className = 'form-check form-switch ms-3';
+            preferencesToggle.innerHTML = `
+                <input class="form-check-input" type="checkbox" id="instant-nav-toggle" 
+                       ${currentPreference ? 'checked' : ''} 
+                       onchange="Admin.users.toggleInstantNavigation()">
+                <label class="form-check-label" for="instant-nav-toggle">
+                    <small class="text-muted">
+                        <i class="fas fa-bolt"></i> ${currentPreference ? 'Instant Navigation' : 'Standard Flow'}
+                    </small>
+                </label>
+            `;
+            
+            // Add to the button group
+            const btnGroup = pageHeader.querySelector('.btn-group');
+            if (btnGroup) {
+                btnGroup.appendChild(preferencesToggle);
+            }
+        }
+    },
+
+    /**
+     * Admin-specific initialization
+     */
+    init: function() {
+        // Initialize admin preferences UI
+        this.initializeAdminPreferences();
+        
+        // Other initialization tasks...
     }
 };
 
