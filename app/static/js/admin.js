@@ -312,6 +312,12 @@ Admin.users = {
                 if (successModalElement) {
                     const successModal = new bootstrap.Modal(successModalElement);
                     successModal.show();
+                    
+                    // Log the password reset action (without sensitive data)
+                    console.log(`Admin password reset completed for user ID: ${userId} at ${new Date().toISOString()}`);
+                    
+                    // Auto-redirect to Manage Users after 3 seconds
+                    Admin.users.scheduleRedirectToManageUsers(successModalElement, userId, result.username);
                 } else {
                     console.error('Success modal element not found');
                 }
@@ -324,6 +330,86 @@ Admin.users = {
             console.error('Error resetting password:', error);
             NutriTracker.utils.showToast(error.message || 'Error resetting password', 'danger');
         }
+    },
+
+    /**
+     * Schedule auto-redirect to Manage Users after password reset success
+     */
+    scheduleRedirectToManageUsers: function(modalElement, userId, username) {
+        // Add auto-redirect countdown to the modal
+        const modalFooter = modalElement.querySelector('.modal-footer');
+        if (modalFooter) {
+            // Create countdown element
+            const countdownElement = document.createElement('div');
+            countdownElement.className = 'countdown-redirect me-auto';
+            countdownElement.innerHTML = `
+                <small class="text-muted">
+                    <i class="fas fa-clock"></i> 
+                    Returning to Manage Users in <span id="redirectCountdown">3</span> seconds...
+                </small>
+            `;
+            
+            // Insert before the Close button
+            const closeButton = modalFooter.querySelector('button');
+            modalFooter.insertBefore(countdownElement, closeButton);
+            
+            // Start countdown
+            let countdown = 3;
+            const countdownSpan = document.getElementById('redirectCountdown');
+            
+            const countdownInterval = setInterval(() => {
+                countdown--;
+                if (countdownSpan) {
+                    countdownSpan.textContent = countdown;
+                }
+                
+                if (countdown <= 0) {
+                    clearInterval(countdownInterval);
+                    
+                    // Hide the modal
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    if (modal) {
+                        modal.hide();
+                    }
+                    
+                    // Smooth redirect back to manage users
+                    Admin.users.redirectToManageUsers(userId, username);
+                }
+            }, 1000);
+            
+            // Allow users to cancel auto-redirect by clicking the close button
+            const closeBtn = modalFooter.querySelector('button[data-bs-dismiss="modal"]');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', function() {
+                    clearInterval(countdownInterval);
+                    // Remove the countdown element
+                    if (countdownElement && countdownElement.parentNode) {
+                        countdownElement.parentNode.removeChild(countdownElement);
+                    }
+                }, { once: true });
+            }
+        }
+    },
+
+    /**
+     * Redirect to Manage Users view with success feedback
+     */
+    redirectToManageUsers: function(userId, username) {
+        // Log the redirect action
+        console.log(`Redirecting to Manage Users after password reset for user: ${username}`);
+        
+        // Smooth page transition
+        document.body.style.opacity = '0.8';
+        document.body.style.transition = 'opacity 0.3s ease-in-out';
+        
+        // Show a brief loading toast
+        NutriTracker.utils.showToast(`Password reset completed for ${username}. Returning to user list...`, 'info');
+        
+        // Perform the redirect
+        setTimeout(() => {
+            // Use the current page URL to maintain context
+            window.location.href = window.location.pathname + window.location.search;
+        }, 300);
     }
 };
 

@@ -419,6 +419,28 @@ body {
     padding: 1.5rem;
 }
 
+/* Auto-redirect countdown in modal */
+.countdown-redirect {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0;
+}
+
+.countdown-redirect small {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.countdown-redirect #redirectCountdown {
+    font-weight: 700;
+    color: var(--primary-color);
+    min-width: 1rem;
+    text-align: center;
+}
+
 /* Loading Spinner */
 .spinner-overlay {
     position: fixed;
