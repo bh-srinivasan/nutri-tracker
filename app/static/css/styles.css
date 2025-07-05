@@ -529,30 +529,6 @@ body {
     }
 }
 
-.streamlined-success-banner {
-    animation: slideInDown 0.3s ease-out;
-    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.2);
-    z-index: 1050 !important;
-}
-
-.streamlined-success-banner .input-group input {
-    background: rgba(255, 255, 255, 0.9) !important;
-    border: none !important;
-    font-family: 'Courier New', monospace;
-    font-size: 0.9em;
-}
-
-.streamlined-success-banner .btn {
-    border: none !important;
-    backdrop-filter: blur(10px);
-    transition: all 0.2s ease;
-}
-
-.streamlined-success-banner .btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-}
-
 /* Ultra-smooth page transitions */
 body.transitioning {
     transition: opacity 0.2s ease-out;
