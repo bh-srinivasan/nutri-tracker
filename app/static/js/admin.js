@@ -251,13 +251,8 @@ Admin.users = {
         const formData = new FormData(form);
         const userId = formData.get('user_id');
         const newPassword = formData.get('new_password');
-        const confirmPassword = formData.get('confirm_password');
         
-        // Final validation
-        if (newPassword !== confirmPassword) {
-            NutriTracker.utils.showToast('Passwords do not match', 'danger');
-            return;
-        }
+        // Admin simplified flow - no confirm password validation needed
         
         // Validate password strength
         const isValidPassword = newPassword.length >= 8 && 
@@ -286,49 +281,119 @@ Admin.users = {
             const result = await response.json();
             
             if (response.ok) {
-                // Close the reset modal
-                const resetModalElement = document.getElementById('resetPasswordModal');
-                if (resetModalElement) {
-                    bootstrap.Modal.getInstance(resetModalElement).hide();
-                }
-                
-                // Show success modal with the new password
-                const successUsernameElement = document.getElementById('successUsername');
-                const generatedPasswordElement = document.getElementById('generatedPassword');
-                
-                if (successUsernameElement) {
-                    successUsernameElement.textContent = result.username;
-                } else {
-                    console.error('Element with ID "successUsername" not found');
-                }
-                
-                if (generatedPasswordElement) {
-                    generatedPasswordElement.value = newPassword;
-                } else {
-                    console.error('Element with ID "generatedPassword" not found');
-                }
-                
-                const successModalElement = document.getElementById('passwordSuccessModal');
-                if (successModalElement) {
-                    const successModal = new bootstrap.Modal(successModalElement);
-                    successModal.show();
-                    
-                    // Log the password reset action (without sensitive data)
-                    console.log(`Admin password reset completed for user ID: ${userId} at ${new Date().toISOString()}`);
-                    
-                    // Auto-redirect to Manage Users after 3 seconds
-                    Admin.users.scheduleRedirectToManageUsers(successModalElement, userId, result.username);
-                } else {
-                    console.error('Success modal element not found');
-                }
-                
-                NutriTracker.utils.showToast('Password reset successfully', 'success');
+                // Enhanced admin flow - immediate success feedback
+                Admin.users.handlePasswordResetSuccess(userId, result.username, newPassword);
             } else {
                 throw new Error(result.message || 'Failed to reset password');
             }
         } catch (error) {
             console.error('Error resetting password:', error);
             NutriTracker.utils.showToast(error.message || 'Error resetting password', 'danger');
+        }
+    },
+
+    /**
+     * Handle successful password reset with enhanced admin flow
+     */
+    handlePasswordResetSuccess: function(userId, username, newPassword) {
+        // Close the reset modal immediately
+        const resetModalElement = document.getElementById('resetPasswordModal');
+        if (resetModalElement) {
+            bootstrap.Modal.getInstance(resetModalElement).hide();
+        }
+        
+        // Show immediate success message on the page (no modal popup)
+        NutriTracker.utils.showToast(`Password successfully reset for ${username}`, 'success');
+        
+        // Log the action for audit purposes
+        console.log(`Admin password reset completed for user: ${username} (ID: ${userId}) at ${new Date().toISOString()}`);
+        
+        // Add success indicator to the user row in the table
+        Admin.users.addSuccessIndicatorToUserRow(userId, username);
+        
+        // Optional: Show password copy functionality inline
+        Admin.users.showInlinePasswordCopy(userId, newPassword, username);
+    },
+
+    /**
+     * Add success indicator to user row
+     */
+    addSuccessIndicatorToUserRow: function(userId, username) {
+        // Find the user row in the table
+        const userRow = document.querySelector(`tr[data-user-id="${userId}"]`);
+        if (userRow) {
+            // Add temporary success highlight
+            userRow.classList.add('table-success');
+            userRow.style.transition = 'background-color 0.3s ease';
+            
+            // Remove highlight after 3 seconds
+            setTimeout(() => {
+                userRow.classList.remove('table-success');
+            }, 3000);
+            
+            // Update the status column if it exists
+            const statusCell = userRow.querySelector('.user-status');
+            if (statusCell) {
+                const originalContent = statusCell.innerHTML;
+                statusCell.innerHTML = '<span class="badge bg-success"><i class="fas fa-check"></i> Password Reset</span>';
+                
+                // Revert after 3 seconds
+                setTimeout(() => {
+                    statusCell.innerHTML = originalContent;
+                }, 3000);
+            }
+        }
+    },
+
+    /**
+     * Show inline password copy functionality
+     */
+    showInlinePasswordCopy: function(userId, newPassword, username) {
+        // Create a temporary alert at the top of the page
+        const alertContainer = document.querySelector('.container-fluid') || document.body;
+        const alertElement = document.createElement('div');
+        alertElement.className = 'alert alert-success alert-dismissible fade show mt-3';
+        alertElement.innerHTML = `
+            <i class="fas fa-key"></i>
+            <strong>Password Reset Complete:</strong> New password for ${username} is ready.
+            <div class="mt-2">
+                <div class="input-group" style="max-width: 400px;">
+                    <input type="text" class="form-control" value="${newPassword}" readonly id="temp-password-${userId}">
+                    <button class="btn btn-outline-primary" type="button" onclick="Admin.users.copyTempPassword('${userId}')">
+                        <i class="fas fa-copy"></i> Copy
+                    </button>
+                </div>
+                <small class="text-muted mt-1 d-block">
+                    <i class="fas fa-shield-alt"></i> Share this password securely with the user
+                </small>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        // Insert at the top of the container
+        if (alertContainer.firstChild) {
+            alertContainer.insertBefore(alertElement, alertContainer.firstChild);
+        } else {
+            alertContainer.appendChild(alertElement);
+        }
+        
+        // Auto-dismiss after 30 seconds
+        setTimeout(() => {
+            if (alertElement && alertElement.parentNode) {
+                alertElement.remove();
+            }
+        }, 30000);
+    },
+
+    /**
+     * Copy temporary password to clipboard
+     */
+    copyTempPassword: function(userId) {
+        const passwordInput = document.getElementById(`temp-password-${userId}`);
+        if (passwordInput) {
+            passwordInput.select();
+            document.execCommand('copy');
+            NutriTracker.utils.showToast('Password copied to clipboard', 'success');
         }
     },
 

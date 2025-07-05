@@ -107,7 +107,7 @@
                                 </thead>
                                 <tbody>
                                     {% for user in users %}
-                                    <tr>
+                                    <tr data-user-id="{{ user.id }}">
                                         <td>
                                             <div class="d-flex align-items-center">
                                                 <div class="user-avatar me-2">
@@ -119,7 +119,7 @@
                                                 </div>
                                             </div>
                                         </td>
-                                        <td class="text-center">
+                                        <td class="text-center user-status">
                                             <span class="badge bg-{{ 'success' if user.is_active else 'secondary' }}">
                                                 <i class="fas fa-{{ 'check' if user.is_active else 'times' }} me-1"></i>
                                                 {{ 'Active' if user.is_active else 'Inactive' }}
@@ -348,10 +348,7 @@
                         </div>
                     </div>
                     
-                    <div class="mb-3">
-                        <label for="confirmPassword" class="form-label">Confirm New Password</label>
-                        <input type="password" class="form-control" id="confirmPassword" name="confirm_password" required>
-                    </div>
+                    <!-- Confirm Password field removed for admin users - simplified flow -->
                     
                     <!-- Password Strength Meter -->
                     <div class="mb-3">
@@ -483,9 +480,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Password strength meter and validation
+    // Password strength meter and validation (Admin simplified flow)
     const passwordInput = document.getElementById('newPassword');
-    const confirmInput = document.getElementById('confirmPassword');
     const strengthBar = document.getElementById('passwordStrength');
     const strengthText = document.getElementById('passwordStrengthText');
     const resetBtn = document.getElementById('resetPasswordBtn');
@@ -498,10 +494,6 @@ document.addEventListener('DOMContentLoaded', function() {
             updatePasswordRequirements(password);
             validateForm();
         });
-    }
-    
-    if (confirmInput) {
-        confirmInput.addEventListener('input', validateForm);
     }
     
     if (toggleBtn) {
@@ -571,18 +563,16 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function validateForm() {
         const password = passwordInput ? passwordInput.value : '';
-        const confirm = confirmInput ? confirmInput.value : '';
         
+        // Admin simplified validation - only check password strength
         const isValidPassword = password.length >= 8 && 
                               /[A-Z]/.test(password) && 
                               /[a-z]/.test(password) && 
                               /\d/.test(password) && 
                               /[!@#$%^&*(),.?":{}|<>]/.test(password);
         
-        const passwordsMatch = password === confirm && password.length > 0;
-        
         if (resetBtn) {
-            resetBtn.disabled = !(isValidPassword && passwordsMatch);
+            resetBtn.disabled = !isValidPassword;
         }
     }
     
