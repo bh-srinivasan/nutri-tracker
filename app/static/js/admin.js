@@ -293,7 +293,7 @@ Admin.users = {
     },
 
     /**
-     * Handle successful password reset with enhanced admin flow
+     * Handle successful password reset with streamlined admin flow
      */
     handlePasswordResetSuccess: function(userId, username, newPassword) {
         // Close the reset modal immediately
@@ -302,99 +302,157 @@ Admin.users = {
             bootstrap.Modal.getInstance(resetModalElement).hide();
         }
         
-        // Show immediate success message on the page (no modal popup)
-        NutriTracker.utils.showToast(`Password successfully reset for ${username}`, 'success');
-        
         // Log the action for audit purposes
         console.log(`Admin password reset completed for user: ${username} (ID: ${userId}) at ${new Date().toISOString()}`);
         
-        // Add success indicator to the user row in the table
-        Admin.users.addSuccessIndicatorToUserRow(userId, username);
+        // Show streamlined success banner with auto-navigation
+        Admin.users.showStreamlinedSuccessBanner(userId, username, newPassword);
+    },
+
+    /**
+     * Show streamlined success banner with auto-navigation
+     */
+    showStreamlinedSuccessBanner: function(userId, username, newPassword) {
+        // Create a sleek, non-dismissible success banner
+        const bannerContainer = document.querySelector('.container-fluid') || document.body;
+        const bannerElement = document.createElement('div');
+        bannerElement.className = 'alert alert-success border-0 shadow-sm fade show mt-3 streamlined-success-banner';
+        bannerElement.style.cssText = `
+            position: relative;
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            border-radius: 8px;
+            animation: slideInDown 0.3s ease-out;
+        `;
         
-        // Optional: Show password copy functionality inline
-        Admin.users.showInlinePasswordCopy(userId, newPassword, username);
-    },
-
-    /**
-     * Add success indicator to user row
-     */
-    addSuccessIndicatorToUserRow: function(userId, username) {
-        // Find the user row in the table
-        const userRow = document.querySelector(`tr[data-user-id="${userId}"]`);
-        if (userRow) {
-            // Add temporary success highlight
-            userRow.classList.add('table-success');
-            userRow.style.transition = 'background-color 0.3s ease';
-            
-            // Remove highlight after 3 seconds
-            setTimeout(() => {
-                userRow.classList.remove('table-success');
-            }, 3000);
-            
-            // Update the status column if it exists
-            const statusCell = userRow.querySelector('.user-status');
-            if (statusCell) {
-                const originalContent = statusCell.innerHTML;
-                statusCell.innerHTML = '<span class="badge bg-success"><i class="fas fa-check"></i> Password Reset</span>';
-                
-                // Revert after 3 seconds
-                setTimeout(() => {
-                    statusCell.innerHTML = originalContent;
-                }, 3000);
-            }
-        }
-    },
-
-    /**
-     * Show inline password copy functionality
-     */
-    showInlinePasswordCopy: function(userId, newPassword, username) {
-        // Create a temporary alert at the top of the page
-        const alertContainer = document.querySelector('.container-fluid') || document.body;
-        const alertElement = document.createElement('div');
-        alertElement.className = 'alert alert-success alert-dismissible fade show mt-3';
-        alertElement.innerHTML = `
-            <i class="fas fa-key"></i>
-            <strong>Password Reset Complete:</strong> New password for ${username} is ready.
-            <div class="mt-2">
-                <div class="input-group" style="max-width: 400px;">
-                    <input type="text" class="form-control" value="${newPassword}" readonly id="temp-password-${userId}">
-                    <button class="btn btn-outline-primary" type="button" onclick="Admin.users.copyTempPassword('${userId}')">
-                        <i class="fas fa-copy"></i> Copy
-                    </button>
+        bannerElement.innerHTML = `
+            <div class="d-flex align-items-center">
+                <div class="me-3">
+                    <i class="fas fa-check-circle fa-2x"></i>
                 </div>
-                <small class="text-muted mt-1 d-block">
-                    <i class="fas fa-shield-alt"></i> Share this password securely with the user
-                </small>
+                <div class="flex-grow-1">
+                    <h6 class="mb-1 fw-bold">Password Reset Complete</h6>
+                    <p class="mb-2">Successfully reset password for <strong>${username}</strong></p>
+                    <div class="d-flex align-items-center">
+                        <div class="input-group me-3" style="max-width: 300px;">
+                            <input type="text" class="form-control form-control-sm bg-light border-0" 
+                                   value="${newPassword}" readonly id="stream-password-${userId}">
+                            <button class="btn btn-light btn-sm" type="button" 
+                                    onclick="Admin.users.copyStreamPassword('${userId}')" title="Copy password">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <small class="text-white-50">
+                            <i class="fas fa-arrow-left me-1"></i>
+                            Returning to Manage Users...
+                        </small>
+                    </div>
+                </div>
+                <div class="text-end">
+                    <div class="spinner-border spinner-border-sm text-light" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
             </div>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         `;
         
         // Insert at the top of the container
-        if (alertContainer.firstChild) {
-            alertContainer.insertBefore(alertElement, alertContainer.firstChild);
+        if (bannerContainer.firstChild) {
+            bannerContainer.insertBefore(bannerElement, bannerContainer.firstChild);
         } else {
-            alertContainer.appendChild(alertElement);
+            bannerContainer.appendChild(bannerElement);
         }
         
-        // Auto-dismiss after 30 seconds
+        // Add visual row highlight to indicate which user was updated
+        Admin.users.highlightUserRow(userId);
+        
+        // Auto-navigate back to the page after 3 seconds (preserving filters)
         setTimeout(() => {
-            if (alertElement && alertElement.parentNode) {
-                alertElement.remove();
+            Admin.users.navigateBackToManageUsers();
+        }, 3000);
+        
+        // Also provide immediate copy feedback
+        setTimeout(() => {
+            const copyBtn = bannerElement.querySelector('button');
+            if (copyBtn) {
+                copyBtn.innerHTML = '<i class="fas fa-copy text-success"></i>';
+                copyBtn.title = 'Ready to copy';
             }
-        }, 30000);
+        }, 500);
     },
 
     /**
-     * Copy temporary password to clipboard
+     * Copy password from streamlined banner
      */
-    copyTempPassword: function(userId) {
-        const passwordInput = document.getElementById(`temp-password-${userId}`);
+    copyStreamPassword: function(userId) {
+        const passwordInput = document.getElementById(`stream-password-${userId}`);
         if (passwordInput) {
             passwordInput.select();
-            document.execCommand('copy');
-            NutriTracker.utils.showToast('Password copied to clipboard', 'success');
+            passwordInput.setSelectionRange(0, 99999); // For mobile devices
+            
+            try {
+                document.execCommand('copy');
+                // Provide immediate visual feedback
+                const copyBtn = passwordInput.nextElementSibling;
+                if (copyBtn) {
+                    const originalHTML = copyBtn.innerHTML;
+                    copyBtn.innerHTML = '<i class="fas fa-check text-success"></i>';
+                    copyBtn.classList.add('btn-success');
+                    copyBtn.classList.remove('btn-light');
+                    
+                    setTimeout(() => {
+                        copyBtn.innerHTML = originalHTML;
+                        copyBtn.classList.remove('btn-success');
+                        copyBtn.classList.add('btn-light');
+                    }, 1500);
+                }
+                
+                // Show brief toast
+                NutriTracker.utils.showToast('Password copied to clipboard', 'success');
+            } catch (err) {
+                console.error('Failed to copy password:', err);
+                NutriTracker.utils.showToast('Failed to copy password', 'danger');
+            }
         }
+    },
+
+    /**
+     * Highlight the user row that was just updated
+     */
+    highlightUserRow: function(userId) {
+        const userRow = document.querySelector(`tr[data-user-id="${userId}"]`);
+        if (userRow) {
+            // Add gentle highlight animation
+            userRow.style.cssText = `
+                background: linear-gradient(90deg, rgba(40, 167, 69, 0.1), transparent);
+                transition: all 0.3s ease;
+                border-left: 4px solid #28a745;
+            `;
+            
+            // Scroll the row into view if needed
+            userRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Remove highlight after banner is dismissed
+            setTimeout(() => {
+                userRow.style.cssText = 'transition: all 0.5s ease;';
+                setTimeout(() => {
+                    userRow.style.cssText = '';
+                }, 500);
+            }, 3500);
+        }
+    },
+
+    /**
+     * Navigate back to Manage Users page preserving context
+     */
+    navigateBackToManageUsers: function() {
+        // Get current URL parameters to preserve filters
+        const currentUrl = new URL(window.location);
+        const params = currentUrl.searchParams;
+        
+        // Simply reload the current page to maintain all filters and state
+        // This is more reliable than trying to reconstruct the URL
+        window.location.reload();
     },
 
     /**

@@ -480,6 +480,28 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
+    // Reset password button handlers
+    const resetPasswordButtons = document.querySelectorAll('.reset-password-btn');
+    console.log('Debug: Found', resetPasswordButtons.length, 'reset password buttons');
+    
+    resetPasswordButtons.forEach(function(button, index) {
+        console.log('Debug: Setting up reset password button', index, 'with user ID:', button.dataset.userId);
+        
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Debug: Reset password button clicked for user ID:', this.dataset.userId);
+            
+            // Test if Admin object exists
+            if (typeof Admin !== 'undefined' && Admin.users && Admin.users.openPasswordResetModal) {
+                console.log('Debug: Calling Admin.users.openPasswordResetModal');
+                Admin.users.openPasswordResetModal(this.dataset.userId, this.dataset.username);
+            } else {
+                console.error('Debug: Admin object or Admin.users.openPasswordResetModal not found');
+                console.log('Debug: Admin object:', typeof Admin !== 'undefined' ? Admin : 'undefined');
+            }
+        });
+    });
+    
     // Password strength meter and validation (Admin simplified flow)
     const passwordInput = document.getElementById('newPassword');
     const strengthBar = document.getElementById('passwordStrength');
