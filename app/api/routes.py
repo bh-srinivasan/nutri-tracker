@@ -290,6 +290,7 @@ def get_user(user_id):
         user = User.query.get_or_404(user_id)
         return jsonify({
             'id': user.id,
+            'user_id': user.user_id,
             'username': user.username,
             'email': user.email,
             'first_name': user.first_name,
@@ -489,6 +490,7 @@ def add_user():
         data = request.get_json()
         
         # Input validation and sanitization
+        user_id = data.get('user_id', '').strip()
         first_name = data.get('first_name', '').strip()
         last_name = data.get('last_name', '').strip()
         email = data.get('email', '').strip() if data.get('email') else None
@@ -496,12 +498,21 @@ def add_user():
         is_admin = data.get('is_admin', False)
         
         # Validate required fields
+        if not user_id:
+            return jsonify({'error': 'User ID is required'}), 400
         if not first_name:
             return jsonify({'error': 'First name is required'}), 400
         if not last_name:
             return jsonify({'error': 'Last name is required'}), 400
         if not password:
             return jsonify({'error': 'Password is required'}), 400
+        
+        # Validate user_id format and uniqueness
+        user_id_validation = User.validate_user_id(user_id)
+        if not user_id_validation['is_valid']:
+            return jsonify({
+                'error': 'Invalid User ID: ' + ', '.join(user_id_validation['errors'])
+            }), 400
             
         # Validate email if provided (optional field)
         if email and not User.validate_email(email):
@@ -527,6 +538,7 @@ def add_user():
         
         # Create new user
         user = User(
+            user_id=user_id,
             username=username,
             email=email,
             first_name=first_name,
@@ -539,10 +551,11 @@ def add_user():
         db.session.add(user)
         db.session.commit()
         
-        logger.info(f'Admin {current_user.username} created new user: {username}')
+        logger.info(f'Admin {current_user.username} created new user: {username} (ID: {user_id})')
         
         return jsonify({
             'id': user.id,
+            'user_id': user.user_id,
             'username': user.username,
             'message': f'User {username} created successfully'
         }), 200
@@ -551,3 +564,29 @@ def add_user():
         db.session.rollback()
         logger.error(f'Error creating user: {str(e)}')
         return jsonify({'error': f'Failed to create user: {str(e)}'}), 500
+
+@bp.route('/admin/users/check-user-id')
+@login_required
+@admin_required
+def check_user_id():
+    """Check if a user ID is available."""
+    user_id = request.args.get('user_id', '').strip()
+    
+    if not user_id:
+        return jsonify({'available': False, 'error': 'User ID is required'}), 400
+    
+    # Validate format
+    validation_result = User.validate_user_id(user_id)
+    if not validation_result['is_valid']:
+        return jsonify({
+            'available': False, 
+            'error': ', '.join(validation_result['errors'])
+        }), 400
+    
+    # Check if exists
+    exists = User.check_user_id_exists(user_id)
+    
+    return jsonify({
+        'available': not exists,
+        'user_id': user_id
+    })

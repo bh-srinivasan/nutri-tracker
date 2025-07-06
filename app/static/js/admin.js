@@ -28,6 +28,7 @@ Admin.users = {
             
             // Populate edit form
             document.getElementById('editUserId').value = user.id;
+            document.getElementById('editUserIdDisplay').value = user.user_id || ''; // Show user_id as read-only
             document.getElementById('editUsername').value = user.username || '';
             document.getElementById('editFirstName').value = user.first_name || '';
             document.getElementById('editLastName').value = user.last_name || '';
@@ -85,6 +86,7 @@ Admin.users = {
         }
         
         // Get and sanitize form values
+        const userId = Admin.users.sanitizeInput(formData.get('user_id'));
         const email = Admin.users.sanitizeInput(formData.get('email'));
         const firstName = Admin.users.sanitizeInput(formData.get('first_name'));
         const lastName = Admin.users.sanitizeInput(formData.get('last_name'));
@@ -93,6 +95,7 @@ Admin.users = {
         try {
             // Prepare sanitized data
             const requestData = {
+                user_id: userId.trim(),
                 email: email && email.trim() ? email.trim() : null, // Handle optional email - send null instead of empty string
                 first_name: firstName.trim(),
                 last_name: lastName.trim(),
@@ -114,7 +117,7 @@ Admin.users = {
                 location.reload();
             } else {
                 const error = await response.json();
-                throw new Error(error.message || 'Failed to add user');
+                throw new Error(error.error || 'Failed to add user');
             }
         } catch (error) {
             console.error('Error adding user:', error);
@@ -129,10 +132,20 @@ Admin.users = {
         const errors = [];
         
         // Get form values
+        const userId = formData.get('user_id');
         const email = formData.get('email');
         const firstName = formData.get('first_name');
         const lastName = formData.get('last_name');
         const password = formData.get('password');
+        
+        // Validate user ID (REQUIRED)
+        if (!userId || userId.trim().length < 1) {
+            errors.push('User ID is required');
+        } else if (userId.trim().length > 36) {
+            errors.push('User ID must be 36 characters or less');
+        } else if (!/^[a-zA-Z0-9\-_]+$/.test(userId.trim())) {
+            errors.push('User ID can only contain letters, numbers, hyphens, and underscores');
+        }
         
         // Validate email (OPTIONAL - only validate if provided)
         if (email && email.trim()) {
@@ -783,7 +796,7 @@ Admin.users = {
         // Get current URL to preserve parameters
         const currentUrl = new URL(window.location);
         
-        // If we're already on the manage users page, just reload to refresh data
+        // If we're already on the manage users page, just reload to refresh
         if (currentUrl.pathname.includes('/admin/users') || currentUrl.pathname === '/admin/users') {
             // Preserve query parameters (filters, search, pagination) and refresh
             window.location.reload();
@@ -801,6 +814,85 @@ Admin.users = {
             
             window.location.href = manageUsersUrl.toString();
         }
+    },
+
+    /**
+     * Generate a new UUID for user ID
+     */
+    generateUserId: function() {
+        // Generate UUID v4
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            const r = Math.random() * 16 | 0;
+            const v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    },
+
+    /**
+     * Check if user ID is available (real-time validation)
+     */
+    checkUserIdAvailable: async function(userId) {
+        if (!userId || userId.trim().length === 0) {
+            return { available: false, error: 'User ID is required' };
+        }
+
+        try {
+            const response = await fetch(`/api/admin/users/check-user-id?user_id=${encodeURIComponent(userId.trim())}`);
+            const result = await response.json();
+            
+            if (response.ok) {
+                return result;
+            } else {
+                return { available: false, error: result.error || 'Error checking User ID' };
+            }
+        } catch (error) {
+            console.error('Error checking user ID:', error);
+            return { available: false, error: 'Network error checking User ID' };
+        }
+    },
+
+    /**
+     * Validate user ID field and show feedback
+     */
+    validateUserIdField: async function(userIdElement) {
+        const userId = userIdElement.value.trim();
+        const feedbackElement = document.getElementById('userIdFeedback');
+        
+        // Clear previous validation state
+        userIdElement.classList.remove('is-valid', 'is-invalid');
+        feedbackElement.textContent = '';
+        
+        if (!userId) {
+            userIdElement.classList.add('is-invalid');
+            feedbackElement.textContent = 'User ID is required';
+            return false;
+        }
+
+        // Check format
+        if (userId.length > 36) {
+            userIdElement.classList.add('is-invalid');
+            feedbackElement.textContent = 'User ID must be 36 characters or less';
+            return false;
+        }
+
+        if (!/^[a-zA-Z0-9\-_]+$/.test(userId)) {
+            userIdElement.classList.add('is-invalid');
+            feedbackElement.textContent = 'User ID can only contain letters, numbers, hyphens, and underscores';
+            return false;
+        }
+
+        // Check availability
+        const result = await Admin.users.checkUserIdAvailable(userId);
+        
+        if (!result.available) {
+            userIdElement.classList.add('is-invalid');
+            feedbackElement.textContent = result.error || 'User ID is not available';
+            return false;
+        }
+
+        userIdElement.classList.add('is-valid');
+        feedbackElement.textContent = '';
+        return true;
     },
 
 };
@@ -955,6 +1047,48 @@ document.addEventListener('DOMContentLoaded', function() {
             const formData = new FormData(this);
             Admin.users.submitAddForm(formData);
         });
+        
+        // User ID field functionality
+        const userIdField = document.getElementById('userIdField');
+        const generateUserIdBtn = document.getElementById('generateUserIdBtn');
+        
+        if (userIdField && generateUserIdBtn) {
+            // Generate initial User ID when modal opens
+            const addUserModal = document.getElementById('addUserModal');
+            if (addUserModal) {
+                addUserModal.addEventListener('show.bs.modal', function() {
+                    if (!userIdField.value.trim()) {
+                        userIdField.value = Admin.users.generateUserId();
+                    }
+                });
+                
+                // Clear form when modal is hidden
+                addUserModal.addEventListener('hidden.bs.modal', function() {
+                    addUserForm.reset();
+                    userIdField.classList.remove('is-valid', 'is-invalid');
+                    document.getElementById('userIdFeedback').textContent = '';
+                });
+            }
+            
+            // Generate new User ID button
+            generateUserIdBtn.addEventListener('click', function() {
+                userIdField.value = Admin.users.generateUserId();
+                Admin.users.validateUserIdField(userIdField);
+            });
+            
+            // Real-time validation for User ID
+            let validationTimeout;
+            userIdField.addEventListener('input', function() {
+                clearTimeout(validationTimeout);
+                validationTimeout = setTimeout(() => {
+                    Admin.users.validateUserIdField(userIdField);
+                }, 500); // Debounce validation
+            });
+            
+            userIdField.addEventListener('blur', function() {
+                Admin.users.validateUserIdField(userIdField);
+            });
+        }
     }
 
     // Edit User Form with enhanced validation

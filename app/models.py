@@ -4,10 +4,12 @@ from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from app import db
 import re
+import uuid
 
 class User(UserMixin, db.Model):
     """User model for authentication and user management."""
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(36), unique=True, nullable=False, index=True)  # UUID field for editable unique ID
     username = db.Column(db.String(80), unique=True, nullable=False, index=True)
     email = db.Column(db.String(120), unique=True, nullable=True, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
@@ -29,6 +31,13 @@ class User(UserMixin, db.Model):
     # Relationships
     meal_logs = db.relationship('MealLog', backref='user', lazy='dynamic', cascade='all, delete-orphan')
     nutrition_goals = db.relationship('NutritionGoal', backref='user', lazy='dynamic', cascade='all, delete-orphan')
+    
+    def __init__(self, **kwargs):
+        """Initialize user with auto-generated user_id if not provided."""
+        # Generate user_id if not provided
+        if 'user_id' not in kwargs or not kwargs['user_id']:
+            kwargs['user_id'] = self.generate_user_id()
+        super(User, self).__init__(**kwargs)
     
     def set_password(self, password):
         """Set password hash."""
@@ -85,6 +94,54 @@ class User(UserMixin, db.Model):
             counter += 1
         
         return username
+
+    @staticmethod
+    def generate_user_id():
+        """Generate a unique user ID using UUID4."""
+        return str(uuid.uuid4())
+    
+    @staticmethod
+    def validate_user_id(user_id, exclude_id=None):
+        """Validate user ID format and uniqueness."""
+        errors = []
+        
+        # Check if user_id is provided
+        if not user_id or not user_id.strip():
+            errors.append("User ID is required")
+            return {'is_valid': False, 'errors': errors}
+        
+        user_id = user_id.strip()
+        
+        # Check length (UUID is 36 characters, but allow custom formats up to 36 chars)
+        if len(user_id) > 36:
+            errors.append("User ID must be 36 characters or less")
+        
+        # Check for valid characters (alphanumeric, hyphens, underscores)
+        if not re.match(r'^[a-zA-Z0-9\-_]+$', user_id):
+            errors.append("User ID can only contain letters, numbers, hyphens, and underscores")
+        
+        # Check uniqueness (exclude current user if editing)
+        existing_user = User.query.filter_by(user_id=user_id).first()
+        if existing_user and (exclude_id is None or existing_user.id != exclude_id):
+            errors.append("User ID already exists")
+        
+        return {
+            'is_valid': len(errors) == 0,
+            'errors': errors
+        }
+
+    @staticmethod
+    def check_user_id_exists(user_id):
+        """Check if a user ID already exists."""
+        return User.query.filter_by(user_id=user_id).first() is not None
+    
+    @staticmethod
+    def is_user_id_available(user_id, exclude_id=None):
+        """Check if user_id is available (not taken by another user)."""
+        query = User.query.filter_by(user_id=user_id)
+        if exclude_id:
+            query = query.filter(User.id != exclude_id)
+        return query.first() is None
 
     def get_current_nutrition_goal(self):
         """Get the user's current nutrition goal."""

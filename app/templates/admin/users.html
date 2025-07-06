@@ -239,19 +239,38 @@
             <form id="addUserForm">
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label for="firstName" class="form-label">First Name</label>
+                        <label for="userIdField" class="form-label">
+                            User ID <span class="text-danger">*</span>
+                            <small class="text-muted d-block">Auto-generated unique identifier (editable)</small>
+                        </label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="userIdField" name="user_id" required>
+                            <button type="button" class="btn btn-outline-secondary" id="generateUserIdBtn" title="Generate new User ID">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="form-text text-muted">
+                            Letters, numbers, hyphens, and underscores only. Max 36 characters.
+                        </div>
+                        <div id="userIdFeedback" class="invalid-feedback"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="firstName" class="form-label">First Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="firstName" name="first_name" required>
                     </div>
                     <div class="mb-3">
-                        <label for="lastName" class="form-label">Last Name</label>
+                        <label for="lastName" class="form-label">Last Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="lastName" name="last_name" required>
                     </div>
                     <div class="mb-3">
-                        <label for="email" class="form-label">Email</label>
+                        <label for="email" class="form-label">
+                            Email
+                            <small class="text-muted">(optional)</small>
+                        </label>
                         <input type="email" class="form-control" id="email" name="email">
                     </div>
                     <div class="mb-3">
-                        <label for="password" class="form-label">Password</label>
+                        <label for="password" class="form-label">Password <span class="text-danger">*</span></label>
                         <input type="password" class="form-control" id="password" name="password" required>
                     </div>
                     <div class="mb-3">
@@ -282,19 +301,32 @@
                 <div class="modal-body">
                     <input type="hidden" id="editUserId" name="user_id">
                     <div class="mb-3">
-                        <label for="editUsername" class="form-label">Username</label>
+                        <label for="editUserIdDisplay" class="form-label">
+                            User ID
+                            <small class="text-muted">(read-only)</small>
+                        </label>
+                        <input type="text" class="form-control" id="editUserIdDisplay" name="user_id_display" readonly>
+                        <div class="form-text text-muted">
+                            User ID cannot be changed after creation.
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editUsername" class="form-label">Username <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="editUsername" name="username" required>
                     </div>
                     <div class="mb-3">
-                        <label for="editFirstName" class="form-label">First Name</label>
+                        <label for="editFirstName" class="form-label">First Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="editFirstName" name="first_name" required>
                     </div>
                     <div class="mb-3">
-                        <label for="editLastName" class="form-label">Last Name</label>
+                        <label for="editLastName" class="form-label">Last Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="editLastName" name="last_name" required>
                     </div>
                     <div class="mb-3">
-                        <label for="editEmail" class="form-label">Email</label>
+                        <label for="editEmail" class="form-label">
+                            Email
+                            <small class="text-muted">(optional)</small>
+                        </label>
                         <input type="email" class="form-control" id="editEmail" name="email">
                     </div>
                     <div class="mb-3">
