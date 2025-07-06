@@ -74,7 +74,7 @@ class UserManagementForm(FlaskForm):
         DataRequired(), 
         Length(min=3, max=80)
     ])
-    email = StringField('Email', validators=[DataRequired(), Email()])
+    email = StringField('Email', validators=[Optional(), Email(message="Please enter a valid email address")])
     first_name = StringField('First Name', validators=[
         DataRequired(), 
         Length(min=1, max=50)
@@ -101,8 +101,12 @@ class UserManagementForm(FlaskForm):
             raise ValidationError('Username already exists. Please choose a different one.')
 
     def validate_email(self, email):
-        """Validate email is not already taken by another user.""" 
-        query = User.query.filter_by(email=email.data)
+        """Validate email is not already taken by another user (only if email is provided).""" 
+        # Skip validation if email is empty (since it's now optional)
+        if not email.data or not email.data.strip():
+            return
+            
+        query = User.query.filter_by(email=email.data.strip())
         if self.user_id:
             query = query.filter(User.id != self.user_id)
         user = query.first()

@@ -12,6 +12,9 @@ const Admin = {
 
 // User Management Functions
 Admin.users = {
+    // Navigation state to prevent duplicate navigation calls
+    isNavigating: false,
+
     /**
      * Edit user
      */
@@ -74,13 +77,35 @@ Admin.users = {
      * Submit add user form
      */
     submitAddForm: async function(formData) {
+        // Enhanced validation for Add User form
+        const validationErrors = Admin.users.validateAddUserForm(formData);
+        if (validationErrors.length > 0) {
+            NutriTracker.utils.showToast(validationErrors[0], 'danger');
+            return;
+        }
+        
+        // Get and sanitize form values
+        const email = Admin.users.sanitizeInput(formData.get('email'));
+        const firstName = Admin.users.sanitizeInput(formData.get('first_name'));
+        const lastName = Admin.users.sanitizeInput(formData.get('last_name'));
+        const password = formData.get('password'); // Don't sanitize password
+        
         try {
+            // Prepare sanitized data
+            const requestData = {
+                email: email && email.trim() ? email.trim() : null, // Handle optional email - send null instead of empty string
+                first_name: firstName.trim(),
+                last_name: lastName.trim(),
+                password: password,
+                is_admin: formData.get('is_admin') === 'on'
+            };
+            
             const response = await fetch('/api/admin/users', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(Object.fromEntries(formData))
+                body: JSON.stringify(requestData)
             });
             
             if (response.ok) {
@@ -98,42 +123,425 @@ Admin.users = {
     },
 
     /**
-     * Submit edit user form
+     * Enhanced form validation for Add User form
      */
-    submitEditForm: async function(formData) {
-        const userId = formData.get('user_id');
+    validateAddUserForm: function(formData) {
+        const errors = [];
         
-        // Basic validation
+        // Get form values
+        const email = formData.get('email');
+        const firstName = formData.get('first_name');
+        const lastName = formData.get('last_name');
+        const password = formData.get('password');
+        
+        // Validate email (OPTIONAL - only validate if provided)
+        if (email && email.trim()) {
+            const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+            if (!emailPattern.test(email.trim())) {
+                errors.push('Please enter a valid email address');
+            } else if (email.trim().length > 254) {
+                errors.push('Email address is too long');
+            }
+        }
+        
+        // Validate first name (REQUIRED)
+        if (!firstName || firstName.trim().length < 1) {
+            errors.push('First name is required');
+        } else if (firstName.trim().length > 50) {
+            errors.push('First name must be less than 50 characters');
+        } else if (!/^[a-zA-Z\s\-']+$/.test(firstName.trim())) {
+            errors.push('First name can only contain letters, spaces, hyphens, and apostrophes');
+        }
+        
+        // Validate last name (REQUIRED)
+        if (!lastName || lastName.trim().length < 1) {
+            errors.push('Last name is required');
+        } else if (lastName.trim().length > 50) {
+            errors.push('Last name must be less than 50 characters');
+        } else if (!/^[a-zA-Z\s\-']+$/.test(lastName.trim())) {
+            errors.push('Last name can only contain letters, spaces, hyphens, and apostrophes');
+        }
+        
+        // Validate password (REQUIRED)
+        const passwordErrors = Admin.users.validatePassword(password);
+        errors.push(...passwordErrors);
+        
+        return errors;
+    },
+
+    /**
+     * Enhanced form validation with comprehensive checks and UX indicators
+     */
+    validateEditUserForm: function(formData) {
+        const errors = [];
+        
+        // Get form values
         const username = formData.get('username');
         const email = formData.get('email');
         const firstName = formData.get('first_name');
         const lastName = formData.get('last_name');
         
+        // Clear previous validation indicators
+        Admin.users.clearValidationIndicators();
+        
+        // Validate username (REQUIRED)
         if (!username || username.trim().length < 3) {
-            NutriTracker.utils.showToast('Username must be at least 3 characters', 'danger');
+            errors.push('Username must be at least 3 characters');
+            Admin.users.showFieldError('editUsername', 'Username is required (minimum 3 characters)');
+        } else if (username.trim().length > 50) {
+            errors.push('Username must be less than 50 characters');
+            Admin.users.showFieldError('editUsername', 'Username must be less than 50 characters');
+        } else if (!/^[a-zA-Z0-9_-]+$/.test(username.trim())) {
+            errors.push('Username can only contain letters, numbers, underscores, and hyphens');
+            Admin.users.showFieldError('editUsername', 'Username can only contain letters, numbers, underscores, and hyphens');
+        } else {
+            Admin.users.showFieldSuccess('editUsername');
+        }
+        
+        // Validate email (OPTIONAL - only validate if provided)
+        if (email && email.trim()) {
+            const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+            if (!emailPattern.test(email.trim())) {
+                errors.push('Please enter a valid email address');
+                Admin.users.showFieldError('editEmail', 'Please enter a valid email address');
+            } else if (email.trim().length > 254) {
+                errors.push('Email address is too long');
+                Admin.users.showFieldError('editEmail', 'Email address is too long');
+            } else {
+                Admin.users.showFieldSuccess('editEmail');
+            }
+        } else {
+            // Email is optional - show neutral state
+            Admin.users.showFieldNeutral('editEmail');
+        }
+        
+        // Validate first name (REQUIRED)
+        if (!firstName || firstName.trim().length < 1) {
+            errors.push('First name is required');
+            Admin.users.showFieldError('editFirstName', 'First name is required');
+        } else if (firstName.trim().length > 50) {
+            errors.push('First name must be less than 50 characters');
+            Admin.users.showFieldError('editFirstName', 'First name must be less than 50 characters');
+        } else if (!/^[a-zA-Z\s\-']+$/.test(firstName.trim())) {
+            errors.push('First name can only contain letters, spaces, hyphens, and apostrophes');
+            Admin.users.showFieldError('editFirstName', 'First name can only contain letters, spaces, hyphens, and apostrophes');
+        } else {
+            Admin.users.showFieldSuccess('editFirstName');
+        }
+        
+        // Validate last name (REQUIRED)
+        if (!lastName || lastName.trim().length < 1) {
+            errors.push('Last name is required');
+            Admin.users.showFieldError('editLastName', 'Last name is required');
+        } else if (lastName.trim().length > 50) {
+            errors.push('Last name must be less than 50 characters');
+            Admin.users.showFieldError('editLastName', 'Last name must be less than 50 characters');
+        } else if (!/^[a-zA-Z\s\-']+$/.test(lastName.trim())) {
+            errors.push('Last name can only contain letters, spaces, hyphens, and apostrophes');
+            Admin.users.showFieldError('editLastName', 'Last name can only contain letters, spaces, hyphens, and apostrophes');
+        } else {
+            Admin.users.showFieldSuccess('editLastName');
+        }
+        
+        return errors;
+    },
+
+    /**
+     * UI Validation Indicator Functions
+     */
+    clearValidationIndicators: function() {
+        const fields = ['editUsername', 'editEmail', 'editFirstName', 'editLastName'];
+        fields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.classList.remove('is-valid', 'is-invalid');
+                // Remove any existing feedback elements
+                const feedback = field.parentNode.querySelector('.invalid-feedback, .valid-feedback');
+                if (feedback) {
+                    feedback.remove();
+                }
+            }
+        });
+    },
+    
+    showFieldError: function(fieldId, message) {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.classList.remove('is-valid');
+            field.classList.add('is-invalid');
+            
+            // Remove existing feedback
+            const existingFeedback = field.parentNode.querySelector('.invalid-feedback');
+            if (existingFeedback) {
+                existingFeedback.remove();
+            }
+            
+            // Add error feedback
+            const feedback = document.createElement('div');
+            feedback.className = 'invalid-feedback';
+            feedback.textContent = message;
+            field.parentNode.appendChild(feedback);
+        }
+    },
+    
+    showFieldSuccess: function(fieldId) {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.classList.remove('is-invalid');
+            field.classList.add('is-valid');
+            
+            // Remove existing feedback
+            const existingFeedback = field.parentNode.querySelector('.invalid-feedback, .valid-feedback');
+            if (existingFeedback) {
+                existingFeedback.remove();
+            }
+            
+            // Add success feedback
+            const feedback = document.createElement('div');
+            feedback.className = 'valid-feedback';
+            feedback.textContent = '✓ Valid';
+            field.parentNode.appendChild(feedback);
+        }
+    },
+    
+    showFieldNeutral: function(fieldId) {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.classList.remove('is-valid', 'is-invalid');
+            
+            // Remove existing feedback
+            const existingFeedback = field.parentNode.querySelector('.invalid-feedback, .valid-feedback');
+            if (existingFeedback) {
+                existingFeedback.remove();
+            }
+        }
+    },
+
+    /**
+     * Add visual indicators to form fields (required/optional)
+     */
+    initializeFormFieldIndicators: function() {
+        // Add required indicators for Edit User form
+        const editRequiredFields = [
+            { id: 'editUsername', label: 'Username' },
+            { id: 'editFirstName', label: 'First Name' },
+            { id: 'editLastName', label: 'Last Name' }
+        ];
+        
+        const editOptionalFields = [
+            { id: 'editEmail', label: 'Email' }
+        ];
+        
+        editRequiredFields.forEach(field => {
+            Admin.users.addRequiredIndicator(field.id, field.label);
+        });
+        
+        editOptionalFields.forEach(field => {
+            Admin.users.addOptionalIndicator(field.id, field.label);
+        });
+        
+        // Add required indicators for Add User form
+        const addRequiredFields = [
+            { id: 'firstName', label: 'First Name' },
+            { id: 'lastName', label: 'Last Name' },
+            { id: 'password', label: 'Password' }
+        ];
+        
+        const addOptionalFields = [
+            { id: 'email', label: 'Email' }
+        ];
+        
+        addRequiredFields.forEach(field => {
+            Admin.users.addRequiredIndicator(field.id, field.label);
+        });
+        
+        addOptionalFields.forEach(field => {
+            Admin.users.addOptionalIndicator(field.id, field.label);
+        });
+    },
+    
+    addRequiredIndicator: function(fieldId, labelText) {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            const label = document.querySelector(`label[for="${fieldId}"]`);
+            if (label) {
+                // Add asterisk if not already present
+                if (!label.textContent.includes('*')) {
+                    label.innerHTML = `${labelText} <span class="text-danger">*</span>`;
+                }
+                // Add title attribute for accessibility
+                label.title = 'Required field';
+            }
+        }
+    },
+    
+    addOptionalIndicator: function(fieldId, labelText) {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            const label = document.querySelector(`label[for="${fieldId}"]`);
+            if (label) {
+                // Add optional indicator
+                label.innerHTML = `${labelText} <span class="text-muted small">(optional)</span>`;
+                // Add title attribute for accessibility
+                label.title = 'Optional field';
+            }
+        }
+    },
+
+    /**
+     * Modal close and navigation handlers
+     */
+    handleModalClose: function(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            bootstrap.Modal.getInstance(modal)?.hide();
+            
+            // Navigate back to Manage Users page after modal closes
+            setTimeout(() => {
+                Admin.users.navigateBackToManageUsers();
+            }, 300); // Small delay to allow modal close animation
+        }
+    },
+
+    /**
+     * Initialize modal event listeners for proper navigation
+     */
+    initializeModalEventListeners: function() {
+        // Edit User Modal
+        const editUserModal = document.getElementById('editUserModal');
+        if (editUserModal) {
+            // Handle close button clicks
+            const closeButtons = editUserModal.querySelectorAll('[data-bs-dismiss="modal"], .btn-close');
+            closeButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    Admin.users.handleModalClose('editUserModal');
+                });
+            });
+            
+            // Handle modal hide event (when closed by any means)
+            editUserModal.addEventListener('hidden.bs.modal', () => {
+                // Clear validation indicators when modal is closed
+                Admin.users.clearValidationIndicators();
+                
+                // Navigate back if not already navigating
+                if (!Admin.users.isNavigating) {
+                    Admin.users.navigateBackToManageUsers();
+                }
+            });
+        }
+        
+        // Password Reset Modal
+        const resetPasswordModal = document.getElementById('resetPasswordModal');
+        if (resetPasswordModal) {
+            const closeButtons = resetPasswordModal.querySelectorAll('[data-bs-dismiss="modal"], .btn-close');
+            closeButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    Admin.users.handleModalClose('resetPasswordModal');
+                });
+            });
+            
+            resetPasswordModal.addEventListener('hidden.bs.modal', () => {
+                // Clear password form when modal is closed
+                const resetForm = document.getElementById('resetPasswordForm');
+                if (resetForm) {
+                    resetForm.reset();
+                }
+                
+                // Navigate back if not already navigating
+                if (!Admin.users.isNavigating) {
+                    Admin.users.navigateBackToManageUsers();
+                }
+            });
+        }
+    },
+
+    /**
+     * Enhanced password validation with better UX
+     */
+    validatePassword: function(password) {
+        const errors = [];
+        
+        if (!password) {
+            errors.push('Password is required');
+            return errors;
+        }
+        
+        if (password.length < 8) {
+            errors.push('Password must be at least 8 characters long');
+        }
+        
+        if (password.length > 128) {
+            errors.push('Password is too long');
+        }
+        
+        const hasUpper = /[A-Z]/.test(password);
+        const hasLower = /[a-z]/.test(password);
+        const hasDigit = /\d/.test(password);
+        const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+        
+        const missing = [];
+        if (!hasUpper) missing.push('uppercase letter');
+        if (!hasLower) missing.push('lowercase letter');
+        if (!hasDigit) missing.push('number');
+        if (!hasSpecial) missing.push('special character');
+        
+        if (missing.length > 0) {
+            errors.push(`Password must contain at least one: ${missing.join(', ')}`);
+        }
+        
+        return errors;
+    },
+
+    /**
+     * Validate password reset form (email is NOT required)
+     */
+    validatePasswordResetForm: function(formData) {
+        const errors = [];
+        const newPassword = formData.get('new_password');
+        
+        // Only validate password - email is not required for password reset
+        const passwordErrors = Admin.users.validatePassword(newPassword);
+        errors.push(...passwordErrors);
+        
+        return errors;
+    },
+
+    /**
+     * Sanitize string input to prevent XSS
+     */
+    sanitizeInput: function(input) {
+        if (!input) return '';
+        
+        // Create a temporary element to leverage browser's HTML escaping
+        const temp = document.createElement('div');
+        temp.textContent = input;
+        return temp.innerHTML.trim();
+    },
+
+    /**
+     * Submit edit user form with enhanced validation
+     */
+    submitEditForm: async function(formData) {
+        const userId = formData.get('user_id');
+        
+        // Enhanced validation
+        const validationErrors = Admin.users.validateEditUserForm(formData);
+        if (validationErrors.length > 0) {
+            NutriTracker.utils.showToast(validationErrors[0], 'danger');
             return;
         }
         
-        if (!email || !email.includes('@')) {
-            NutriTracker.utils.showToast('Please enter a valid email address', 'danger');
-            return;
-        }
-        
-        if (!firstName || !firstName.trim()) {
-            NutriTracker.utils.showToast('First name is required', 'danger');
-            return;
-        }
-        
-        if (!lastName || !lastName.trim()) {
-            NutriTracker.utils.showToast('Last name is required', 'danger');
-            return;
-        }
+        // Get and sanitize form values
+        const username = Admin.users.sanitizeInput(formData.get('username'));
+        const email = Admin.users.sanitizeInput(formData.get('email'));
+        const firstName = Admin.users.sanitizeInput(formData.get('first_name'));
+        const lastName = Admin.users.sanitizeInput(formData.get('last_name'));
         
         try {
-            // Convert checkbox value properly
+            // Prepare sanitized data
             const requestData = {
                 username: username.trim(),
-                email: email.trim(),
+                email: email && email.trim() ? email.trim() : null, // Handle optional email - send null instead of empty string
                 first_name: firstName.trim(),
                 last_name: lastName.trim(),
                 is_admin: formData.get('is_admin') === 'on',
@@ -152,6 +560,9 @@ Admin.users = {
             const result = await response.json();
             
             if (response.ok) {
+                // Set navigation flag to prevent duplicate navigation
+                Admin.users.isNavigating = true;
+                
                 NutriTracker.utils.showToast('User updated successfully', 'success');
                 bootstrap.Modal.getInstance(document.getElementById('editUserModal')).hide();
                 
@@ -242,7 +653,7 @@ Admin.users = {
     },
 
     /**
-     * Submit password reset form
+     * Submit password reset form with enhanced validation
      */
     submitPasswordReset: async function(event) {
         event.preventDefault();
@@ -252,17 +663,10 @@ Admin.users = {
         const userId = formData.get('user_id');
         const newPassword = formData.get('new_password');
         
-        // Admin simplified flow - no confirm password validation needed
-        
-        // Validate password strength
-        const isValidPassword = newPassword.length >= 8 && 
-                              /[A-Z]/.test(newPassword) && 
-                              /[a-z]/.test(newPassword) && 
-                              /\d/.test(newPassword) && 
-                              /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
-        
-        if (!isValidPassword) {
-            NutriTracker.utils.showToast('Password does not meet security requirements', 'danger');
+        // Enhanced password validation (no email validation needed)
+        const validationErrors = Admin.users.validatePasswordResetForm(formData);
+        if (validationErrors.length > 0) {
+            NutriTracker.utils.showToast(validationErrors[0], 'danger');
             return;
         }
         
@@ -281,6 +685,9 @@ Admin.users = {
             const result = await response.json();
             
             if (response.ok) {
+                // Set navigation flag to prevent duplicate navigation
+                Admin.users.isNavigating = true;
+                
                 // Enhanced admin flow - immediate success feedback
                 Admin.users.handlePasswordResetSuccess(userId, result.username, newPassword);
             } else {
@@ -293,7 +700,7 @@ Admin.users = {
     },
 
     /**
-     * Handle successful password reset with clean toast-only flow
+     * Handle successful password reset with toast and auto-navigation
      */
     handlePasswordResetSuccess: function(userId, username, newPassword) {
         // Close the reset modal immediately
@@ -305,35 +712,35 @@ Admin.users = {
         // Log the action for audit purposes
         console.log(`Admin password reset completed for user: ${username} (ID: ${userId}) at ${new Date().toISOString()}`);
         
-        // Show clean success toast with password and auto-dismiss
-        Admin.users.showCleanSuccessToast(userId, username, newPassword);
+        // Show success toast and auto-navigate back to Manage Users
+        Admin.users.showSuccessToastAndNavigate(userId, username);
     },
 
     /**
-     * Show clean success toast with auto-dismiss and smooth redirect
+     * Show success toast and auto-navigate back to Manage Users
      */
-    showCleanSuccessToast: function(userId, username, newPassword) {
-        // Create secure toast message without exposing password
+    showSuccessToastAndNavigate: function(userId, username) {
+        // Create success toast message
         const toastMessage = `
             <div class="d-flex align-items-center">
                 <i class="fas fa-check-circle text-success me-2"></i>
                 <div>
                     <strong>Password reset successfully</strong><br>
-                    <small>Password for ${username} has been updated</small>
+                    <small>Password for ${username} has been updated. Returning to user list...</small>
                 </div>
             </div>
         `;
         
-        // Show toast with 2.5 second auto-dismiss
-        NutriTracker.utils.showToast(toastMessage, 'success', 2500);
+        // Show toast notification that will auto-dismiss
+        NutriTracker.utils.showToast(toastMessage, 'success', 2000);
         
-        // Add subtle visual feedback to the user row
+        // Add visual feedback to the user row if visible
         Admin.users.highlightUserRow(userId);
         
-        // Smooth redirect after toast auto-dismiss
+        // Auto-navigate back to Manage Users after 2 seconds
         setTimeout(() => {
             Admin.users.navigateBackToManageUsers();
-        }, 2800);
+        }, 2000);
     },
 
     /**
@@ -352,135 +759,48 @@ Admin.users = {
             // Scroll the row into view if needed
             userRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
             
-            // Remove highlight after banner is dismissed
+            // Remove highlight after 2.5 seconds
             setTimeout(() => {
                 userRow.style.cssText = 'transition: all 0.5s ease;';
                 setTimeout(() => {
                     userRow.style.cssText = '';
                 }, 500);
-            }, 3500);
+            }, 2500);
         }
     },
 
     /**
-     * Navigate back to Manage Users page with enhanced context preservation
+     * Navigate back to Manage Users page with navigation lock
      */
     navigateBackToManageUsers: function() {
-        // Get current URL to preserve all parameters
+        // Prevent multiple simultaneous navigation calls
+        if (Admin.users.isNavigating) {
+            return;
+        }
+        
+        Admin.users.isNavigating = true;
+        
+        // Get current URL to preserve parameters
         const currentUrl = new URL(window.location);
         
         // If we're already on the manage users page, just reload to refresh data
         if (currentUrl.pathname.includes('/admin/users') || currentUrl.pathname === '/admin/users') {
-            // Preserve all query parameters (filters, search, pagination)
+            // Preserve query parameters (filters, search, pagination) and refresh
             window.location.reload();
         } else {
-            // Navigate to manage users page, preserving any applicable filters
-            const managersUsersUrl = new URL('/admin/users', window.location.origin);
+            // Navigate to manage users page
+            const manageUsersUrl = new URL('/admin/users', window.location.origin);
             
             // Copy over relevant query parameters if they exist
             const relevantParams = ['search', 'status', 'role', 'show_details', 'page'];
             relevantParams.forEach(param => {
                 if (currentUrl.searchParams.has(param)) {
-                    managersUsersUrl.searchParams.set(param, currentUrl.searchParams.get(param));
+                    manageUsersUrl.searchParams.set(param, currentUrl.searchParams.get(param));
                 }
             });
             
-            window.location.href = managersUsersUrl.toString();
+            window.location.href = manageUsersUrl.toString();
         }
-    },
-
-    /**
-     * Enhanced immediate navigation with smooth transition
-     */
-    immediateNavigateToManageUsers: function() {
-        // Add a smooth fade effect before navigation
-        const body = document.body;
-        body.style.transition = 'opacity 0.2s ease-out';
-        body.style.opacity = '0.9';
-        
-        setTimeout(() => {
-            Admin.users.navigateBackToManageUsers();
-        }, 150);
-    },
-
-    /**
-     * Schedule auto-redirect to Manage Users after password reset success
-     */
-    scheduleRedirectToManageUsers: function(modalElement, userId, username) {
-        // Add auto-redirect countdown to the modal
-        const modalFooter = modalElement.querySelector('.modal-footer');
-        if (modalFooter) {
-            // Create countdown element
-            const countdownElement = document.createElement('div');
-            countdownElement.className = 'countdown-redirect me-auto';
-            countdownElement.innerHTML = `
-                <small class="text-muted">
-                    <i class="fas fa-clock"></i> 
-                    Returning to Manage Users in <span id="redirectCountdown">3</span> seconds...
-                </small>
-            `;
-            
-            // Insert before the Close button
-            const closeButton = modalFooter.querySelector('button');
-            modalFooter.insertBefore(countdownElement, closeButton);
-            
-            // Start countdown
-            let countdown = 3;
-            const countdownSpan = document.getElementById('redirectCountdown');
-            
-            const countdownInterval = setInterval(() => {
-                countdown--;
-                if (countdownSpan) {
-                    countdownSpan.textContent = countdown;
-                }
-                
-                if (countdown <= 0) {
-                    clearInterval(countdownInterval);
-                    
-                    // Hide the modal
-                    const modal = bootstrap.Modal.getInstance(modalElement);
-                    if (modal) {
-                        modal.hide();
-                    }
-                    
-                    // Smooth redirect back to manage users
-                    Admin.users.redirectToManageUsers(userId, username);
-                }
-            }, 1000);
-            
-            // Allow users to cancel auto-redirect by clicking the close button
-            const closeBtn = modalFooter.querySelector('button[data-bs-dismiss="modal"]');
-            if (closeBtn) {
-                closeBtn.addEventListener('click', function() {
-                    clearInterval(countdownInterval);
-                    // Remove the countdown element
-                    if (countdownElement && countdownElement.parentNode) {
-                        countdownElement.parentNode.removeChild(countdownElement);
-                    }
-                }, { once: true });
-            }
-        }
-    },
-
-    /**
-     * Redirect to Manage Users view with success feedback
-     */
-    redirectToManageUsers: function(userId, username) {
-        // Log the redirect action
-        console.log(`Redirecting to Manage Users after password reset for user: ${username}`);
-        
-        // Smooth page transition
-        document.body.style.opacity = '0.8';
-        document.body.style.transition = 'opacity 0.3s ease-in-out';
-        
-        // Show a brief loading toast
-        NutriTracker.utils.showToast(`Password reset completed for ${username}. Returning to user list...`, 'info');
-        
-        // Perform the redirect
-        setTimeout(() => {
-            // Use the current page URL to maintain context
-            window.location.href = window.location.pathname + window.location.search;
-        }, 300);
     },
 
 };
@@ -621,6 +941,12 @@ window.Admin = Admin;
 
 // Initialize admin functionality
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize form field indicators for better UX
+    setTimeout(() => {
+        Admin.users.initializeFormFieldIndicators();
+        Admin.users.initializeModalEventListeners();
+    }, 500); // Delay to ensure DOM is fully loaded
+    
     // Add User Form
     const addUserForm = document.getElementById('addUserForm');
     if (addUserForm) {
@@ -631,13 +957,23 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Edit User Form
+    // Edit User Form with enhanced validation
     const editUserForm = document.getElementById('editUserForm');
     if (editUserForm) {
         editUserForm.addEventListener('submit', function(e) {
             e.preventDefault();
             const formData = new FormData(this);
             Admin.users.submitEditForm(formData);
+        });
+        
+        // Add real-time validation for better UX
+        const formFields = editUserForm.querySelectorAll('input[type="text"], input[type="email"]');
+        formFields.forEach(field => {
+            field.addEventListener('blur', function() {
+                // Create temporary FormData for validation
+                const tempFormData = new FormData(editUserForm);
+                Admin.users.validateEditUserForm(tempFormData);
+            });
         });
     }
 

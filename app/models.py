@@ -9,7 +9,7 @@ class User(UserMixin, db.Model):
     """User model for authentication and user management."""
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False, index=True)
-    email = db.Column(db.String(120), unique=True, nullable=False, index=True)
+    email = db.Column(db.String(120), unique=True, nullable=True, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
@@ -59,6 +59,33 @@ class User(UserMixin, db.Model):
             'errors': errors
         }
     
+    @staticmethod
+    def validate_email(email):
+        """Validate email format."""
+        if not email:
+            return False
+        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        return re.match(pattern, email) is not None
+    
+    @staticmethod
+    def generate_username(first_name, last_name):
+        """Generate username from first and last name."""
+        # Clean and normalize names
+        first = re.sub(r'[^a-zA-Z]', '', first_name.lower())
+        last = re.sub(r'[^a-zA-Z]', '', last_name.lower())
+        
+        # Generate base username
+        username = f"{first}{last}"
+        
+        # If username already exists, append numbers
+        counter = 1
+        original_username = username
+        while User.query.filter_by(username=username).first():
+            username = f"{original_username}{counter}"
+            counter += 1
+        
+        return username
+
     def get_current_nutrition_goal(self):
         """Get the user's current nutrition goal."""
         return self.nutrition_goals.filter_by(is_active=True).first()

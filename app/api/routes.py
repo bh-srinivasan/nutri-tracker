@@ -16,13 +16,24 @@ def admin_required(f):
     """Decorator to require admin access for API endpoints."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or not current_user.is_admin:
+        if not current_user.is_authenticated:
+            return jsonify({'error': 'Authentication required'}), 401
+        if not current_user.is_admin:
             return jsonify({'error': 'Admin access required'}), 403
         return f(*args, **kwargs)
     return decorated_function
 
+def api_login_required(f):
+    """Custom login_required decorator for API endpoints that returns JSON instead of redirecting."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            return jsonify({'error': 'Authentication required'}), 401
+        return f(*args, **kwargs)
+    return decorated_function
+
 @bp.route('/foods/search')
-@login_required
+@api_login_required
 def search_foods():
     """API endpoint for food search with autocomplete."""
     query = request.args.get('q', '', type=str)
@@ -64,7 +75,7 @@ def search_foods():
     return jsonify({'foods': foods_data})
 
 @bp.route('/foods/<int:food_id>/nutrition')
-@login_required
+@api_login_required
 def get_food_nutrition(food_id):
     """Get nutrition information for a specific food item."""
     food = Food.query.get_or_404(food_id)
@@ -312,15 +323,15 @@ def update_user(user_id):
             except ValidationError:
                 return jsonify({'error': 'CSRF token validation failed'}), 400
         
-        # Validate email format if provided
-        if 'email' in data and data['email']:
+        # Validate email format if provided (only validate non-empty emails)
+        if 'email' in data and data['email'] and data['email'].strip():
             import re
             email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-            if not re.match(email_pattern, data['email']):
+            if not re.match(email_pattern, data['email'].strip()):
                 return jsonify({'error': 'Invalid email format'}), 400
                 
             # Check for duplicate email (excluding current user)
-            existing_user = User.query.filter(User.email == data['email'], User.id != user_id).first()
+            existing_user = User.query.filter(User.email == data['email'].strip(), User.id != user_id).first()
             if existing_user:
                 return jsonify({'error': 'Email already exists'}), 400
         
@@ -334,8 +345,8 @@ def update_user(user_id):
             if existing_user:
                 return jsonify({'error': 'Username already exists'}), 400
         
-        # Validate required fields
-        required_fields = ['first_name', 'last_name', 'email', 'username']
+        # Validate required fields (email is now optional)
+        required_fields = ['first_name', 'last_name', 'username']
         for field in required_fields:
             if field in data and not data[field].strip():
                 return jsonify({'error': f'{field.replace("_", " ").title()} is required'}), 400
@@ -350,7 +361,9 @@ def update_user(user_id):
         if 'last_name' in data:
             user.last_name = data['last_name'].strip()
         if 'email' in data:
-            user.email = data['email'].strip()
+            # Handle optional email field - set to None if empty
+            email_value = data['email'].strip() if data['email'] else None
+            user.email = email_value if email_value else None
         if 'username' in data:
             user.username = data['username'].strip()
         if 'is_admin' in data:
@@ -466,3 +479,75 @@ def reset_user_password(user_id):
             'success': False,
             'message': 'An error occurred while resetting the password. Please try again.'
         }), 500
+
+@bp.route('/admin/users', methods=['POST'])
+@login_required
+@admin_required
+def add_user():
+    """Add a new user."""
+    try:
+        data = request.get_json()
+        
+        # Input validation and sanitization
+        first_name = data.get('first_name', '').strip()
+        last_name = data.get('last_name', '').strip()
+        email = data.get('email', '').strip() if data.get('email') else None
+        password = data.get('password', '')
+        is_admin = data.get('is_admin', False)
+        
+        # Validate required fields
+        if not first_name:
+            return jsonify({'error': 'First name is required'}), 400
+        if not last_name:
+            return jsonify({'error': 'Last name is required'}), 400
+        if not password:
+            return jsonify({'error': 'Password is required'}), 400
+            
+        # Validate email if provided (optional field)
+        if email and not User.validate_email(email):
+            return jsonify({'error': 'Invalid email format'}), 400
+            
+        # Check if email already exists (if provided)
+        if email and User.query.filter_by(email=email).first():
+            return jsonify({'error': 'Email already exists'}), 400
+        
+        # Generate username from first and last name
+        username = User.generate_username(first_name, last_name)
+        
+        # Check if username already exists
+        if User.query.filter_by(username=username).first():
+            return jsonify({'error': 'Generated username already exists. Please try different names.'}), 400
+        
+        # Validate password
+        validation_result = User.validate_password(password)
+        if not validation_result['is_valid']:
+            return jsonify({
+                'error': 'Password does not meet security requirements: ' + ', '.join(validation_result['errors'])
+            }), 400
+        
+        # Create new user
+        user = User(
+            username=username,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            is_admin=is_admin,
+            is_active=True
+        )
+        user.set_password(password)
+        
+        db.session.add(user)
+        db.session.commit()
+        
+        logger.info(f'Admin {current_user.username} created new user: {username}')
+        
+        return jsonify({
+            'id': user.id,
+            'username': user.username,
+            'message': f'User {username} created successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f'Error creating user: {str(e)}')
+        return jsonify({'error': f'Failed to create user: {str(e)}'}), 500
