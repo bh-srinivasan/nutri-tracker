@@ -18,6 +18,29 @@ block content %}
           >
             <i class="fas fa-apple-alt"></i> Manage Foods
           </a>
+          <div class="btn-group" role="group">
+            <button
+              type="button"
+              class="btn btn-outline-info dropdown-toggle"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+              title="Export and download food data"
+            >
+              <i class="fas fa-download"></i> Export Foods
+            </button>
+            <ul class="dropdown-menu">
+              <li>
+                <a class="dropdown-item" href="{{ url_for('admin.export_foods_page') }}">
+                  <i class="fas fa-file-csv me-2"></i>New Export
+                </a>
+              </li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('admin.export_jobs') }}">
+                  <i class="fas fa-list me-2"></i>Export History
+                </a>
+              </li>
+            </ul>
+          </div>
           <a
             href="{{ url_for('admin.food_uploads') }}"
             class="btn btn-outline-primary"

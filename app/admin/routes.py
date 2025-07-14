@@ -1,5 +1,6 @@
 import csv
 import io
+import json
 from datetime import datetime, timedelta
 from flask import render_template, redirect, url_for, flash, request, jsonify, current_app
 from flask_login import login_required, current_user
@@ -1111,63 +1112,279 @@ def change_password():
     
     return render_template('admin/change_password.html', title='Change Password', form=form)
 
-@bp.route('/foods/export')
+@bp.route('/foods/export-legacy')
 @login_required
 @admin_required
 def export_foods():
     """
-    Start food data export process (asynchronous).
+    Legacy route for backward compatibility - redirects to new export page.
+    """
+    return redirect(url_for('admin.export_foods_page'))
+
+
+@bp.route('/foods/export', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def export_foods_page():
+    """
+    Food export interface with form handling.
     
-    Security Features:
-    - Admin role verification
-    - Input validation for export parameters
-    - Audit logging for data export
-    - Rate limiting to prevent abuse
+    GET: Show export form with filters
+    POST: Process export request and start job
     """
     try:
-        # Security: Log export attempt
+        export_service = FoodExportService()
+        
+        if request.method == 'GET':
+            # Get statistics and categories for the form
+            stats = export_service.get_export_statistics()
+            categories = export_service.get_available_categories()
+            
+            return render_template(
+                'admin/export_foods.html',
+                title='Export Foods',
+                stats=stats,
+                categories=categories
+            )
+            
+        elif request.method == 'POST':
+            # Security: Log export attempt
+            current_app.logger.info(
+                f"[AUDIT] Food export form submitted by user {current_user.id} ({current_user.email}) "
+                f"from IP: {request.remote_addr} at {datetime.utcnow().isoformat()}"
+            )
+            
+            # Get and validate form data
+            format_type = request.form.get('format', 'csv').lower().strip()
+            
+            # Security: Validate format parameter
+            if format_type not in ['csv', 'json']:
+                flash('Invalid export format requested.', 'danger')
+                return redirect(url_for('admin.export_foods_page'))
+            
+            # Build filters from form data
+            filters = {}
+            
+            # Category filter
+            category = request.form.get('category', '').strip()
+            if category:
+                filters['category'] = category[:50]  # Limit length
+            
+            # Brand filter
+            brand = request.form.get('brand', '').strip()
+            if brand:
+                filters['brand'] = brand[:50]  # Limit length
+            
+            # Name search filter
+            name_contains = request.form.get('name_contains', '').strip()
+            if name_contains:
+                filters['name_contains'] = name_contains[:100]  # Limit length
+            
+            # Verification status filter
+            is_verified = request.form.get('is_verified', '').strip()
+            if is_verified == 'true':
+                filters['is_verified'] = True
+            elif is_verified == 'false':
+                filters['is_verified'] = False
+            
+            # Date range filters
+            created_after = request.form.get('created_after', '').strip()
+            if created_after:
+                try:
+                    # Validate date format
+                    datetime.strptime(created_after, '%Y-%m-%d')
+                    filters['created_after'] = created_after
+                except ValueError:
+                    pass  # Invalid date, ignore
+            
+            created_before = request.form.get('created_before', '').strip()
+            if created_before:
+                try:
+                    # Validate date format and add time component
+                    datetime.strptime(created_before, '%Y-%m-%d')
+                    filters['created_before'] = created_before + ' 23:59:59'
+                except ValueError:
+                    pass  # Invalid date, ignore
+            
+            # Nutrition filters
+            min_protein = request.form.get('min_protein', '').strip()
+            if min_protein:
+                try:
+                    filters['min_protein'] = float(min_protein)
+                except ValueError:
+                    pass  # Invalid number, ignore
+            
+            max_calories = request.form.get('max_calories', '').strip()
+            if max_calories:
+                try:
+                    filters['max_calories'] = float(max_calories)
+                except ValueError:
+                    pass  # Invalid number, ignore
+            
+            # Start async export
+            try:
+                job_id = export_service.start_export(
+                    format_type=format_type,
+                    filters=filters,
+                    user_id=current_user.id
+                )
+                
+                # Security: Log export job started
+                current_app.logger.info(
+                    f"[AUDIT] Food export job {job_id} started for user {current_user.id} "
+                    f"with filters: {json.dumps(filters, default=str)}"
+                )
+                
+                flash(
+                    f'Export started successfully! Job ID: {job_id}. '
+                    f'You can monitor progress in the Export Jobs section.',
+                    'success'
+                )
+                return redirect(url_for('admin.export_jobs'))
+                
+            except Exception as e:
+                current_app.logger.error(f'Error starting export: {str(e)}', exc_info=True)
+                flash('Failed to start export. Please try again.', 'danger')
+                return redirect(url_for('admin.export_foods_page'))
+                
+    except Exception as e:
+        current_app.logger.error(
+            f'[SECURITY] Error in export foods page for user {current_user.id}: {str(e)}',
+            exc_info=True
+        )
+        flash('An error occurred. Please try again.', 'danger')
+        return redirect(url_for('admin.foods'))
+
+
+@bp.route('/export-jobs')
+@login_required
+@admin_required
+def export_jobs():
+    """
+    Display export jobs with pagination and status tracking.
+    """
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = 20
+        
+        # Get export jobs for current user (admins can see all)
+        query = ExportJob.query
+        
+        # Order by creation date (newest first)
+        query = query.order_by(ExportJob.created_at.desc())
+        
+        # Paginate results
+        jobs = query.paginate(
+            page=page,
+            per_page=per_page,
+            error_out=False
+        )
+        
+        return render_template(
+            'admin/export_jobs.html',
+            title='Export Jobs',
+            jobs=jobs
+        )
+        
+    except Exception as e:
+        current_app.logger.error(f'Error loading export jobs: {str(e)}', exc_info=True)
+        flash('Error loading export jobs.', 'danger')
+        return redirect(url_for('admin.dashboard'))
+
+
+@bp.route('/export-status/<job_id>')
+@login_required
+@admin_required
+def export_status(job_id):
+    """
+    Get export job status (AJAX endpoint).
+    """
+    try:
+        export_service = FoodExportService()
+        status = export_service.get_export_status(job_id)
+        
+        if not status:
+            return jsonify({'error': 'Job not found'}), 404
+        
+        return jsonify(status)
+        
+    except Exception as e:
+        current_app.logger.error(f'Error getting export status: {str(e)}', exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@bp.route('/download-export/<job_id>')
+@login_required
+@admin_required
+def download_export(job_id):
+    """
+    Download completed export file.
+    """
+    try:
+        export_service = FoodExportService()
+        
+        # Get job details
+        status = export_service.get_export_status(job_id)
+        if not status:
+            flash('Export job not found.', 'danger')
+            return redirect(url_for('admin.export_jobs'))
+        
+        if status['status'] != 'completed':
+            flash('Export is not ready for download yet.', 'warning')
+            return redirect(url_for('admin.export_jobs'))
+        
+        if status['is_expired']:
+            flash('Export file has expired.', 'warning')
+            return redirect(url_for('admin.export_jobs'))
+        
+        # Get file path
+        file_path = export_service.get_download_path(job_id)
+        if not file_path:
+            flash('Export file not found or has been deleted.', 'danger')
+            return redirect(url_for('admin.export_jobs'))
+        
+        # Security: Log download attempt
         current_app.logger.info(
-            f"[AUDIT] Food export requested by user {current_user.id} ({current_user.email}) "
+            f"[AUDIT] Export file download: {job_id} by user {current_user.id} "
             f"from IP: {request.remote_addr} at {datetime.utcnow().isoformat()}"
         )
         
-        # Get export parameters with validation
-        format_type = request.args.get('format', 'csv', type=str).lower()
-        category = request.args.get('category', '', type=str).strip()[:50]
-        
-        # Security: Validate format parameter
-        if format_type not in ['csv', 'json']:
-            flash('Invalid export format requested.', 'danger')
-            return redirect(url_for('admin.foods'))
-        
-        # Initialize export service
-        export_service = FoodExportService()
-        
-        # Build filters
-        filters = {}
-        if category:
-            filters['category'] = category
-            
-        # Start async export
-        job_id = export_service.start_export(
-            format_type=format_type,
-            filters=filters,
-            user_id=current_user.id
+        # Send file
+        from flask import send_file
+        return send_file(
+            file_path,
+            as_attachment=True,
+            download_name=status['filename'],
+            mimetype='application/octet-stream'
         )
         
-        # Security: Log export job started
-        current_app.logger.info(
-            f"[AUDIT] Food export job {job_id} started for user {current_user.id}"
-        )
-        
-        flash(f'Export started! Job ID: {job_id}. You will be notified when the export is ready for download.', 'info')
-        return redirect(url_for('admin.foods'))
-            
     except Exception as e:
-        # Security: Log error without exposing sensitive information
-        current_app.logger.error(
-            f'[SECURITY] Error in food export for user {current_user.id}: {str(e)}',
-            exc_info=True
+        current_app.logger.error(f'Error downloading export: {str(e)}', exc_info=True)
+        flash('Error downloading file. Please try again.', 'danger')
+        return redirect(url_for('admin.export_jobs'))
+
+
+@bp.route('/cleanup-exports', methods=['POST'])
+@login_required
+@admin_required
+def cleanup_exports():
+    """
+    Clean up expired export files.
+    """
+    try:
+        export_service = FoodExportService()
+        export_service.cleanup_expired_exports()
+        
+        # Security: Log cleanup action
+        current_app.logger.info(
+            f"[AUDIT] Export cleanup performed by user {current_user.id} "
+            f"from IP: {request.remote_addr} at {datetime.utcnow().isoformat()}"
         )
-        flash('An error occurred during export. Please try again.', 'danger')
-        return redirect(url_for('admin.foods'))
+        
+        flash('Expired export files have been cleaned up.', 'success')
+        
+    except Exception as e:
+        current_app.logger.error(f'Error cleaning up exports: {str(e)}', exc_info=True)
+        flash('Error during cleanup. Please try again.', 'danger')
+    
+    return redirect(url_for('admin.export_jobs'))

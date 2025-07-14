@@ -23,16 +23,12 @@ class FoodExportService:
     # Export formats
     SUPPORTED_FORMATS = ['csv', 'json']
     
-    # CSV headers for export
+    # CSV headers for export (updated to match current Food model)
     CSV_HEADERS = [
-        'id', 'name', 'brand', 'category', 'description', 'barcode',
-        'calories', 'protein', 'carbs', 'fat', 'fiber',
-        'base_unit', 'base_quantity', 'calories_per_base', 'protein_per_base',
-        'carbs_per_base', 'fat_per_base', 'fiber_per_base', 'sugar_per_base',
-        'sodium_per_base', 'calcium_per_base', 'iron_per_base',
-        'vitamin_c_per_base', 'vitamin_d_per_base',
-        'serving_name', 'serving_unit', 'serving_quantity',
-        'is_verified', 'created_at'
+        'id', 'name', 'brand', 'category', 'description', 
+        'calories_per_100g', 'protein_per_100g', 'carbs_per_100g', 
+        'fat_per_100g', 'fiber_per_100g', 'sugar_per_100g', 'sodium_per_100g',
+        'serving_size_g', 'is_verified', 'created_at', 'created_by'
     ]
     
     def __init__(self):
@@ -125,6 +121,9 @@ class FoodExportService:
             job.status = 'processing'
             job.started_at = datetime.utcnow()
             db.session.commit()
+            
+            # Ensure export directory exists
+            self._ensure_export_directory()
             
             # Build query with filters
             query = self._build_food_query(filters)
@@ -227,69 +226,56 @@ class FoodExportService:
             writer.writeheader()
             
             for food in foods:
-                # Get related nutrition and serving data
-                nutrition = food.nutrition_info[0] if food.nutrition_info else None
-                serving = food.servings[0] if food.servings else None
-                
+                # Build row data based on current Food model
                 row = {
                     'id': food.id,
-                    'name': food.name,
-                    'brand': food.brand or '',
-                    'category': food.category or '',
-                    'description': food.description or '',
-                    'barcode': food.barcode or '',
-                    'calories': food.calories,
-                    'protein': food.protein,
-                    'carbs': food.carbs,
-                    'fat': food.fat,
-                    'fiber': food.fiber,
+                    'name': self._sanitize_csv_value(food.name),
+                    'brand': self._sanitize_csv_value(food.brand or ''),
+                    'category': self._sanitize_csv_value(food.category or ''),
+                    'description': self._sanitize_csv_value(food.description or ''),
+                    'calories_per_100g': food.calories,
+                    'protein_per_100g': food.protein,
+                    'carbs_per_100g': food.carbs,
+                    'fat_per_100g': food.fat,
+                    'fiber_per_100g': food.fiber,
+                    'sugar_per_100g': food.sugar,
+                    'sodium_per_100g': food.sodium,
+                    'serving_size_g': food.serving_size,
                     'is_verified': food.is_verified,
-                    'created_at': food.created_at.isoformat() if food.created_at else ''
+                    'created_at': food.created_at.isoformat() if food.created_at else '',
+                    'created_by': food.created_by or ''
                 }
                 
-                # Add nutrition info
-                if nutrition:
-                    row.update({
-                        'base_unit': nutrition.base_unit,
-                        'base_quantity': nutrition.base_quantity,
-                        'calories_per_base': nutrition.calories_per_base,
-                        'protein_per_base': nutrition.protein_per_base,
-                        'carbs_per_base': nutrition.carbs_per_base,
-                        'fat_per_base': nutrition.fat_per_base,
-                        'fiber_per_base': nutrition.fiber_per_base,
-                        'sugar_per_base': nutrition.sugar_per_base,
-                        'sodium_per_base': nutrition.sodium_per_base,
-                        'calcium_per_base': nutrition.calcium_per_base,
-                        'iron_per_base': nutrition.iron_per_base,
-                        'vitamin_c_per_base': nutrition.vitamin_c_per_base,
-                        'vitamin_d_per_base': nutrition.vitamin_d_per_base
-                    })
-                else:
-                    # Fill with empty values
-                    nutrition_fields = [
-                        'base_unit', 'base_quantity', 'calories_per_base', 'protein_per_base',
-                        'carbs_per_base', 'fat_per_base', 'fiber_per_base', 'sugar_per_base',
-                        'sodium_per_base', 'calcium_per_base', 'iron_per_base',
-                        'vitamin_c_per_base', 'vitamin_d_per_base'
-                    ]
-                    for field in nutrition_fields:
-                        row[field] = ''
-                
-                # Add serving info
-                if serving:
-                    row.update({
-                        'serving_name': serving.serving_name,
-                        'serving_unit': serving.serving_unit,
-                        'serving_quantity': serving.serving_quantity
-                    })
-                else:
-                    row.update({
-                        'serving_name': '',
-                        'serving_unit': '',
-                        'serving_quantity': ''
-                    })
-                
                 writer.writerow(row)
+    
+    def _sanitize_csv_value(self, value):
+        """
+        Sanitize values for CSV export to prevent injection attacks and formatting issues.
+        
+        Args:
+            value: Value to sanitize
+            
+        Returns:
+            Sanitized string value
+        """
+        if value is None:
+            return ''
+        
+        # Convert to string and strip whitespace
+        str_value = str(value).strip()
+        
+        # Remove potentially dangerous characters that could be interpreted as formulas
+        dangerous_chars = ['=', '+', '-', '@', '\t', '\r', '\n']
+        for char in dangerous_chars:
+            if str_value.startswith(char):
+                str_value = "'" + str_value  # Prefix with quote to make it literal
+                break
+        
+        # Limit length to prevent extremely long values
+        if len(str_value) > 1000:
+            str_value = str_value[:997] + '...'
+        
+        return str_value
     
     def _export_to_json(self, foods: List[Food], file_path: str):
         """
@@ -303,7 +289,8 @@ class FoodExportService:
             'export_info': {
                 'generated_at': datetime.utcnow().isoformat(),
                 'total_records': len(foods),
-                'format': 'json'
+                'format': 'json',
+                'version': '1.0'
             },
             'foods': []
         }
@@ -315,49 +302,20 @@ class FoodExportService:
                 'brand': food.brand,
                 'category': food.category,
                 'description': food.description,
-                'barcode': food.barcode,
-                'basic_nutrition': {
+                'nutrition_per_100g': {
                     'calories': food.calories,
                     'protein': food.protein,
                     'carbs': food.carbs,
                     'fat': food.fat,
-                    'fiber': food.fiber
+                    'fiber': food.fiber,
+                    'sugar': food.sugar,
+                    'sodium': food.sodium
                 },
+                'serving_size_g': food.serving_size,
                 'is_verified': food.is_verified,
-                'created_at': food.created_at.isoformat() if food.created_at else None
+                'created_at': food.created_at.isoformat() if food.created_at else None,
+                'created_by': food.created_by
             }
-            
-            # Add detailed nutrition info
-            if food.nutrition_info:
-                nutrition = food.nutrition_info[0]
-                food_data['detailed_nutrition'] = {
-                    'base_unit': nutrition.base_unit,
-                    'base_quantity': nutrition.base_quantity,
-                    'per_base_unit': {
-                        'calories': nutrition.calories_per_base,
-                        'protein': nutrition.protein_per_base,
-                        'carbs': nutrition.carbs_per_base,
-                        'fat': nutrition.fat_per_base,
-                        'fiber': nutrition.fiber_per_base,
-                        'sugar': nutrition.sugar_per_base,
-                        'sodium': nutrition.sodium_per_base,
-                        'calcium': nutrition.calcium_per_base,
-                        'iron': nutrition.iron_per_base,
-                        'vitamin_c': nutrition.vitamin_c_per_base,
-                        'vitamin_d': nutrition.vitamin_d_per_base
-                    }
-                }
-            
-            # Add serving sizes
-            if food.servings:
-                food_data['servings'] = []
-                for serving in food.servings:
-                    food_data['servings'].append({
-                        'name': serving.serving_name,
-                        'unit': serving.serving_unit,
-                        'quantity': serving.serving_quantity,
-                        'is_default': serving.is_default
-                    })
             
             export_data['foods'].append(food_data)
         
