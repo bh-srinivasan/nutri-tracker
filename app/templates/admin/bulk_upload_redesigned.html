@@ -1,0 +1,679 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container my-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-10">
+      <!-- Main Upload Card -->
+      <div class="card shadow-lg border-0">
+        <div class="card-header bg-gradient-primary text-white py-4">
+          <div class="d-flex align-items-center">
+            <i class="fas fa-cloud-upload-alt fa-2x me-3"></i>
+            <div>
+              <h2 class="card-title mb-1">Food Database Upload</h2>
+              <p class="mb-0 opacity-75">Securely upload your nutrition data with advanced validation</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-body p-5">
+          <!-- Security Notice -->
+          <div class="alert alert-warning border-0 shadow-sm mb-4" role="alert">
+            <div class="d-flex">
+              <i class="fas fa-shield-alt text-warning me-3 mt-1"></i>
+              <div>
+                <h6 class="alert-heading mb-2">Security & Data Integrity</h6>
+                <ul class="mb-0 small">
+                  <li>All files are validated for format and content before processing</li>
+                  <li>Upload attempts are logged with timestamps and user identifiers</li>
+                  <li>Data is validated against schema and corrupt records are rejected</li>
+                  <li>Secure HTTPS transmission ensures data protection</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- Template Section -->
+          <div class="row mb-5">
+            <div class="col-md-6">
+              <div class="card border-info">
+                <div class="card-header bg-light">
+                  <h5 class="card-title mb-0">
+                    <i class="fas fa-file-csv text-info me-2"></i>Upload Template
+                  </h5>
+                </div>
+                <div class="card-body">
+                  <p class="text-muted mb-3">Use our standardized template to ensure compatibility:</p>
+                  
+                  <!-- Template Preview -->
+                  <div class="bg-light p-3 rounded mb-3">
+                    <h6 class="text-muted small mb-2">REQUIRED COLUMNS:</h6>
+                    <div class="row small">
+                      <div class="col-6">
+                        <code>name</code><br>
+                        <code>category</code><br>
+                        <code>base_unit</code><br>
+                        <code>calories_per_100g</code>
+                      </div>
+                      <div class="col-6">
+                        <code>protein_per_100g</code><br>
+                        <code>carbs_per_100g</code><br>
+                        <code>fat_per_100g</code>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="d-grid">
+                    <a href="{{ url_for('static', filename='templates/food_upload_template.csv') }}" 
+                       class="btn btn-outline-info" download>
+                      <i class="fas fa-download me-2"></i>Download Complete Template
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="card border-success">
+                <div class="card-header bg-light">
+                  <h5 class="card-title mb-0">
+                    <i class="fas fa-check-circle text-success me-2"></i>Validation Rules
+                  </h5>
+                </div>
+                <div class="card-body">
+                  <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                      <i class="fas fa-check text-success me-2"></i>
+                      <strong>File Format:</strong> CSV files only
+                    </li>
+                    <li class="mb-2">
+                      <i class="fas fa-check text-success me-2"></i>
+                      <strong>Encoding:</strong> UTF-8 supported
+                    </li>
+                    <li class="mb-2">
+                      <i class="fas fa-check text-success me-2"></i>
+                      <strong>Size Limit:</strong> Maximum 10MB
+                    </li>
+                    <li class="mb-2">
+                      <i class="fas fa-check text-success me-2"></i>
+                      <strong>Data Types:</strong> Numeric values validated
+                    </li>
+                    <li class="mb-0">
+                      <i class="fas fa-check text-success me-2"></i>
+                      <strong>Duplicates:</strong> Automatically detected
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Upload Section -->
+          <div class="card border-primary">
+            <div class="card-header bg-primary text-white">
+              <h5 class="card-title mb-0">
+                <i class="fas fa-upload me-2"></i>Upload Your Data
+              </h5>
+            </div>
+            <div class="card-body">
+              <!-- Upload Form -->
+              <form id="asyncUploadForm" enctype="multipart/form-data" class="mb-4">
+                <div class="row">
+                  <div class="col-md-8">
+                    <div class="mb-3">
+                      <label for="csvFile" class="form-label fw-bold">Select CSV File</label>
+                      <input type="file" 
+                             class="form-control form-control-lg" 
+                             id="csvFile" 
+                             name="file" 
+                             accept=".csv"
+                             required>
+                      <div class="form-text">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Only CSV files are accepted. Maximum size: 10MB
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-4 d-flex align-items-end">
+                    <div class="d-grid w-100">
+                      <button type="submit" class="btn btn-primary btn-lg" id="uploadBtn">
+                        <i class="fas fa-cloud-upload-alt me-2"></i>
+                        Start Upload
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </form>
+
+              <!-- Progress Section -->
+              <div id="uploadProgress" class="d-none">
+                <div class="card bg-light border-0">
+                  <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                      <div class="spinner-border spinner-border-sm text-primary me-3" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                      </div>
+                      <div>
+                        <h6 class="mb-0">Processing your upload...</h6>
+                        <small class="text-muted">Job ID: <span id="jobId"></span></small>
+                      </div>
+                    </div>
+                    <div class="progress mb-2" style="height: 8px;">
+                      <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                           role="progressbar" 
+                           id="progressBar" 
+                           style="width: 0%">
+                      </div>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                      <small class="text-muted" id="progressText">Initializing...</small>
+                      <small class="text-muted" id="progressStats"></small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Status Messages -->
+              <div id="alertContainer"></div>
+
+              <!-- Important Notice -->
+              <div class="alert alert-info border-0 mt-4" role="alert">
+                <div class="d-flex">
+                  <i class="fas fa-info-circle text-info me-3 mt-1"></i>
+                  <div>
+                    <strong>Asynchronous Processing:</strong> 
+                    This is an asynchronous upload. You can view the status and progress in the 
+                    <a href="{{ url_for('admin.upload_jobs') }}" class="alert-link">Upload Jobs section</a>.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Navigation -->
+          <div class="d-flex justify-content-between mt-4">
+            <a href="{{ url_for('admin.foods') }}" class="btn btn-outline-secondary">
+              <i class="fas fa-arrow-left me-2"></i>Back to Foods
+            </a>
+            <a href="{{ url_for('admin.upload_jobs') }}" class="btn btn-outline-primary">
+              <i class="fas fa-tasks me-2"></i>View Upload Jobs
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Detailed Instructions Modal -->
+<div class="modal fade" id="instructionsModal" tabindex="-1" aria-labelledby="instructionsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="instructionsModalLabel">
+          <i class="fas fa-book me-2"></i>Detailed Upload Instructions
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Detailed instructions content -->
+        <div class="row">
+          <div class="col-md-6">
+            <h6 class="text-primary">Basic Information</h6>
+            <ul class="mb-4">
+              <li><strong>name</strong> - Food name (required)</li>
+              <li><strong>brand</strong> - Brand name (optional)</li>
+              <li><strong>category</strong> - Food category (required)</li>
+              <li><strong>base_unit</strong> - Base unit for nutrition (required)</li>
+            </ul>
+          </div>
+          
+          <div class="col-md-6">
+            <h6 class="text-success">Nutrition (per 100 units of base_unit)</h6>
+            <ul class="mb-4">
+              <li><strong>calories_per_100g</strong> - Calories (required)</li>
+              <li><strong>protein_per_100g</strong> - Protein in g (required)</li>
+              <li><strong>carbs_per_100g</strong> - Carbs in g (required)</li>
+              <li><strong>fat_per_100g</strong> - Fat in g (required)</li>
+              <li><strong>fiber_per_100g</strong> - Fiber in g (optional)</li>
+              <li><strong>sugar_per_100g</strong> - Sugar in g (optional)</li>
+              <li><strong>sodium_per_100g</strong> - Sodium in mg (optional)</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-12">
+            <h6 class="text-warning">Serving Information (optional but recommended)</h6>
+            <ul class="mb-4">
+              <li><strong>serving_name</strong> - Serving name (e.g., "1 cup", "1 medium")</li>
+              <li><strong>serving_quantity</strong> - Serving quantity</li>
+              <li><strong>serving_unit</strong> - Serving unit (g, ml, oz, etc.)</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Supported Units -->
+        <div class="alert alert-info" role="alert">
+          <h6 class="alert-heading">
+            <i class="fas fa-balance-scale me-2"></i>Supported Units
+          </h6>
+          <div class="row">
+            <div class="col-md-3">
+              <strong>Weight:</strong>
+              <ul class="small mb-0">
+                <li>g (grams)</li>
+                <li>kg (kilograms)</li>
+                <li>oz (ounces)</li>
+                <li>lb (pounds)</li>
+              </ul>
+            </div>
+            <div class="col-md-3">
+              <strong>Volume:</strong>
+              <ul class="small mb-0">
+                <li>ml (milliliters)</li>
+                <li>l (liters)</li>
+                <li>fl oz (fluid ounces)</li>
+                <li>cup</li>
+              </ul>
+            </div>
+            <div class="col-md-3">
+              <strong>Count:</strong>
+              <ul class="small mb-0">
+                <li>piece</li>
+                <li>item</li>
+                <li>serving</li>
+              </ul>
+            </div>
+            <div class="col-md-3">
+              <strong>Other:</strong>
+              <ul class="small mb-0">
+                <li>tbsp (tablespoon)</li>
+                <li>tsp (teaspoon)</li>
+                <li>slice</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <a href="{{ url_for('static', filename='templates/food_upload_template.csv') }}" 
+           class="btn btn-primary" download>
+          <i class="fas fa-download me-2"></i>Download Template
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Enhanced JavaScript for Async Upload -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // DOM Elements
+    const uploadForm = document.getElementById('asyncUploadForm');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const fileInput = document.getElementById('csvFile');
+    const progressSection = document.getElementById('uploadProgress');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const progressStats = document.getElementById('progressStats');
+    const jobIdSpan = document.getElementById('jobId');
+    const alertContainer = document.getElementById('alertContainer');
+
+    // Security: File validation constants
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    const ALLOWED_EXTENSIONS = ['.csv'];
+    const ALLOWED_MIME_TYPES = ['text/csv', 'application/csv'];
+
+    // Upload tracking
+    let currentJobId = null;
+    let statusCheckInterval = null;
+
+    /**
+     * Security: Validate file before upload
+     * Implements client-side validation for security and UX
+     */
+    function validateFile(file) {
+        const errors = [];
+
+        // Check file size
+        if (file.size > MAX_FILE_SIZE) {
+            errors.push(`File size (${(file.size / 1024 / 1024).toFixed(2)}MB) exceeds maximum limit of 10MB`);
+        }
+
+        // Check file extension
+        const extension = '.' + file.name.split('.').pop().toLowerCase();
+        if (!ALLOWED_EXTENSIONS.includes(extension)) {
+            errors.push(`File type '${extension}' is not allowed. Only CSV files are supported.`);
+        }
+
+        // Check MIME type if available
+        if (file.type && !ALLOWED_MIME_TYPES.includes(file.type)) {
+            errors.push(`File MIME type '${file.type}' is not allowed.`);
+        }
+
+        // Basic filename security check
+        if (file.name.includes('..') || file.name.includes('/') || file.name.includes('\\')) {
+            errors.push('Invalid filename detected. Please use a simple filename without special characters.');
+        }
+
+        return errors;
+    }
+
+    /**
+     * Display alert messages with enhanced styling
+     */
+    function showAlert(message, type = 'info', dismissible = true) {
+        const alertId = 'alert-' + Date.now();
+        const dismissButton = dismissible ? `
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        ` : '';
+
+        const alertHtml = `
+            <div class="alert alert-${type} alert-dismissible fade show border-0 shadow-sm" role="alert" id="${alertId}">
+                <div class="d-flex align-items-start">
+                    <i class="fas fa-${getAlertIcon(type)} me-3 mt-1"></i>
+                    <div class="flex-grow-1">${message}</div>
+                    ${dismissButton}
+                </div>
+            </div>
+        `;
+
+        alertContainer.insertAdjacentHTML('beforeend', alertHtml);
+
+        // Auto-dismiss success messages after 5 seconds
+        if (type === 'success' && dismissible) {
+            setTimeout(() => {
+                const alert = document.getElementById(alertId);
+                if (alert) {
+                    const bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                }
+            }, 5000);
+        }
+    }
+
+    /**
+     * Get appropriate icon for alert type
+     */
+    function getAlertIcon(type) {
+        const icons = {
+            'success': 'check-circle',
+            'error': 'exclamation-triangle',
+            'warning': 'exclamation-circle',
+            'info': 'info-circle',
+            'danger': 'exclamation-triangle'
+        };
+        return icons[type] || 'info-circle';
+    }
+
+    /**
+     * Update upload progress display
+     */
+    function updateProgress(progress, status, stats = null) {
+        progressBar.style.width = progress + '%';
+        progressBar.setAttribute('aria-valuenow', progress);
+        progressText.textContent = status;
+        
+        if (stats) {
+            progressStats.textContent = `${stats.processed || 0}/${stats.total || 0} records`;
+        }
+
+        // Update progress bar color based on status
+        progressBar.className = 'progress-bar progress-bar-striped';
+        if (progress >= 100) {
+            progressBar.classList.add('bg-success');
+        } else {
+            progressBar.classList.add('progress-bar-animated');
+        }
+    }
+
+    /**
+     * Check upload job status with enhanced error handling
+     */
+    function checkJobStatus(jobId) {
+        fetch(`/admin/bulk-upload-status/${jobId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Job status:', data);
+
+            const progress = Math.round((data.processed_items / Math.max(data.total_items, 1)) * 100);
+            
+            // Update progress display
+            updateProgress(
+                progress, 
+                data.status === 'running' ? 'Processing...' : data.status,
+                {
+                    processed: data.processed_items,
+                    total: data.total_items
+                }
+            );
+
+            // Handle job completion
+            if (data.status === 'completed') {
+                clearInterval(statusCheckInterval);
+                progressSection.classList.add('d-none');
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i>Start Upload';
+
+                const successMsg = `Upload completed successfully! 
+                    ${data.processed_items} records processed. 
+                    <a href="/admin/upload-jobs" class="alert-link">View detailed results</a>`;
+                showAlert(successMsg, 'success');
+
+            } else if (data.status === 'failed') {
+                clearInterval(statusCheckInterval);
+                progressSection.classList.add('d-none');
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i>Start Upload';
+
+                const errorMsg = `Upload failed: ${data.error_message || 'Unknown error'}. 
+                    <a href="/admin/upload-jobs" class="alert-link">View error details</a>`;
+                showAlert(errorMsg, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error checking job status:', error);
+            
+            // Don't stop checking immediately on network errors
+            // Let it retry a few times before giving up
+            if (statusCheckInterval) {
+                let retryCount = parseInt(progressText.dataset.retryCount || '0');
+                if (retryCount >= 3) {
+                    clearInterval(statusCheckInterval);
+                    showAlert('Lost connection to server. Please check the Upload Jobs page for status.', 'warning');
+                } else {
+                    progressText.dataset.retryCount = (retryCount + 1).toString();
+                }
+            }
+        });
+    }
+
+    /**
+     * Handle form submission with enhanced security and validation
+     */
+    uploadForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const file = fileInput.files[0];
+        if (!file) {
+            showAlert('Please select a CSV file to upload.', 'warning');
+            return;
+        }
+
+        // Security: Validate file
+        const validationErrors = validateFile(file);
+        if (validationErrors.length > 0) {
+            showAlert(`File validation failed:<br>• ${validationErrors.join('<br>• ')}`, 'danger');
+            return;
+        }
+
+        // Clear any previous alerts
+        alertContainer.innerHTML = '';
+
+        // Prepare form data with security headers
+        const formData = new FormData();
+        formData.append('file', file);
+
+        // Update UI to show upload in progress
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Starting...';
+        
+        // Security: Log upload attempt
+        console.log(`[SECURITY] Upload attempt - File: ${file.name}, Size: ${file.size}, Type: ${file.type}, User: ${window.currentUserId || 'unknown'}`);
+
+        // Start async upload with enhanced error handling
+        fetch('/admin/bulk-upload-async', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': document.querySelector('meta[name=csrf-token]')?.content || ''
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(data => {
+                    throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                currentJobId = data.job_id;
+                jobIdSpan.textContent = currentJobId;
+                
+                // Show progress section
+                progressSection.classList.remove('d-none');
+                updateProgress(0, 'Initializing upload...');
+                
+                // Start checking status
+                statusCheckInterval = setInterval(() => {
+                    checkJobStatus(currentJobId);
+                }, 2000);
+
+                showAlert(`Upload started successfully! Job ID: ${currentJobId}`, 'success');
+                
+                // Reset form
+                fileInput.value = '';
+                
+            } else {
+                throw new Error(data.error || 'Upload failed');
+            }
+        })
+        .catch(error => {
+            console.error('Upload error:', error);
+            
+            // Reset UI
+            uploadBtn.disabled = false;
+            uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i>Start Upload';
+            progressSection.classList.add('d-none');
+            
+            showAlert(`Upload failed: ${error.message}`, 'danger');
+        });
+    });
+
+    /**
+     * File input change handler with preview
+     */
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            // Clear previous alerts
+            alertContainer.innerHTML = '';
+            
+            // Validate file and show preview
+            const validationErrors = validateFile(file);
+            if (validationErrors.length > 0) {
+                showAlert(`File validation warnings:<br>• ${validationErrors.join('<br>• ')}`, 'warning');
+                return;
+            }
+
+            // Show file info
+            const fileSize = (file.size / 1024 / 1024).toFixed(2);
+            showAlert(`File selected: <strong>${file.name}</strong> (${fileSize} MB)`, 'info', true);
+        }
+    });
+
+    // Security: Clear any sensitive data on page unload
+    window.addEventListener('beforeunload', function() {
+        if (statusCheckInterval) {
+            clearInterval(statusCheckInterval);
+        }
+    });
+});
+</script>
+
+<!-- Custom Styles for Enhanced UI -->
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+}
+
+.card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+.progress {
+    background-color: #e9ecef;
+    border-radius: 0.5rem;
+}
+
+.alert {
+    border-radius: 0.5rem;
+}
+
+.form-control:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.btn {
+    border-radius: 0.5rem;
+    transition: all 0.2s ease-in-out;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+code {
+    background-color: #f8f9fa;
+    color: #d63384;
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+    font-size: 0.875em;
+}
+
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}
+
+.text-gradient {
+    background: linear-gradient(45deg, #007bff, #6f42c1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+</style>
+
+{% endblock %}

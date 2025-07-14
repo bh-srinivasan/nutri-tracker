@@ -13,19 +13,19 @@
     --info-color: #17a2b8;
     --light-color: #f8f9fa;
     --dark-color: #343a40;
-    
+
     --font-family-sans-serif: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --font-size-base: 1rem;
     --line-height-base: 1.5;
-    
+
     --border-radius: 0.375rem;
     --border-radius-lg: 0.5rem;
     --border-radius-sm: 0.25rem;
-    
+
     --box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
     --box-shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
     --box-shadow-lg: 0 1rem 3rem rgba(0, 0, 0, 0.175);
-    
+
     --transition-base: all 0.15s ease-in-out;
 }
 
@@ -166,13 +166,15 @@ body {
 }
 
 /* Form Enhancements */
-.form-control, .form-select {
+.form-control,
+.form-select {
     border-radius: var(--border-radius);
     border: 1px solid #e9ecef;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.form-control:focus, .form-select:focus {
+.form-control:focus,
+.form-select:focus {
     border-color: var(--primary-color);
     box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
 }
@@ -242,44 +244,51 @@ body {
 }
 
 /* Dynamic column widths for better responsive design */
-.user-management-table th:nth-child(1), /* Name */
+.user-management-table th:nth-child(1),
+/* Name */
 .user-management-table td:nth-child(1) {
     min-width: 150px;
     width: auto;
 }
 
-.user-management-table th:nth-child(2), /* Status */
+.user-management-table th:nth-child(2),
+/* Status */
 .user-management-table td:nth-child(2) {
     width: 100px;
     text-align: center;
 }
 
 /* Additional Information columns (when show_details is enabled) */
-.user-management-table.show-details th:nth-child(3), /* ID */
+.user-management-table.show-details th:nth-child(3),
+/* ID */
 .user-management-table.show-details td:nth-child(3) {
     width: 60px;
     text-align: center;
 }
 
-.user-management-table.show-details th:nth-child(4), /* Email */
+.user-management-table.show-details th:nth-child(4),
+/* Email */
 .user-management-table.show-details td:nth-child(4) {
     min-width: 200px;
     width: auto;
 }
 
-.user-management-table.show-details th:nth-child(5), /* Role */
+.user-management-table.show-details th:nth-child(5),
+/* Role */
 .user-management-table.show-details td:nth-child(5) {
     width: 80px;
     text-align: center;
 }
 
-.user-management-table.show-details th:nth-child(6), /* Joined */
+.user-management-table.show-details th:nth-child(6),
+/* Joined */
 .user-management-table.show-details td:nth-child(6) {
     width: 100px;
     text-align: center;
 }
 
-.user-management-table.show-details th:nth-child(7), /* Last Login */
+.user-management-table.show-details th:nth-child(7),
+/* Last Login */
 .user-management-table.show-details td:nth-child(7) {
     width: 140px;
     text-align: center;
@@ -311,12 +320,12 @@ body {
     .user-management-table {
         font-size: 0.875rem;
     }
-    
+
     .user-management-table th,
     .user-management-table td {
         padding: 0.5rem;
     }
-    
+
     .user-management-table .btn-group-sm .btn {
         padding: 0.2rem 0.4rem;
         font-size: 0.7rem;
@@ -327,18 +336,18 @@ body {
     .user-management-table {
         font-size: 0.8rem;
     }
-    
+
     /* Stack action buttons vertically on small screens */
     .user-management-table .btn-group {
         flex-direction: column;
         gap: 2px;
     }
-    
+
     .user-management-table .btn-group .btn {
         margin: 0;
         width: 100%;
     }
-    
+
     /* Reduce padding on mobile */
     .user-management-table th,
     .user-management-table td {
@@ -507,10 +516,12 @@ body {
         background-color: transparent;
         transform: scale(1);
     }
+
     50% {
         background-color: rgba(40, 167, 69, 0.2);
         transform: scale(1.01);
     }
+
     100% {
         background-color: rgba(40, 167, 69, 0.1);
         transform: scale(1);
@@ -523,6 +534,7 @@ body {
         opacity: 0;
         transform: translateY(-20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -544,7 +556,7 @@ body.transitioning {
     transition: color 0.2s ease;
 }
 
-.form-check-input:checked + .form-check-label small {
+.form-check-input:checked+.form-check-label small {
     color: #28a745 !important;
 }
 
@@ -587,20 +599,20 @@ body.transitioning {
         padding-left: 15px;
         padding-right: 15px;
     }
-    
+
     .card-body {
         padding: 1rem;
     }
-    
+
     .nutrition-card .card-title {
         font-size: 1.5rem;
     }
-    
+
     .btn-group {
         flex-direction: column;
         width: 100%;
     }
-    
+
     .btn-group .btn {
         margin-bottom: 0.5rem;
     }
@@ -610,11 +622,11 @@ body.transitioning {
     .modal-dialog {
         margin: 0.5rem;
     }
-    
+
     .table-responsive {
         font-size: 0.9rem;
     }
-    
+
     .nutrition-card {
         padding: 1rem;
     }
@@ -630,6 +642,7 @@ body.transitioning {
         opacity: 0;
         transform: translateY(20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -645,6 +658,7 @@ body.transitioning {
         opacity: 0;
         transform: translateX(-30px);
     }
+
     to {
         opacity: 1;
         transform: translateX(0);
@@ -659,9 +673,11 @@ body.transitioning {
     0% {
         transform: scale(1);
     }
+
     50% {
         transform: scale(1.05);
     }
+
     100% {
         transform: scale(1);
     }
@@ -673,28 +689,29 @@ body.transitioning {
         --light-color: #343a40;
         --dark-color: #f8f9fa;
     }
-    
+
     body {
         background-color: #121212;
         color: #ffffff;
     }
-    
+
     .card {
         background-color: #1e1e1e;
         color: #ffffff;
     }
-    
-    .form-control, .form-select {
+
+    .form-control,
+    .form-select {
         background-color: #2d2d2d;
         border-color: #404040;
         color: #ffffff;
     }
-    
+
     .table {
         background-color: #1e1e1e;
         color: #ffffff;
     }
-    
+
     .table thead th {
         background-color: #2d2d2d;
     }
@@ -702,15 +719,19 @@ body.transitioning {
 
 /* Print Styles */
 @media print {
-    .navbar, .btn, .modal, .sidebar {
+
+    .navbar,
+    .btn,
+    .modal,
+    .sidebar {
         display: none !important;
     }
-    
+
     .main-content {
         margin: 0 !important;
         padding: 0 !important;
     }
-    
+
     .card {
         box-shadow: none;
         border: 1px solid #ccc;

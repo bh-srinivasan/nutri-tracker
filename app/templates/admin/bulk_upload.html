@@ -1,66 +1,515 @@
-{% extends "base.html" %}
-
-{% block content %}
+{% extends "base.html" %} {% block content %}
 <div class="container my-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card shadow">
-                <div class="card-header bg-info text-white">
-                    <h3 class="card-title m-0">
-                        <i class="fas fa-upload me-2"></i>Bulk Upload Foods
-                    </h3>
-                </div>
-                <div class="card-body p-4">
-                    <div class="alert alert-info" role="alert">
-                        <h5 class="alert-heading">
-                            <i class="fas fa-info-circle me-2"></i>Upload Instructions
-                        </h5>
-                        <p class="mb-2">
-                            Upload a CSV file with the following columns:
-                        </p>
-                        <ul class="mb-3">
-                            <li><strong>name</strong> - Food name (required)</li>
-                            <li><strong>category</strong> - Food category (required)</li>
-                            <li><strong>brand</strong> - Brand name (optional)</li>
-                            <li><strong>serving_size</strong> - Serving size in grams (required)</li>
-                            <li><strong>calories</strong> - Calories per serving (required)</li>
-                            <li><strong>protein</strong> - Protein in grams (required)</li>
-                            <li><strong>carbs</strong> - Carbohydrates in grams (required)</li>
-                            <li><strong>fat</strong> - Fat in grams (required)</li>
-                            <li><strong>fiber</strong> - Fiber in grams (optional)</li>
-                            <li><strong>sugar</strong> - Sugar in grams (optional)</li>
-                            <li><strong>sodium</strong> - Sodium in mg (optional)</li>
-                        </ul>
-                        <a href="{{ url_for('static', filename='templates/food_upload_template.csv') }}" 
-                           class="btn btn-outline-info btn-sm">
-                            <i class="fas fa-download me-2"></i>Download Template
-                        </a>
-                    </div>
-                    
-                    <form method="POST">
-                        {{ form.hidden_tag() }}
-                        
-                        <div class="mb-4">
-                            {{ form.csv_data.label(class="form-label") }}
-                            {{ form.csv_data(class="form-control") }}
-                            {% for error in form.csv_data.errors %}
-                                <div class="text-danger small">{{ error }}</div>
-                            {% endfor %}
-                            <div class="form-text">
-                                Paste your CSV data here. Use the template format above.
-                            </div>
-                        </div>
-                        
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <a href="{{ url_for('admin.foods') }}" class="btn btn-secondary me-md-2">
-                                <i class="fas fa-times me-2"></i>Cancel
-                            </a>
-                            {{ form.submit(class="btn btn-info") }}
-                        </div>
-                    </form>
-                </div>
-            </div>
+  <div class="row justify-content-center">
+    <div class="col-md-10">
+      <div class="card shadow">
+        <div class="card-header bg-info text-white">
+          <h3 class="card-title m-0">
+            <i class="fas fa-upload me-2"></i>Bulk Upload Foods with UOM Support
+          </h3>
         </div>
+        <div class="card-body p-4">
+          <div class="alert alert-info" role="alert">
+            <h5 class="alert-heading">
+              <i class="fas fa-info-circle me-2"></i>Upload Instructions
+            </h5>
+            <p class="mb-2">Upload a CSV file with the following columns:</p>
+            
+            <!-- Basic Food Information -->
+            <div class="row">
+              <div class="col-md-6">
+                <h6 class="text-primary">Basic Information</h6>
+                <ul class="mb-3">
+                  <li><strong>name</strong> - Food name (required)</li>
+                  <li><strong>brand</strong> - Brand name (optional)</li>
+                  <li><strong>category</strong> - Food category (required)</li>
+                  <li><strong>description</strong> - Description (optional)</li>
+                  <li><strong>base_unit</strong> - Base unit for nutrition (required)</li>
+                </ul>
+              </div>
+              
+              <!-- Nutrition Information -->
+              <div class="col-md-6">
+                <h6 class="text-success">Nutrition (per 100 units of base_unit)</h6>
+                <ul class="mb-3">
+                  <li><strong>calories_per_100g</strong> - Calories (required)</li>
+                  <li><strong>protein_per_100g</strong> - Protein in g (required)</li>
+                  <li><strong>carbs_per_100g</strong> - Carbs in g (required)</li>
+                  <li><strong>fat_per_100g</strong> - Fat in g (required)</li>
+                  <li><strong>fiber_per_100g</strong> - Fiber in g (optional)</li>
+                  <li><strong>sugar_per_100g</strong> - Sugar in g (optional)</li>
+                  <li><strong>sodium_per_100g</strong> - Sodium in mg (optional)</li>
+                </ul>
+              </div>
+            </div>
+            
+            <!-- Serving Information -->
+            <div class="row">
+              <div class="col-md-12">
+                <h6 class="text-warning">Serving Information (optional but recommended)</h6>
+                <ul class="mb-3">
+                  <li><strong>serving_name</strong> - Serving name (e.g., "1 cup", "1 medium")</li>
+                  <li><strong>serving_quantity</strong> - Serving quantity</li>
+                  <li><strong>serving_unit</strong> - Serving unit (g, ml, oz, etc.)</li>
+                </ul>
+              </div>
+            </div>
+            
+            <!-- Supported Units -->
+            <div class="alert alert-warning" role="alert">
+              <h6 class="alert-heading">
+                <i class="fas fa-balance-scale me-2"></i>Supported Units
+              </h6>
+              <div class="row">
+                <div class="col-md-3">
+                  <strong>Weight:</strong>
+                  <ul class="small mb-0">
+                    <li>g (grams)</li>
+                    <li>kg (kilograms)</li>
+                    <li>oz (ounces)</li>
+                    <li>lb (pounds)</li>
+                  </ul>
+                </div>
+                <div class="col-md-3">
+                  <strong>Volume:</strong>
+                  <ul class="small mb-0">
+                    <li>ml (milliliters)</li>
+                    <li>l (liters)</li>
+                    <li>fl oz (fluid ounces)</li>
+                    <li>cup</li>
+                  </ul>
+                </div>
+                <div class="col-md-3">
+                  <strong>Count:</strong>
+                  <ul class="small mb-0">
+                    <li>piece</li>
+                    <li>item</li>
+                    <li>serving</li>
+                  </ul>
+                </div>
+                <div class="col-md-3">
+                  <strong>Other:</strong>
+                  <ul class="small mb-0">
+                    <li>tbsp (tablespoon)</li>
+                    <li>tsp (teaspoon)</li>
+                    <li>slice</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            
+            <div class="d-flex gap-2">
+              <a
+                href="{{ url_for('static', filename='templates/food_upload_template.csv') }}"
+                class="btn btn-outline-info btn-sm"
+              >
+                <i class="fas fa-download me-2"></i>Download Template
+              </a>
+              <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#conversionModal">
+                <i class="fas fa-calculator me-2"></i>Unit Converter
+              </button>
+            </div>
+          </div>
+
+          <form method="POST">
+            {{ form.hidden_tag() }}
+
+            <div class="mb-4">
+              {{ form.csv_data.label(class="form-label") }} 
+              {{ form.csv_data(class="form-control", rows="12") }} 
+              {% for error in form.csv_data.errors %}
+              <div class="text-danger small">{{ error }}</div>
+              {% endfor %}
+              <div class="form-text">
+                Paste your CSV data here using the UOM-enabled template format above.
+              </div>
+            </div>
+
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+              <a
+                href="{{ url_for('admin.foods') }}"
+                class="btn btn-secondary me-md-2"
+              >
+                <i class="fas fa-times me-2"></i>Cancel
+              </a>
+              {{ form.submit(class="btn btn-info") }}
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
+  </div>
 </div>
+
+<!-- Unit Conversion Modal -->
+<div class="modal fade" id="conversionModal" tabindex="-1" aria-labelledby="conversionModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="conversionModalLabel">
+          <i class="fas fa-calculator me-2"></i>Unit Converter
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+          <div class="col-md-6">
+            <h6>Convert From</h6>
+            <div class="mb-3">
+              <label class="form-label">Value</label>
+              <input type="number" class="form-control" id="convertFromValue" step="0.01" placeholder="Enter value">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Unit</label>
+              <select class="form-select" id="convertFromUnit">
+                <option value="g">grams (g)</option>
+                <option value="kg">kilograms (kg)</option>
+                <option value="oz">ounces (oz)</option>
+                <option value="lb">pounds (lb)</option>
+                <option value="ml">milliliters (ml)</option>
+                <option value="l">liters (l)</option>
+                <option value="fl oz">fluid ounces (fl oz)</option>
+                <option value="cup">cups</option>
+                <option value="tbsp">tablespoons (tbsp)</option>
+                <option value="tsp">teaspoons (tsp)</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <h6>Convert To</h6>
+            <div class="mb-3">
+              <label class="form-label">Value</label>
+              <input type="number" class="form-control" id="convertToValue" readonly>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Unit</label>
+              <select class="form-select" id="convertToUnit">
+                <option value="g">grams (g)</option>
+                <option value="kg">kilograms (kg)</option>
+                <option value="oz">ounces (oz)</option>
+                <option value="lb">pounds (lb)</option>
+                <option value="ml">milliliters (ml)</option>
+                <option value="l">liters (l)</option>
+                <option value="fl oz">fluid ounces (fl oz)</option>
+                <option value="cup">cups</option>
+                <option value="tbsp">tablespoons (tbsp)</option>
+                <option value="tsp">teaspoons (tsp)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="text-center">
+          <button type="button" class="btn btn-primary" onclick="convertUnits()">
+            <i class="fas fa-exchange-alt me-2"></i>Convert
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Async Upload Option -->
+<div class="card mt-4">
+  <div class="card-header bg-primary text-white">
+    <h5 class="mb-0">
+      <i class="fas fa-rocket me-2"></i>Async Upload (Recommended for Large Files)
+    </h5>
+  </div>
+  <div class="card-body">
+    <p>For large files or better performance, use async upload which processes files in the background.</p>
+    
+    <form id="asyncUploadForm" enctype="multipart/form-data">
+      {{ form.hidden_tag() }}
+      <div class="mb-3">
+        <label for="asyncFile" class="form-label">Select CSV File</label>
+        <input type="file" class="form-control" id="asyncFile" name="file" accept=".csv" required>
+        <div class="form-text">Select a CSV file with food data to upload</div>
+      </div>
+      
+      <button type="submit" class="btn btn-primary" id="asyncUploadBtn">
+        <i class="fas fa-upload me-2"></i>Start Async Upload
+      </button>
+    </form>
+    
+    <!-- Progress Area -->
+    <div id="uploadProgress" class="mt-4" style="display: none;">
+      <div class="card bg-light">
+        <div class="card-body">
+          <h6>Upload Progress</h6>
+          <div class="progress mb-2" style="height: 25px;">
+            <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                 role="progressbar" style="width: 0%">0%</div>
+          </div>
+          <div id="progressText" class="text-muted">Initializing...</div>
+          <div id="progressDetails" class="mt-2"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Unit conversion functionality
+function convertUnits() {
+  const fromValue = parseFloat(document.getElementById('convertFromValue').value);
+  const fromUnit = document.getElementById('convertFromUnit').value;
+  const toUnit = document.getElementById('convertToUnit').value;
+  
+  if (!fromValue || fromValue <= 0) {
+    alert('Please enter a valid value to convert');
+    return;
+  }
+  
+  // Conversion factors to grams/ml
+  const conversions = {
+    // Weight
+    'g': 1,
+    'kg': 1000,
+    'oz': 28.3495,
+    'lb': 453.592,
+    // Volume
+    'ml': 1,
+    'l': 1000,
+    'fl oz': 29.5735,
+    'cup': 240,
+    'tbsp': 15,
+    'tsp': 5
+  };
+  
+  // Check if conversion is possible
+  const weightUnits = ['g', 'kg', 'oz', 'lb'];
+  const volumeUnits = ['ml', 'l', 'fl oz', 'cup', 'tbsp', 'tsp'];
+  
+  const fromIsWeight = weightUnits.includes(fromUnit);
+  const toIsWeight = weightUnits.includes(toUnit);
+  const fromIsVolume = volumeUnits.includes(fromUnit);
+  const toIsVolume = volumeUnits.includes(toUnit);
+  
+  if ((fromIsWeight && !toIsWeight) || (fromIsVolume && !toIsVolume)) {
+    alert('Cannot convert between weight and volume units');
+    return;
+  }
+  
+  // Convert to base unit (g or ml) then to target
+  const baseValue = fromValue * conversions[fromUnit];
+  const result = baseValue / conversions[toUnit];
+  
+  document.getElementById('convertToValue').value = result.toFixed(4);
+}
+
+// Update conversion when inputs change
+document.getElementById('convertFromValue').addEventListener('input', convertUnits);
+document.getElementById('convertFromUnit').addEventListener('change', convertUnits);
+document.getElementById('convertToUnit').addEventListener('change', convertUnits);
+
+// Async upload functionality
+document.getElementById('asyncUploadForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  
+  console.log('Async upload form submitted');
+  
+  const fileInput = document.getElementById('asyncFile');
+  const uploadBtn = document.getElementById('asyncUploadBtn');
+  const file = fileInput.files[0];
+  
+  if (!file) {
+    alert('Please select a CSV file');
+    return;
+  }
+  
+  if (!file.name.toLowerCase().endsWith('.csv')) {
+    alert('Please select a CSV file');
+    return;
+  }
+  
+  console.log('File selected:', file.name, 'Size:', file.size);
+  
+  // Disable upload button and show progress
+  uploadBtn.disabled = true;
+  uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Uploading...';
+  
+  // Show progress area
+  const progressArea = document.getElementById('uploadProgress');
+  const progressBar = document.getElementById('progressBar');
+  const progressText = document.getElementById('progressText');
+  
+  progressArea.style.display = 'block';
+  progressText.textContent = 'Starting upload...';
+  progressBar.style.width = '0%';
+  progressBar.textContent = '0%';
+  progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
+  
+  // Create form data
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  // Add CSRF token
+  const csrfToken = document.querySelector('input[name="csrf_token"]');
+  if (csrfToken) {
+    formData.append('csrf_token', csrfToken.value);
+  }
+  
+  console.log('Starting fetch request to /admin/bulk-upload-async');
+  
+  // Start async upload
+  fetch('/admin/bulk-upload-async', {
+    method: 'POST',
+    body: formData,
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest'
+    }
+  })
+  .then(response => {
+    console.log('Response status:', response.status);
+    console.log('Response headers:', response.headers);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    return response.json();
+  })
+  .then(data => {
+    console.log('Response data:', data);
+    
+    if (data.error) {
+      throw new Error(data.error);
+    }
+    
+    if (data.success && data.job_id) {
+      progressText.textContent = 'Upload started successfully! Processing...';
+      console.log('Starting progress polling for job:', data.job_id);
+      
+      // Start polling for progress
+      pollUploadProgress(data.job_id);
+    } else {
+      throw new Error('Invalid response format');
+    }
+  })
+  .catch(error => {
+    console.error('Upload error:', error);
+    
+    progressText.textContent = 'Upload failed: ' + error.message;
+    progressBar.className = 'progress-bar bg-danger';
+    progressBar.style.width = '100%';
+    progressBar.textContent = 'Failed';
+    
+    // Re-enable upload button
+    uploadBtn.disabled = false;
+    uploadBtn.innerHTML = '<i class="fas fa-upload me-2"></i>Start Async Upload';
+    
+    // Show alert for better user feedback
+    alert('Upload failed: ' + error.message);
+  });
+});
+
+function pollUploadProgress(jobId) {
+  const progressBar = document.getElementById('progressBar');
+  const progressText = document.getElementById('progressText');
+  const progressDetails = document.getElementById('progressDetails');
+  const uploadBtn = document.getElementById('asyncUploadBtn');
+  
+  console.log('Polling progress for job:', jobId);
+  
+  function checkStatus() {
+    fetch(`/admin/bulk-upload-status/${jobId}`)
+      .then(response => {
+        console.log('Status response:', response.status);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        return response.json();
+      })
+      .then(data => {
+        console.log('Status data:', data);
+        
+        if (data.error) {
+          throw new Error(data.error);
+        }
+        
+        // Update progress
+        const percentage = data.progress_percentage || 0;
+        progressBar.style.width = percentage + '%';
+        progressBar.textContent = percentage + '%';
+        
+        // Update status text
+        progressText.textContent = `Status: ${data.status} - ${data.processed_rows || 0}/${data.total_rows || 0} rows processed`;
+        
+        // Update details
+        let detailsHtml = `
+          <div class="row">
+            <div class="col-md-4">
+              <small><strong>Successful:</strong> <span class="text-success">${data.successful_rows || 0}</span></small>
+            </div>
+            <div class="col-md-4">
+              <small><strong>Failed:</strong> <span class="text-danger">${data.failed_rows || 0}</span></small>
+            </div>
+            <div class="col-md-4">
+              <small><strong>Job ID:</strong> <code>${data.job_id}</code></small>
+            </div>
+          </div>
+        `;
+        progressDetails.innerHTML = detailsHtml;
+        
+        // Check if completed
+        if (data.status === 'completed') {
+          progressBar.className = 'progress-bar bg-success';
+          progressText.textContent = `Upload completed! ${data.successful_rows || 0} foods added successfully.`;
+          
+          if (data.failed_rows > 0) {
+            progressText.textContent += ` ${data.failed_rows} rows failed.`;
+          }
+          
+          // Add link to view details
+          progressDetails.innerHTML += `
+            <div class="mt-2">
+              <a href="/admin/upload-jobs" class="btn btn-info btn-sm">View Upload Jobs</a>
+              <a href="/admin/foods" class="btn btn-success btn-sm">View Foods</a>
+            </div>
+          `;
+          
+          // Re-enable upload button
+          uploadBtn.disabled = false;
+          uploadBtn.innerHTML = '<i class="fas fa-upload me-2"></i>Start Async Upload';
+          
+          console.log('Upload completed successfully');
+          
+        } else if (data.status === 'failed') {
+          progressBar.className = 'progress-bar bg-danger';
+          progressText.textContent = 'Upload failed: ' + (data.error_message || 'Unknown error');
+          
+          // Re-enable upload button
+          uploadBtn.disabled = false;
+          uploadBtn.innerHTML = '<i class="fas fa-upload me-2"></i>Start Async Upload';
+          
+          console.error('Upload failed:', data.error_message);
+          
+        } else if (data.status === 'processing') {
+          // Continue polling
+          console.log('Still processing, continuing to poll...');
+          setTimeout(checkStatus, 2000);
+        } else {
+          // Unknown status, continue polling
+          console.log('Unknown status:', data.status, 'continuing to poll...');
+          setTimeout(checkStatus, 2000);
+        }
+      })
+      .catch(error => {
+        console.error('Status check error:', error);
+        progressText.textContent = 'Error checking status: ' + error.message;
+        progressBar.className = 'progress-bar bg-danger';
+        
+        // Re-enable upload button
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = '<i class="fas fa-upload me-2"></i>Start Async Upload';
+      });
+  }
+  
+  // Start checking status
+  checkStatus();
+}
+</script>
+
 {% endblock %}

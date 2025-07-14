@@ -1,182 +1,200 @@
-{% extends "base.html" %}
-
-{% block title %}Admin Dashboard{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% block title %}Admin Dashboard{% endblock %} {%
+block content %}
 <div class="container-fluid mt-4">
-    <div class="row">
-        <div class="col-md-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1 class="h3 mb-0">Admin Dashboard</h1>
-                <div class="btn-group" role="group">
-                    <a href="{{ url_for('admin.users') }}" class="btn btn-outline-primary">
-                        <i class="fas fa-users"></i> Manage Users
-                    </a>
-                    <a href="{{ url_for('admin.foods') }}" class="btn btn-outline-success">
-                        <i class="fas fa-apple-alt"></i> Manage Foods
-                    </a>
-                    <a href="{{ url_for('admin.bulk_upload_foods') }}" class="btn btn-outline-info">
-                        <i class="fas fa-upload"></i> Bulk Upload
-                    </a>
-                </div>
-            </div>
+  <div class="row">
+    <div class="col-md-12">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">Admin Dashboard</h1>
+        <div class="btn-group" role="group">
+          <a
+            href="{{ url_for('admin.users') }}"
+            class="btn btn-outline-primary"
+          >
+            <i class="fas fa-users"></i> Manage Users
+          </a>
+          <a
+            href="{{ url_for('admin.foods') }}"
+            class="btn btn-outline-success"
+          >
+            <i class="fas fa-apple-alt"></i> Manage Foods
+          </a>
+          <a
+            href="{{ url_for('admin.bulk_upload_foods') }}"
+            class="btn btn-outline-info"
+          >
+            <i class="fas fa-upload"></i> Bulk Upload
+          </a>
+          <a
+            href="{{ url_for('admin.upload_jobs') }}"
+            class="btn btn-outline-primary"
+          >
+            <i class="fas fa-tasks"></i> Upload Jobs
+          </a>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Statistics Cards -->
+  <div class="row mb-4">
+    <div class="col-md-3">
+      <div class="card bg-primary text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h4 class="card-title">{{ stats.total_users }}</h4>
+              <p class="card-text">Total Users</p>
+            </div>
+            <div class="align-self-center">
+              <i class="fas fa-users fa-2x"></i>
+            </div>
+          </div>
+          <small class="text-light"
+            >{{ stats.active_users }} active users</small
+          >
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card bg-success text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h4 class="card-title">{{ stats.total_foods }}</h4>
+              <p class="card-text">Food Items</p>
+            </div>
+            <div class="align-self-center">
+              <i class="fas fa-apple-alt fa-2x"></i>
+            </div>
+          </div>
+          <small class="text-light">{{ stats.verified_foods }} verified</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card bg-info text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h4 class="card-title">{{ stats.active_users_30d }}</h4>
+              <p class="card-text">Active (30d)</p>
+            </div>
+            <div class="align-self-center">
+              <i class="fas fa-chart-line fa-2x"></i>
+            </div>
+          </div>
+          <small class="text-light">Users in last 30 days</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card bg-warning text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h4 class="card-title">{{ stats.recent_logs }}</h4>
+              <p class="card-text">Recent Logs</p>
+            </div>
+            <div class="align-self-center">
+              <i class="fas fa-clipboard-list fa-2x"></i>
+            </div>
+          </div>
+          <small class="text-light">Logs in last 7 days</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- Recent Users -->
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">
+            <i class="fas fa-user-plus"></i> Recent Users
+          </h5>
+        </div>
+        <div class="card-body">
+          {% if recent_users %}
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Joined</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for user in recent_users %}
+                <tr>
+                  <td>{{ user.first_name }} {{ user.last_name }}</td>
+                  <td>{{ user.email }}</td>
+                  <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                  <td>
+                    <span
+                      class="badge bg-{{ 'success' if user.is_active else 'secondary' }}"
+                    >
+                      {{ 'Active' if user.is_active else 'Inactive' }}
+                    </span>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <p class="text-muted">No recent users found.</p>
+          {% endif %}
+        </div>
+      </div>
     </div>
 
-    <!-- Statistics Cards -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card bg-primary text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h4 class="card-title">{{ stats.total_users }}</h4>
-                            <p class="card-text">Total Users</p>
-                        </div>
-                        <div class="align-self-center">
-                            <i class="fas fa-users fa-2x"></i>
-                        </div>
-                    </div>
-                    <small class="text-light">{{ stats.active_users }} active users</small>
-                </div>
-            </div>
+    <!-- Recent Foods -->
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">
+            <i class="fas fa-plus-circle"></i> Recent Foods
+          </h5>
         </div>
-        <div class="col-md-3">
-            <div class="card bg-success text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h4 class="card-title">{{ stats.total_foods }}</h4>
-                            <p class="card-text">Food Items</p>
-                        </div>
-                        <div class="align-self-center">
-                            <i class="fas fa-apple-alt fa-2x"></i>
-                        </div>
-                    </div>
-                    <small class="text-light">{{ stats.verified_foods }} verified</small>
-                </div>
-            </div>
+        <div class="card-body">
+          {% if recent_foods %}
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Brand</th>
+                  <th>Added</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for food in recent_foods %}
+                <tr>
+                  <td>{{ food.name }}</td>
+                  <td>{{ food.brand or '-' }}</td>
+                  <td>{{ food.created_at.strftime('%Y-%m-%d') }}</td>
+                  <td>
+                    <span
+                      class="badge bg-{{ 'success' if food.is_verified else 'warning' }}"
+                    >
+                      {{ 'Verified' if food.is_verified else 'Pending' }}
+                    </span>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <p class="text-muted">No recent foods found.</p>
+          {% endif %}
         </div>
-        <div class="col-md-3">
-            <div class="card bg-info text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h4 class="card-title">{{ stats.active_users_30d }}</h4>
-                            <p class="card-text">Active (30d)</p>
-                        </div>
-                        <div class="align-self-center">
-                            <i class="fas fa-chart-line fa-2x"></i>
-                        </div>
-                    </div>
-                    <small class="text-light">Users in last 30 days</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card bg-warning text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h4 class="card-title">{{ stats.recent_logs }}</h4>
-                            <p class="card-text">Recent Logs</p>
-                        </div>
-                        <div class="align-self-center">
-                            <i class="fas fa-clipboard-list fa-2x"></i>
-                        </div>
-                    </div>
-                    <small class="text-light">Logs in last 7 days</small>
-                </div>
-            </div>
-        </div>
+      </div>
     </div>
-
-    <div class="row">
-        <!-- Recent Users -->
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-user-plus"></i> Recent Users
-                    </h5>
-                </div>
-                <div class="card-body">
-                    {% if recent_users %}
-                        <div class="table-responsive">
-                            <table class="table table-sm">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Email</th>
-                                        <th>Joined</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for user in recent_users %}
-                                    <tr>
-                                        <td>{{ user.first_name }} {{ user.last_name }}</td>
-                                        <td>{{ user.email }}</td>
-                                        <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
-                                        <td>
-                                            <span class="badge bg-{{ 'success' if user.is_active else 'secondary' }}">
-                                                {{ 'Active' if user.is_active else 'Inactive' }}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% else %}
-                        <p class="text-muted">No recent users found.</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <!-- Recent Foods -->
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-plus-circle"></i> Recent Foods
-                    </h5>
-                </div>
-                <div class="card-body">
-                    {% if recent_foods %}
-                        <div class="table-responsive">
-                            <table class="table table-sm">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Brand</th>
-                                        <th>Added</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for food in recent_foods %}
-                                    <tr>
-                                        <td>{{ food.name }}</td>
-                                        <td>{{ food.brand or '-' }}</td>
-                                        <td>{{ food.created_at.strftime('%Y-%m-%d') }}</td>
-                                        <td>
-                                            <span class="badge bg-{{ 'success' if food.is_verified else 'warning' }}">
-                                                {{ 'Verified' if food.is_verified else 'Pending' }}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% else %}
-                        <p class="text-muted">No recent foods found.</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
+  </div>
 </div>
 {% endblock %}

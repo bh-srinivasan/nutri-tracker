@@ -1,0 +1,4 @@
+name,brand,category,base_unit,calories_per_100g,protein_per_100g,carbs_per_100g,fat_per_100g,fiber_per_100g,sugar_per_100g,sodium_per_100g,description
+"Test Apple","TestBrand","Fruits","g",52,0.3,14,0.2,2.4,10,1,"Sweet red apple for testing"
+"Test Banana","TestBrand","Fruits","g",89,1.1,23,0.3,2.6,12,1,"Yellow banana for testing"
+"Test Chicken Breast","TestBrand","Protein","g",165,31,0,3.6,0,0,74,"Skinless chicken breast"

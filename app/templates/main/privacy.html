@@ -1,52 +1,64 @@
-{% extends "base.html" %}
-
-{% block content %}
+{% extends "base.html" %} {% block content %}
 <div class="container my-5">
-    <div class="row">
-        <div class="col-lg-8 mx-auto">
-            <h1 class="display-4 text-center mb-5">Privacy Policy</h1>
-            
-            <div class="card shadow">
-                <div class="card-body p-5">
-                    <p class="text-muted mb-4">Last updated: {{ moment().format('MMMM DD, YYYY') }}</p>
-                    
-                    <h2 class="h4 mb-3">Information We Collect</h2>
-                    <p>We collect information you provide directly to us, such as when you create an account, log meals, or contact us for support.</p>
-                    
-                    <h2 class="h4 mb-3 mt-4">How We Use Your Information</h2>
-                    <ul>
-                        <li>To provide and maintain our service</li>
-                        <li>To track your nutrition and fitness goals</li>
-                        <li>To send you technical notices and support messages</li>
-                        <li>To respond to your comments and questions</li>
-                    </ul>
-                    
-                    <h2 class="h4 mb-3 mt-4">Information Security</h2>
-                    <p>We take reasonable measures to help protect your personal information from loss, theft, and unauthorized access.</p>
-                    
-                    <h2 class="h4 mb-3 mt-4">Data Retention</h2>
-                    <p>We will retain your personal information only for as long as is necessary for the purposes set out in this Privacy Policy.</p>
-                    
-                    <h2 class="h4 mb-3 mt-4">Your Rights</h2>
-                    <p>You have the right to:</p>
-                    <ul>
-                        <li>Access and update your personal information</li>
-                        <li>Delete your account and personal data</li>
-                        <li>Object to processing of your personal information</li>
-                        <li>Request restriction of processing</li>
-                    </ul>
-                    
-                    <h2 class="h4 mb-3 mt-4">Contact Us</h2>
-                    <p>If you have any questions about this Privacy Policy, please contact us at privacy@nutritracker.com</p>
-                    
-                    <div class="text-center mt-5">
-                        <a href="{{ url_for('main.index') }}" class="btn btn-primary">
-                            <i class="fas fa-home me-2"></i>Back to Home
-                        </a>
-                    </div>
-                </div>
-            </div>
+  <div class="row">
+    <div class="col-lg-8 mx-auto">
+      <h1 class="display-4 text-center mb-5">Privacy Policy</h1>
+
+      <div class="card shadow">
+        <div class="card-body p-5">
+          <p class="text-muted mb-4">
+            Last updated: {{ moment().format('MMMM DD, YYYY') }}
+          </p>
+
+          <h2 class="h4 mb-3">Information We Collect</h2>
+          <p>
+            We collect information you provide directly to us, such as when you
+            create an account, log meals, or contact us for support.
+          </p>
+
+          <h2 class="h4 mb-3 mt-4">How We Use Your Information</h2>
+          <ul>
+            <li>To provide and maintain our service</li>
+            <li>To track your nutrition and fitness goals</li>
+            <li>To send you technical notices and support messages</li>
+            <li>To respond to your comments and questions</li>
+          </ul>
+
+          <h2 class="h4 mb-3 mt-4">Information Security</h2>
+          <p>
+            We take reasonable measures to help protect your personal
+            information from loss, theft, and unauthorized access.
+          </p>
+
+          <h2 class="h4 mb-3 mt-4">Data Retention</h2>
+          <p>
+            We will retain your personal information only for as long as is
+            necessary for the purposes set out in this Privacy Policy.
+          </p>
+
+          <h2 class="h4 mb-3 mt-4">Your Rights</h2>
+          <p>You have the right to:</p>
+          <ul>
+            <li>Access and update your personal information</li>
+            <li>Delete your account and personal data</li>
+            <li>Object to processing of your personal information</li>
+            <li>Request restriction of processing</li>
+          </ul>
+
+          <h2 class="h4 mb-3 mt-4">Contact Us</h2>
+          <p>
+            If you have any questions about this Privacy Policy, please contact
+            us at privacy@nutritracker.com
+          </p>
+
+          <div class="text-center mt-5">
+            <a href="{{ url_for('main.index') }}" class="btn btn-primary">
+              <i class="fas fa-home me-2"></i>Back to Home
+            </a>
+          </div>
         </div>
+      </div>
     </div>
+  </div>
 </div>
 {% endblock %}

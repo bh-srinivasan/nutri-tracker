@@ -1,130 +1,131 @@
-{% extends "base.html" %}
-
-{% block content %}
+{% extends "base.html" %} {% block content %}
 <div class="container my-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card shadow">
-                <div class="card-header bg-primary text-white">
-                    <h3 class="card-title m-0">
-                        <i class="fas fa-user-circle me-2"></i>User Profile
-                    </h3>
-                </div>
-                <div class="card-body p-4">
-                    <form method="POST" enctype="multipart/form-data">
-                        {{ form.hidden_tag() }}
-                        
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    {{ form.username.label(class="form-label") }}
-                                    {{ form.username(class="form-control") }}
-                                    {% for error in form.username.errors %}
-                                        <div class="text-danger small">{{ error }}</div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    {{ form.email.label(class="form-label") }}
-                                    {{ form.email(class="form-control") }}
-                                    {% for error in form.email.errors %}
-                                        <div class="text-danger small">{{ error }}</div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    {{ form.first_name.label(class="form-label") }}
-                                    {{ form.first_name(class="form-control") }}
-                                    {% for error in form.first_name.errors %}
-                                        <div class="text-danger small">{{ error }}</div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    {{ form.last_name.label(class="form-label") }}
-                                    {{ form.last_name(class="form-control") }}
-                                    {% for error in form.last_name.errors %}
-                                        <div class="text-danger small">{{ error }}</div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    {{ form.age.label(class="form-label") }}
-                                    {{ form.age(class="form-control") }}
-                                    {% for error in form.age.errors %}
-                                        <div class="text-danger small">{{ error }}</div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    {{ form.gender.label(class="form-label") }}
-                                    {{ form.gender(class="form-control") }}
-                                    {% for error in form.gender.errors %}
-                                        <div class="text-danger small">{{ error }}</div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    {{ form.activity_level.label(class="form-label") }}
-                                    {{ form.activity_level(class="form-control") }}
-                                    {% for error in form.activity_level.errors %}
-                                        <div class="text-danger small">{{ error }}</div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    {{ form.height.label(class="form-label") }}
-                                    <div class="input-group">
-                                        {{ form.height(class="form-control") }}
-                                        <span class="input-group-text">cm</span>
-                                    </div>
-                                    {% for error in form.height.errors %}
-                                        <div class="text-danger small">{{ error }}</div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    {{ form.weight.label(class="form-label") }}
-                                    <div class="input-group">
-                                        {{ form.weight(class="form-control") }}
-                                        <span class="input-group-text">kg</span>
-                                    </div>
-                                    {% for error in form.weight.errors %}
-                                        <div class="text-danger small">{{ error }}</div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <a href="{{ url_for('dashboard.index') }}" class="btn btn-secondary me-md-2">
-                                <i class="fas fa-times me-2"></i>Cancel
-                            </a>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save me-2"></i>Update Profile
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+          <h3 class="card-title m-0">
+            <i class="fas fa-user-circle me-2"></i>User Profile
+          </h3>
         </div>
+        <div class="card-body p-4">
+          <form method="POST" enctype="multipart/form-data">
+            {{ form.hidden_tag() }}
+
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  {{ form.username.label(class="form-label") }} {{
+                  form.username(class="form-control") }} {% for error in
+                  form.username.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  {{ form.email.label(class="form-label") }} {{
+                  form.email(class="form-control") }} {% for error in
+                  form.email.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  {{ form.first_name.label(class="form-label") }} {{
+                  form.first_name(class="form-control") }} {% for error in
+                  form.first_name.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  {{ form.last_name.label(class="form-label") }} {{
+                  form.last_name(class="form-control") }} {% for error in
+                  form.last_name.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-4">
+                <div class="mb-3">
+                  {{ form.age.label(class="form-label") }} {{
+                  form.age(class="form-control") }} {% for error in
+                  form.age.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="mb-3">
+                  {{ form.gender.label(class="form-label") }} {{
+                  form.gender(class="form-control") }} {% for error in
+                  form.gender.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="mb-3">
+                  {{ form.activity_level.label(class="form-label") }} {{
+                  form.activity_level(class="form-control") }} {% for error in
+                  form.activity_level.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  {{ form.height.label(class="form-label") }}
+                  <div class="input-group">
+                    {{ form.height(class="form-control") }}
+                    <span class="input-group-text">cm</span>
+                  </div>
+                  {% for error in form.height.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  {{ form.weight.label(class="form-label") }}
+                  <div class="input-group">
+                    {{ form.weight(class="form-control") }}
+                    <span class="input-group-text">kg</span>
+                  </div>
+                  {% for error in form.weight.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+              <a
+                href="{{ url_for('dashboard.index') }}"
+                class="btn btn-secondary me-md-2"
+              >
+                <i class="fas fa-times me-2"></i>Cancel
+              </a>
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save me-2"></i>Update Profile
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
+  </div>
 </div>
 {% endblock %}
