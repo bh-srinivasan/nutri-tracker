@@ -1,0 +1,1849 @@
+{% extends "base.html" %} {% block title %}Food Uploads - Admin{% endblock %} {%
+block content %}
+<div class="container-fluid mt-4">
+  <div class="row justify-content-center">
+    <div class="col-12">
+      <!-- Header Section -->
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex align-items-center">
+          <i class="fas fa-cloud-upload-alt fa-2x text-primary me-3"></i>
+          <div>
+            <h1 class="h3 mb-0">Food Uploads</h1>
+            <p class="text-muted mb-0">
+              Manage bulk food data uploads and track processing status
+            </p>
+          </div>
+        </div>
+        <div class="btn-group" role="group">
+          <a
+            href="{{ url_for('admin.dashboard') }}"
+            class="btn btn-outline-secondary"
+          >
+            <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+          </a>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="card shadow-sm">
+        <div class="card-header border-0 bg-light">
+          <ul
+            class="nav nav-pills card-header-pills"
+            id="uploadTabs"
+            role="tablist"
+          >
+            <li class="nav-item" role="presentation">
+              <button
+                class="nav-link active"
+                id="upload-tab"
+                data-bs-toggle="pill"
+                data-bs-target="#upload-panel"
+                type="button"
+                role="tab"
+                aria-controls="upload-panel"
+                aria-selected="true"
+                title="Upload new food data files"
+              >
+                <i class="fas fa-upload me-2"></i>Upload Food Data
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button
+                class="nav-link"
+                id="history-tab"
+                data-bs-toggle="pill"
+                data-bs-target="#history-panel"
+                type="button"
+                role="tab"
+                aria-controls="history-panel"
+                aria-selected="false"
+                title="View upload history and job status"
+              >
+                <i class="fas fa-history me-2"></i>Upload History {% if
+                pending_jobs_count > 0 %}
+                <span class="badge bg-warning text-dark ms-2"
+                  >{{ pending_jobs_count }}</span
+                >
+                {% endif %}
+              </button>
+            </li>
+          </ul>
+        </div>
+
+        <div class="card-body p-0">
+          <div class="tab-content" id="uploadTabsContent">
+            <!-- Upload Food Data Panel -->
+            <div
+              class="tab-pane fade show active"
+              id="upload-panel"
+              role="tabpanel"
+              aria-labelledby="upload-tab"
+              tabindex="0"
+            >
+              <!-- Security Notice -->
+              <div class="alert alert-info border-0 m-4 mb-3" role="alert">
+                <div class="d-flex">
+                  <i class="fas fa-shield-alt text-info me-3 mt-1"></i>
+                  <div>
+                    <h6 class="alert-heading mb-2">
+                      Security & Data Integrity
+                    </h6>
+                    <ul class="mb-0 small">
+                      <li>
+                        All files are validated for format and content before
+                        processing
+                      </li>
+                      <li>
+                        Upload attempts are logged with timestamps and user
+                        identifiers
+                      </li>
+                      <li>
+                        Data is validated against schema and corrupt records are
+                        rejected
+                      </li>
+                      <li>Secure HTTPS transmission ensures data protection</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div class="p-4">
+                <!-- Template Section -->
+                <div class="row mb-4">
+                  <div class="col-lg-6">
+                    <div class="card border-info h-100">
+                      <div class="card-header bg-light">
+                        <h5 class="card-title mb-0">
+                          <i class="fas fa-file-csv text-info me-2"></i>Upload
+                          Template
+                        </h5>
+                      </div>
+                      <div class="card-body">
+                        <p class="text-muted mb-3">
+                          Use our standardized template to ensure compatibility:
+                        </p>
+
+                        <!-- Template Preview -->
+                        <div class="bg-light p-3 rounded mb-3">
+                          <h6 class="text-muted small mb-2">
+                            REQUIRED COLUMNS:
+                          </h6>
+                          <div class="row small">
+                            <div class="col-6">
+                              <code>name</code><br />
+                              <code>category</code><br />
+                              <code>base_unit</code><br />
+                              <code>calories_per_100g</code>
+                            </div>
+                            <div class="col-6">
+                              <code>protein_per_100g</code><br />
+                              <code>carbs_per_100g</code><br />
+                              <code>fat_per_100g</code>
+                            </div>
+                          </div>
+                          <h6 class="text-muted small mb-2 mt-2">
+                            OPTIONAL COLUMNS:
+                          </h6>
+                          <div class="row small">
+                            <div class="col-6">
+                              <code>brand</code><br />
+                              <code>description</code><br />
+                              <code>fiber_per_100g</code>
+                            </div>
+                            <div class="col-6">
+                              <code>sugar_per_100g</code><br />
+                              <code>sodium_per_100g</code><br />
+                              <code>serving_name</code>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div class="d-grid">
+                          <a
+                            href="{{ url_for('static', filename='templates/food_upload_template_v2.csv') }}"
+                            class="btn btn-outline-info"
+                            download
+                            title="Download the complete CSV template with sample data including description field"
+                          >
+                            <i class="fas fa-download me-2"></i>Download
+                            Complete Template
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="col-lg-6">
+                    <div class="card border-success h-100">
+                      <div class="card-header bg-light">
+                        <h5 class="card-title mb-0">
+                          <i class="fas fa-check-circle text-success me-2"></i
+                          >Validation Rules
+                        </h5>
+                      </div>
+                      <div class="card-body">
+                        <ul class="list-unstyled mb-0">
+                          <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            <strong>File Format:</strong> CSV files only
+                          </li>
+                          <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            <strong>Encoding:</strong> UTF-8 supported
+                          </li>
+                          <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            <strong>Size Limit:</strong> Maximum 10MB
+                          </li>
+                          <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            <strong>Data Types:</strong> Numeric values
+                            validated
+                          </li>
+                          <li class="mb-0">
+                            <i class="fas fa-check text-success me-2"></i>
+                            <strong>Duplicates:</strong> Automatically detected
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Upload Section -->
+                <div class="card border-primary">
+                  <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                      <i class="fas fa-upload me-2"></i>Upload Your Data
+                    </h5>
+                  </div>
+                  <div class="card-body">
+                    <!-- Upload Form -->
+                    <form
+                      id="asyncUploadForm"
+                      enctype="multipart/form-data"
+                      class="mb-4"
+                    >
+                      <div class="row align-items-end">
+                        <div class="col-md-8">
+                          <div class="mb-3">
+                            <label for="csvFile" class="form-label fw-bold"
+                              >Select CSV File</label
+                            >
+                            <input
+                              type="file"
+                              class="form-control form-control-lg"
+                              id="csvFile"
+                              name="file"
+                              accept=".csv"
+                              required
+                              aria-describedby="csvFileHelp"
+                            />
+                            <div id="csvFileHelp" class="form-text">
+                              <i class="fas fa-info-circle me-1"></i>
+                              Only CSV files are accepted. Maximum size: 10MB
+                            </div>
+                          </div>
+                        </div>
+                        <div class="col-md-4">
+                          <div class="d-grid mb-3">
+                            <button
+                              type="submit"
+                              class="btn btn-primary btn-lg"
+                              id="uploadBtn"
+                            >
+                              <i class="fas fa-cloud-upload-alt me-2"></i>
+                              Start Upload
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </form>
+
+                    <!-- Progress Section -->
+                    <div id="uploadProgress" class="d-none">
+                      <div class="card bg-light border-0">
+                        <div class="card-body">
+                          <div class="d-flex align-items-center mb-3">
+                            <div
+                              class="spinner-border spinner-border-sm text-primary me-3"
+                              role="status"
+                            >
+                              <span class="visually-hidden"
+                                >Processing upload...</span
+                              >
+                            </div>
+                            <div>
+                              <h6 class="mb-0">Processing your upload...</h6>
+                              <small class="text-muted"
+                                >Job ID: <span id="jobId"></span
+                              ></small>
+                            </div>
+                          </div>
+                          <div class="progress mb-2" style="height: 10px">
+                            <div
+                              class="progress-bar progress-bar-striped progress-bar-animated"
+                              role="progressbar"
+                              id="progressBar"
+                              style="width: 0%"
+                              aria-valuenow="0"
+                              aria-valuemin="0"
+                              aria-valuemax="100"
+                            ></div>
+                          </div>
+                          <div class="d-flex justify-content-between">
+                            <small class="text-muted" id="progressText"
+                              >Initializing...</small
+                            >
+                            <small
+                              class="text-muted"
+                              id="progressStats"
+                            ></small>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Status Messages -->
+                    <div
+                      id="alertContainer"
+                      role="alert"
+                      aria-live="polite"
+                    ></div>
+
+                    <!-- Important Notice -->
+                    <div class="alert alert-info border-0 mt-4" role="alert">
+                      <div class="d-flex">
+                        <i class="fas fa-info-circle text-info me-3 mt-1"></i>
+                        <div>
+                          <strong>Asynchronous Processing:</strong>
+                          Your upload will be processed in the background.
+                          Switch to the <strong>Upload History</strong> tab to
+                          monitor progress and view detailed results.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Upload History Panel -->
+            <div
+              class="tab-pane fade"
+              id="history-panel"
+              role="tabpanel"
+              aria-labelledby="history-tab"
+              tabindex="0"
+            >
+              <div class="p-4">
+                <!-- History Header -->
+                <div
+                  class="d-flex justify-content-between align-items-center mb-4"
+                >
+                  <div>
+                    <h4 class="mb-1">Upload History</h4>
+                    <p class="text-muted mb-0">
+                      Track the status and progress of your food data uploads
+                    </p>
+                  </div>
+                  <div class="btn-group" role="group">
+                    <button
+                      type="button"
+                      class="btn btn-outline-primary"
+                      id="refreshJobsBtn"
+                      title="Refresh job status"
+                    >
+                      <i class="fas fa-sync-alt me-2"></i>Refresh
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      onclick="switchToUploadTab()"
+                      title="Start a new upload"
+                    >
+                      <i class="fas fa-plus me-2"></i>New Upload
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Jobs Table -->
+                {% if jobs and jobs.items %}
+                <div class="card">
+                  <div class="card-header">
+                    <div
+                      class="d-flex justify-content-between align-items-center"
+                    >
+                      <h5 class="mb-0">Recent Upload Jobs</h5>
+                      <small class="text-muted">
+                        Showing {{ jobs.items|length }} of {{ jobs.total }} jobs
+                      </small>
+                    </div>
+                  </div>
+                  <div class="card-body p-0">
+                    <div class="table-responsive">
+                      <table
+                        class="table table-striped table-hover mb-0"
+                        id="jobsTable"
+                      >
+                        <thead class="table-dark">
+                          <tr>
+                            <th scope="col">Job ID</th>
+                            <th scope="col">Filename</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Progress</th>
+                            <th scope="col">Total Rows</th>
+                            <th scope="col">Success</th>
+                            <th scope="col">Failed</th>
+                            <th scope="col">Created</th>
+                            <th scope="col">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {% for job in jobs.items %}
+                          <tr
+                            data-job-id="{{ job.job_id }}"
+                            class="job-row {% if job.status == 'processing' %}table-warning{% endif %}"
+                          >
+                            <td>
+                              <code class="small">{{ job.job_id[:8] }}...</code>
+                            </td>
+                            <td>
+                              <i class="fas fa-file-csv text-muted me-2"></i>
+                              {{ job.filename }}
+                            </td>
+                            <td>
+                              {% if job.status == 'completed' %}
+                              <span class="badge bg-success">
+                                <i class="fas fa-check me-1"></i>{{
+                                job.status.title() }}
+                              </span>
+                              {% elif job.status == 'failed' %}
+                              <span class="badge bg-danger">
+                                <i class="fas fa-times me-1"></i>{{
+                                job.status.title() }}
+                              </span>
+                              {% elif job.status == 'processing' %}
+                              <span class="badge bg-warning text-dark">
+                                <i class="fas fa-spinner fa-spin me-1"></i>{{
+                                job.status.title() }}
+                              </span>
+                              {% else %}
+                              <span class="badge bg-secondary">
+                                <i class="fas fa-clock me-1"></i>{{
+                                job.status.title() }}
+                              </span>
+                              {% endif %}
+                            </td>
+                            <td>
+                              {% set progress = ((job.processed_rows /
+                              job.total_rows * 100) if job.total_rows > 0 else
+                              0) | round %}
+                              <div
+                                class="progress"
+                                style="width: 100px; height: 8px"
+                              >
+                                <div
+                                  class="progress-bar {% if job.status == 'completed' %}bg-success {% elif job.status == 'failed' %}bg-danger {% elif job.status == 'processing' %}bg-warning {% else %}bg-secondary{% endif %}"
+                                  data-progress="{{ progress }}"
+                                  role="progressbar"
+                                  aria-valuenow="{{ progress }}"
+                                  aria-valuemin="0"
+                                  aria-valuemax="100"
+                                ></div>
+                              </div>
+                              <small class="text-muted">{{ progress }}%</small>
+                            </td>
+                            <td>{{ job.total_rows or 0 }}</td>
+                            <td>
+                              <span class="text-success"
+                                >{{ job.successful_rows or 0 }}</span
+                              >
+                            </td>
+                            <td>
+                              <span class="text-danger"
+                                >{{ job.failed_rows or 0 }}</span
+                              >
+                            </td>
+                            <td>
+                              <small
+                                title="{{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') }}"
+                              >
+                                {{ job.created_at.strftime('%m/%d %H:%M') }}
+                              </small>
+                            </td>
+                            <td>
+                              <div class="btn-group btn-group-sm" role="group">
+                                <button
+                                  type="button"
+                                  class="btn btn-outline-primary view-details-btn"
+                                  data-job-id="{{ job.job_id }}"
+                                  title="View detailed results"
+                                >
+                                  <i class="fas fa-eye"></i>
+                                </button>
+                                {% if job.status == 'processing' %}
+                                <button
+                                  type="button"
+                                  class="btn btn-outline-info refresh-job-btn"
+                                  data-job-id="{{ job.job_id }}"
+                                  title="Refresh status"
+                                >
+                                  <i class="fas fa-sync-alt"></i>
+                                </button>
+                                {% endif %}
+                              </div>
+                            </td>
+                          </tr>
+                          {% endfor %}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Pagination -->
+                {% if jobs.pages > 1 %}
+                <nav aria-label="Upload jobs pagination" class="mt-4">
+                  <ul class="pagination justify-content-center">
+                    {% if jobs.has_prev %}
+                    <li class="page-item">
+                      <a
+                        class="page-link"
+                        href="{{ url_for('admin.food_uploads', tab='history', page=jobs.prev_num) }}"
+                      >
+                        <i class="fas fa-chevron-left"></i> Previous
+                      </a>
+                    </li>
+                    {% endif %} {% for page_num in jobs.iter_pages() %} {% if
+                    page_num %} {% if page_num != jobs.page %}
+                    <li class="page-item">
+                      <a
+                        class="page-link"
+                        href="{{ url_for('admin.food_uploads', tab='history', page=page_num) }}"
+                        >{{ page_num }}</a
+                      >
+                    </li>
+                    {% else %}
+                    <li class="page-item active">
+                      <span class="page-link">{{ page_num }}</span>
+                    </li>
+                    {% endif %} {% else %}
+                    <li class="page-item disabled">
+                      <span class="page-link">...</span>
+                    </li>
+                    {% endif %} {% endfor %} {% if jobs.has_next %}
+                    <li class="page-item">
+                      <a
+                        class="page-link"
+                        href="{{ url_for('admin.food_uploads', tab='history', page=jobs.next_num) }}"
+                      >
+                        Next <i class="fas fa-chevron-right"></i>
+                      </a>
+                    </li>
+                    {% endif %}
+                  </ul>
+                </nav>
+                {% endif %} {% else %}
+                <!-- No Jobs State -->
+                <div class="text-center py-5">
+                  <i class="fas fa-cloud-upload-alt fa-4x text-muted mb-3"></i>
+                  <h5 class="text-muted mb-3">No upload jobs found</h5>
+                  <p class="text-muted mb-4">
+                    Start by uploading your first food data file
+                  </p>
+                  <button
+                    type="button"
+                    class="btn btn-primary"
+                    onclick="switchToUploadTab()"
+                  >
+                    <i class="fas fa-upload me-2"></i>Upload Food Data
+                  </button>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Job Details Modal -->
+<div
+  class="modal fade"
+  id="jobDetailsModal"
+  tabindex="-1"
+  aria-labelledby="jobDetailsModalLabel"
+  aria-hidden="true"
+>
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="jobDetailsModalLabel">
+          <i class="fas fa-info-circle me-2"></i>Upload Job Details
+        </h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <div id="jobDetailsContent">
+          <div class="text-center py-4">
+            <div class="spinner-border" role="status">
+              <span class="visually-hidden">Loading job details...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Enhanced JavaScript for Unified Food Uploads Interface -->
+<script>
+  /**
+   * Unified Food Uploads Management System
+   * Handles both upload functionality and job history with seamless integration
+   */
+
+  class FoodUploadsManager {
+    constructor() {
+      // DOM Elements
+      this.uploadForm = document.getElementById("asyncUploadForm");
+      this.uploadBtn = document.getElementById("uploadBtn");
+      this.fileInput = document.getElementById("csvFile");
+      this.progressSection = document.getElementById("uploadProgress");
+      this.progressBar = document.getElementById("progressBar");
+      this.progressText = document.getElementById("progressText");
+      this.progressStats = document.getElementById("progressStats");
+      this.jobIdSpan = document.getElementById("jobId");
+      this.alertContainer = document.getElementById("alertContainer");
+      this.refreshJobsBtn = document.getElementById("refreshJobsBtn");
+
+      // Constants
+      this.MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+      this.ALLOWED_EXTENSIONS = [".csv"];
+      this.ALLOWED_MIME_TYPES = ["text/csv", "application/csv"];
+
+      // State
+      this.currentJobId = null;
+      this.statusCheckInterval = null;
+      this.activeTab = "upload";
+      this.historyDataLoaded = false; // Track if history data has been loaded
+      this.isInitializing = true; // Prevent loops during initialization
+    }
+
+    /**
+     * Initialize the unified interface with all event handlers
+     */
+    init() {
+      try {
+        this.setupTabHandlers();
+        this.setupUploadHandlers();
+        this.setupHistoryHandlers();
+        this.setupFileValidation();
+        this.setupAccessibility();
+        this.setupAutoRefresh();
+
+        // Set initial tab based on URL parameter
+        this.setInitialTab();
+
+        console.log("[Food Uploads] Manager initialized successfully");
+      } catch (error) {
+        console.error("[Food Uploads] Initialization error:", error);
+        this.showAlert("Failed to initialize the interface. Please refresh the page.", "danger");
+      }
+    }
+
+    /**
+     * Setup tab navigation and state management
+     */
+    setupTabHandlers() {
+      const tabButtons = document.querySelectorAll(
+        '#uploadTabs button[data-bs-toggle="pill"]'
+      );
+
+      if (tabButtons.length === 0) {
+        console.warn("[Food Uploads] No tab buttons found");
+        return;
+      }
+
+      tabButtons.forEach((button) => {
+        button.addEventListener("click", (e) => {
+          e.preventDefault(); // Prevent default tab behavior temporarily
+          
+          const newTab = e.target.id.includes("history") ? "history" : "upload";
+          
+          // Only update if tab actually changed
+          if (this.activeTab !== newTab) {
+            this.activeTab = newTab;
+            this.updateURL();
+
+            // Log tab switch for analytics
+            console.log(`[Food Uploads] Switched to ${this.activeTab} tab`);
+
+            // Only refresh data for history tab if not already loaded
+            if (this.activeTab === "history" && !this.historyDataLoaded) {
+              this.refreshJobsData();
+            }
+          }
+          
+          // Allow the Bootstrap tab to show the content
+          setTimeout(() => {
+            try {
+              const tabTrigger = bootstrap.Tab.getInstance(e.target) || new bootstrap.Tab(e.target);
+              tabTrigger.show();
+            } catch (error) {
+              console.warn("[Food Uploads] Bootstrap tab error:", error);
+              // Fallback: manually show/hide tab content
+              this.fallbackTabSwitch(newTab);
+            }
+          }, 0);
+        });
+      });
+    }
+
+    /**
+     * Setup upload form and file handling
+     */
+    setupUploadHandlers() {
+      if (this.uploadForm) {
+        this.uploadForm.addEventListener("submit", (e) => {
+          e.preventDefault();
+          this.handleUpload();
+        });
+      }
+
+      if (this.fileInput) {
+        this.fileInput.addEventListener("change", (e) => {
+          this.handleFileSelection(e.target.files[0]);
+        });
+      }
+    }
+
+    /**
+     * Setup history panel functionality
+     */
+    setupHistoryHandlers() {
+      // Refresh jobs button
+      if (this.refreshJobsBtn) {
+        this.refreshJobsBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          this.refreshJobsData();
+        });
+      }
+
+      // Initial binding of event listeners
+      this.bindHistoryEventListeners();
+    }
+
+    /**
+     * Setup file validation and security checks
+     */
+    setupFileValidation() {
+      const validateFile = (file) => {
+        const errors = [];
+
+        if (file.size > this.MAX_FILE_SIZE) {
+          errors.push(
+            `File size (${(file.size / 1024 / 1024).toFixed(
+              2
+            )}MB) exceeds maximum limit of 10MB`
+          );
+        }
+
+        const extension = "." + file.name.split(".").pop().toLowerCase();
+        if (!this.ALLOWED_EXTENSIONS.includes(extension)) {
+          errors.push(
+            `File type '${extension}' is not allowed. Only CSV files are supported.`
+          );
+        }
+
+        if (file.type && !this.ALLOWED_MIME_TYPES.includes(file.type)) {
+          errors.push(`File MIME type '${file.type}' is not allowed.`);
+        }
+
+        if (
+          file.name.includes("..") ||
+          file.name.includes("/") ||
+          file.name.includes("\\")
+        ) {
+          errors.push(
+            "Invalid filename detected. Please use a simple filename without special characters."
+          );
+        }
+
+        return errors;
+      };
+
+      this.validateFile = validateFile;
+    }
+
+    /**
+     * Setup accessibility features
+     */
+    setupAccessibility() {
+      // Keyboard navigation for tabs
+      document.querySelectorAll("#uploadTabs button").forEach((button) => {
+        button.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            button.click();
+          }
+        });
+      });
+
+      // Screen reader announcements
+      this.announceToScreenReader = (message) => {
+        const announcement = document.createElement("div");
+        announcement.setAttribute("aria-live", "polite");
+        announcement.setAttribute("aria-atomic", "true");
+        announcement.className = "visually-hidden";
+        announcement.textContent = message;
+        document.body.appendChild(announcement);
+        setTimeout(() => document.body.removeChild(announcement), 1000);
+      };
+    }
+
+    /**
+     * Setup auto-refresh for processing jobs
+     */
+    setupAutoRefresh() {
+      setInterval(() => {
+        if (this.activeTab === "history") {
+          this.refreshProcessingJobs();
+        }
+      }, 30000); // Refresh every 30 seconds
+    }
+
+    /**
+     * Set initial tab based on URL parameter
+     */
+    setInitialTab() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tab = urlParams.get("tab");
+
+      this.isInitializing = true;
+      
+      if (tab === "history") {
+        this.activeTab = "history";
+        // Activate the history tab without triggering the click event
+        const historyTab = document.getElementById("history-tab");
+        const uploadTab = document.getElementById("upload-tab");
+        const historyPanel = document.getElementById("history-panel");
+        const uploadPanel = document.getElementById("upload-panel");
+        
+        if (historyTab && uploadTab && historyPanel && uploadPanel) {
+          // Update tab states
+          historyTab.classList.add("active");
+          historyTab.setAttribute("aria-selected", "true");
+          uploadTab.classList.remove("active");
+          uploadTab.setAttribute("aria-selected", "false");
+          
+          // Update panel states
+          historyPanel.classList.add("show", "active");
+          uploadPanel.classList.remove("show", "active");
+          
+          // Load history data if not already loaded
+          if (!this.historyDataLoaded) {
+            this.refreshJobsData();
+          }
+        }
+      } else {
+        this.activeTab = "upload";
+      }
+      
+      this.isInitializing = false;
+    }
+
+    /**
+     * Fallback tab switching when Bootstrap fails
+     */
+    fallbackTabSwitch(targetTab) {
+      try {
+        const uploadTab = document.getElementById("upload-tab");
+        const historyTab = document.getElementById("history-tab");
+        const uploadPanel = document.getElementById("upload-panel");
+        const historyPanel = document.getElementById("history-panel");
+
+        if (!uploadTab || !historyTab || !uploadPanel || !historyPanel) {
+          console.error("[Food Uploads] Tab elements not found for fallback");
+          return;
+        }
+
+        // Reset all tabs and panels
+        [uploadTab, historyTab].forEach(tab => {
+          tab.classList.remove("active");
+          tab.setAttribute("aria-selected", "false");
+        });
+        [uploadPanel, historyPanel].forEach(panel => {
+          panel.classList.remove("show", "active");
+        });
+
+        // Activate target tab
+        if (targetTab === "history") {
+          historyTab.classList.add("active");
+          historyTab.setAttribute("aria-selected", "true");
+          historyPanel.classList.add("show", "active");
+        } else {
+          uploadTab.classList.add("active");
+          uploadTab.setAttribute("aria-selected", "true");
+          uploadPanel.classList.add("show", "active");
+        }
+      } catch (error) {
+        console.error("[Food Uploads] Fallback tab switch failed:", error);
+      }
+    }
+
+    /**
+     * Update URL with current tab state
+     */
+    updateURL() {
+      const url = new URL(window.location);
+      url.searchParams.set("tab", this.activeTab);
+      window.history.replaceState({}, "", url);
+    }
+
+    /**
+     * Handle file selection and validation
+     */
+    handleFileSelection(file) {
+      if (!file) return;
+
+      this.clearAlerts();
+
+      const validationErrors = this.validateFile(file);
+      if (validationErrors.length > 0) {
+        this.showAlert(
+          `File validation failed:<br>• ${validationErrors.join("<br>• ")}`,
+          "danger"
+        );
+        return;
+      }
+
+      const fileSize = (file.size / 1024 / 1024).toFixed(2);
+      this.showAlert(
+        `File selected: <strong>${file.name}</strong> (${fileSize} MB)`,
+        "info",
+        true
+      );
+
+      // Log file selection for audit
+      console.log(
+        `[Food Uploads] File selected: ${file.name} (${fileSize} MB)`
+      );
+    }
+
+    /**
+     * Handle upload form submission
+     */
+    async handleUpload() {
+      const file = this.fileInput.files[0];
+      if (!file) {
+        this.showAlert("Please select a CSV file to upload.", "warning");
+        return;
+      }
+
+      const validationErrors = this.validateFile(file);
+      if (validationErrors.length > 0) {
+        this.showAlert(
+          `File validation failed:<br>• ${validationErrors.join("<br>• ")}`,
+          "danger"
+        );
+        return;
+      }
+
+      this.clearAlerts();
+      this.setUploadProgress(true);
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        console.log(`[Food Uploads] Starting upload: ${file.name}`);
+
+        const response = await fetch("/admin/bulk-upload-async", {
+          method: "POST",
+          body: formData,
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+          },
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          this.currentJobId = data.job_id;
+          this.jobIdSpan.textContent = this.currentJobId;
+          this.progressSection.classList.remove("d-none");
+          this.updateProgress(0, "Initializing upload...");
+
+          this.showAlert(
+            `Upload started successfully! Job ID: ${this.currentJobId}`,
+            "success"
+          );
+          this.fileInput.value = "";
+
+          // Start monitoring job status
+          this.startStatusMonitoring();
+
+          // Auto-switch to history tab to show progress
+          setTimeout(() => {
+            document.getElementById("history-tab").click();
+          }, 2000);
+        } else {
+          throw new Error(data.error || "Upload failed");
+        }
+      } catch (error) {
+        console.error("[Food Uploads] Upload error:", error);
+        this.showAlert(`Upload failed: ${error.message}`, "danger");
+      } finally {
+        this.setUploadProgress(false);
+      }
+    }
+
+    /**
+     * Set upload progress UI state
+     */
+    setUploadProgress(inProgress) {
+      this.uploadBtn.disabled = inProgress;
+      this.uploadBtn.innerHTML = inProgress
+        ? '<i class="fas fa-spinner fa-spin me-2"></i>Starting...'
+        : '<i class="fas fa-cloud-upload-alt me-2"></i>Start Upload';
+    }
+
+    /**
+     * Update upload progress display
+     */
+    updateProgress(progress, status, stats = null) {
+      if (this.progressBar) {
+        this.progressBar.style.width = progress + "%";
+        this.progressBar.setAttribute("aria-valuenow", progress);
+      }
+
+      if (this.progressText) {
+        this.progressText.textContent = status;
+      }
+
+      if (stats && this.progressStats) {
+        this.progressStats.textContent = `${stats.processed || 0}/${
+          stats.total || 0
+        } records`;
+      }
+
+      // Update progress bar color based on status
+      if (this.progressBar) {
+        this.progressBar.className = "progress-bar progress-bar-striped";
+        if (progress >= 100) {
+          this.progressBar.classList.add("bg-success");
+        } else {
+          this.progressBar.classList.add("progress-bar-animated");
+        }
+      }
+    }
+
+    /**
+     * Start monitoring job status
+     */
+    startStatusMonitoring() {
+      if (this.statusCheckInterval) {
+        clearInterval(this.statusCheckInterval);
+      }
+
+      this.statusCheckInterval = setInterval(() => {
+        this.checkJobStatus(this.currentJobId);
+      }, 2000);
+    }
+
+    /**
+     * Check job status with enhanced error handling
+     */
+    async checkJobStatus(jobId) {
+      try {
+        const response = await fetch(`/admin/bulk-upload-status/${jobId}`, {
+          headers: {
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const progress = Math.round(
+          (data.processed_rows / Math.max(data.total_rows, 1)) * 100
+        );
+
+        this.updateProgress(
+          progress,
+          data.status === "processing" ? "Processing..." : data.status,
+          {
+            processed: data.processed_rows,
+            total: data.total_rows,
+          }
+        );
+
+        if (data.status === "completed") {
+          clearInterval(this.statusCheckInterval);
+          this.progressSection.classList.add("d-none");
+          this.setUploadProgress(false);
+
+          const successMsg = `Upload completed successfully! ${data.processed_rows} records processed.`;
+          this.showAlert(successMsg, "success");
+          this.announceToScreenReader(successMsg);
+
+          // Refresh history tab
+          this.refreshJobsData();
+        } else if (data.status === "failed") {
+          clearInterval(this.statusCheckInterval);
+          this.progressSection.classList.add("d-none");
+          this.setUploadProgress(false);
+
+          const errorMsg = `Upload failed: ${
+            data.error_message || "Unknown error"
+          }`;
+          this.showAlert(errorMsg, "danger");
+          this.announceToScreenReader(errorMsg);
+
+          // Refresh history tab
+          this.refreshJobsData();
+        }
+      } catch (error) {
+        console.error("[Food Uploads] Error checking job status:", error);
+      }
+    }
+
+    /**
+     * Refresh jobs list in history tab without page reload
+     */
+    async refreshJobsData() {
+      if (this.isInitializing) return; // Prevent calls during initialization
+      
+      try {
+        // Add visual feedback
+        if (this.refreshJobsBtn) {
+          const originalHtml = this.refreshJobsBtn.innerHTML;
+          this.refreshJobsBtn.innerHTML =
+            '<i class="fas fa-spinner fa-spin me-2"></i>Refreshing...';
+          this.refreshJobsBtn.disabled = true;
+
+          // Restore button after delay
+          setTimeout(() => {
+            this.refreshJobsBtn.innerHTML = originalHtml;
+            this.refreshJobsBtn.disabled = false;
+          }, 1000);
+        }
+
+        // Fetch fresh job data via AJAX instead of page reload
+        const response = await fetch(`${window.location.pathname}?tab=history`, {
+          method: 'GET',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'text/html',
+            'Cache-Control': 'no-cache'
+          },
+          credentials: 'same-origin' // Include cookies for authentication
+        });
+
+        if (response.ok) {
+          const html = await response.text();
+          
+          // Validate response content type and structure
+          if (html && html.includes('history-panel')) {
+            // Parse the response and update only the jobs table
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const newJobsContent = doc.querySelector('#history-panel .p-4');
+            const currentJobsContainer = document.querySelector('#history-panel .p-4');
+            
+            if (newJobsContent && currentJobsContainer) {
+              // Sanitize content before insertion (basic XSS prevention)
+              const sanitizedContent = this.sanitizeHTML(newJobsContent.innerHTML);
+              currentJobsContainer.innerHTML = sanitizedContent;
+              this.historyDataLoaded = true;
+              
+              // Re-bind event listeners for new content
+              this.bindHistoryEventListeners();
+              
+              console.log('[Food Uploads] Jobs data refreshed successfully');
+            } else {
+              console.warn('[Food Uploads] Invalid response structure');
+            }
+          } else {
+            console.warn('[Food Uploads] Response does not contain expected content');
+          }
+        } else {
+          console.error('[Food Uploads] Failed to refresh jobs data:', response.statusText);
+        }
+      } catch (error) {
+        console.error("[Food Uploads] Error refreshing jobs:", error);
+      }
+    }
+
+    /**
+     * Legacy method name for backward compatibility
+     */
+    async refreshJobsList() {
+      return this.refreshJobsData();
+    }
+
+    /**
+     * Bind event listeners to dynamically loaded history content
+     */
+    bindHistoryEventListeners() {
+      // Re-bind view details buttons
+      document.querySelectorAll('.view-details-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const jobId = e.target.closest('.view-details-btn').dataset.jobId;
+          if (jobId) {
+            this.showJobDetails(jobId);
+          }
+        });
+      });
+
+      // Re-bind refresh job buttons
+      document.querySelectorAll('.refresh-job-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const jobId = e.target.closest('.refresh-job-btn').dataset.jobId;
+          if (jobId) {
+            this.refreshSingleJob(jobId);
+          }
+        });
+      });
+    }
+
+    /**
+     * Refresh processing jobs automatically
+     */
+    refreshProcessingJobs() {
+      const processingRows = document.querySelectorAll(
+        ".job-row .badge.bg-warning"
+      );
+      processingRows.forEach((badge) => {
+        const row = badge.closest(".job-row");
+        const jobId = row.dataset.jobId;
+        if (jobId) {
+          this.updateJobRowStatus(jobId);
+        }
+      });
+    }
+
+    /**
+     * Update a single job row status
+     */
+    async updateJobRowStatus(jobId) {
+      try {
+        const response = await fetch(`/admin/bulk-upload-status/${jobId}`, {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch job status: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+
+        // Update the job row in the table
+        const row = document.querySelector(`[data-job-id="${jobId}"]`);
+        if (row && data.status !== "processing") {
+          // Job completed or failed, refresh the entire list
+          this.refreshJobsData();
+        }
+      } catch (error) {
+        console.error(`[Food Uploads] Error updating job ${jobId}:`, error);
+      }
+    }
+
+    /**
+     * Show job details in modal
+     */
+    async showJobDetails(jobId) {
+      try {
+        const modal = new bootstrap.Modal(
+          document.getElementById("jobDetailsModal")
+        );
+        const content = document.getElementById("jobDetailsContent");
+
+        if (!modal || !content) {
+          throw new Error("Modal elements not found");
+        }
+
+        // Show loading state
+        content.innerHTML = `
+              <div class="text-center py-4">
+                  <div class="spinner-border" role="status">
+                      <span class="visually-hidden">Loading job details...</span>
+                  </div>
+                  <p class="mt-3">Loading job details...</p>
+              </div>
+          `;
+
+        modal.show();
+
+        try {
+          const response = await fetch(`/admin/bulk-upload-details/${jobId}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest'
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Failed to load job details: ${response.statusText}`);
+          }
+          
+          const data = await response.json();
+
+          // Display job details
+          content.innerHTML = this.renderJobDetails(data);
+        } catch (error) {
+          content.innerHTML = `
+                  <div class="alert alert-danger">
+                      <i class="fas fa-exclamation-triangle me-2"></i>
+                      Error loading job details: ${error.message}
+                  </div>
+              `;
+        }
+      } catch (error) {
+        console.error("[Food Uploads] Error showing job details:", error);
+        this.showAlert(`Failed to show job details: ${error.message}`, "danger");
+      }
+    }
+
+    /**
+     * Render job details HTML
+     */
+    renderJobDetails(data) {
+      // Implementation for rendering detailed job information
+      return `
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Job Information</h6>
+                    <table class="table table-sm">
+                        <tr><td><strong>Job ID:</strong></td><td><code>${
+                          data.job_id
+                        }</code></td></tr>
+                        <tr><td><strong>Filename:</strong></td><td>${
+                          data.filename
+                        }</td></tr>
+                        <tr><td><strong>Status:</strong></td><td><span class="badge bg-${
+                          data.status === "completed"
+                            ? "success"
+                            : data.status === "failed"
+                            ? "danger"
+                            : "warning"
+                        }">${data.status}</span></td></tr>
+                        <tr><td><strong>Total Rows:</strong></td><td>${
+                          data.total_rows
+                        }</td></tr>
+                        <tr><td><strong>Processed:</strong></td><td>${
+                          data.processed_rows
+                        }</td></tr>
+                        <tr><td><strong>Successful:</strong></td><td class="text-success">${
+                          data.successful_rows
+                        }</td></tr>
+                        <tr><td><strong>Failed:</strong></td><td class="text-danger">${
+                          data.failed_rows
+                        }</td></tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6>Processing Details</h6>
+                    <table class="table table-sm">
+                        <tr><td><strong>Created:</strong></td><td>${new Date(
+                          data.created_at
+                        ).toLocaleString()}</td></tr>
+                        <tr><td><strong>Started:</strong></td><td>${
+                          data.started_at
+                            ? new Date(data.started_at).toLocaleString()
+                            : "Not started"
+                        }</td></tr>
+                        <tr><td><strong>Completed:</strong></td><td>${
+                          data.completed_at
+                            ? new Date(data.completed_at).toLocaleString()
+                            : "Not completed"
+                        }</td></tr>
+                        <tr><td><strong>Error Message:</strong></td><td>${
+                          data.error_message || "None"
+                        }</td></tr>
+                    </table>
+                </div>
+            </div>
+            ${
+              data.failed_rows > 0
+                ? `
+                <hr>
+                <h6>Failed Items</h6>
+                <div class="table-responsive" style="max-height: 300px;">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Row</th>
+                                <th>Data</th>
+                                <th>Error</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${
+                              data.failed_details
+                                ? data.failed_details
+                                    .map(
+                                      (item) => `
+                                <tr>
+                                    <td>${item.row_number}</td>
+                                    <td><small>${JSON.stringify(
+                                      item.data
+                                    ).substring(0, 100)}...</small></td>
+                                    <td><small class="text-danger">${
+                                      item.error_message
+                                    }</small></td>
+                                </tr>
+                            `
+                                    )
+                                    .join("")
+                                : '<tr><td colspan="3">No detailed error information available</td></tr>'
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            `
+                : ""
+            }
+        `;
+    }
+
+    /**
+     * Display alert messages with enhanced styling
+     */
+    showAlert(message, type = "info", dismissible = true) {
+      const alertId = "alert-" + Date.now();
+      const dismissButton = dismissible
+        ? `
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `
+        : "";
+
+      const alertHtml = `
+            <div class="alert alert-${type} alert-dismissible fade show border-0 shadow-sm mb-3" role="alert" id="${alertId}">
+                <div class="d-flex align-items-start">
+                    <i class="fas fa-${this.getAlertIcon(type)} me-3 mt-1"></i>
+                    <div class="flex-grow-1">${message}</div>
+                    ${dismissButton}
+                </div>
+            </div>
+        `;
+
+      this.alertContainer.insertAdjacentHTML("beforeend", alertHtml);
+
+      // Auto-dismiss success messages
+      if (type === "success" && dismissible) {
+        setTimeout(() => {
+          const alert = document.getElementById(alertId);
+          if (alert) {
+            const bsAlert = new bootstrap.Alert(alert);
+            bsAlert.close();
+          }
+        }, 5000);
+      }
+    }
+
+    /**
+     * Clear all alert messages
+     */
+    clearAlerts() {
+      this.alertContainer.innerHTML = "";
+    }
+
+    /**
+     * Get appropriate icon for alert type
+     */
+    getAlertIcon(type) {
+      const icons = {
+        success: "check-circle",
+        error: "exclamation-triangle",
+        warning: "exclamation-circle",
+        info: "info-circle",
+        danger: "exclamation-triangle",
+      };
+      return icons[type] || "info-circle";
+    }
+
+    /**
+     * Basic HTML sanitization to prevent XSS attacks
+     */
+    sanitizeHTML(html) {
+      // Create a temporary div to parse and sanitize HTML
+      const temp = document.createElement('div');
+      temp.innerHTML = html;
+      
+      // Remove potentially dangerous elements and attributes
+      const dangerousElements = temp.querySelectorAll('script, object, embed, iframe, form');
+      dangerousElements.forEach(el => el.remove());
+      
+      // Remove dangerous attributes
+      const allElements = temp.querySelectorAll('*');
+      allElements.forEach(el => {
+        // Keep only safe attributes
+        const safeAttributes = ['class', 'id', 'data-job-id', 'href', 'title', 'aria-label', 'role', 'style'];
+        const attributes = Array.from(el.attributes);
+        attributes.forEach(attr => {
+          if (!safeAttributes.includes(attr.name) && !attr.name.startsWith('data-bs-')) {
+            el.removeAttribute(attr.name);
+          }
+        });
+        
+        // Sanitize href attributes
+        if (el.hasAttribute('href')) {
+          const href = el.getAttribute('href');
+          if (href && !href.startsWith('/') && !href.startsWith('#') && !href.startsWith('?')) {
+            el.removeAttribute('href');
+          }
+        }
+      });
+      
+      return temp.innerHTML;
+    }
+  }
+
+  /**
+   * Global helper functions for backward compatibility and convenience
+   */
+  function switchToUploadTab() {
+    try {
+      const uploadTab = document.getElementById("upload-tab");
+      if (uploadTab) {
+        uploadTab.click();
+      } else {
+        console.warn("[Food Uploads] Upload tab button not found");
+      }
+    } catch (error) {
+      console.error("[Food Uploads] Error switching to upload tab:", error);
+    }
+  }
+
+  function switchToHistoryTab() {
+    try {
+      const historyTab = document.getElementById("history-tab");
+      if (historyTab) {
+        historyTab.click();
+      } else {
+        console.warn("[Food Uploads] History tab button not found");
+      }
+    } catch (error) {
+      console.error("[Food Uploads] Error switching to history tab:", error);
+    }
+  }
+
+  // Store the manager instance globally for debugging and access
+  let foodUploadsManagerInstance = null;
+
+  // Enhanced initialization with error handling
+  document.addEventListener("DOMContentLoaded", function () {
+    try {
+      // Initialize the unified interface
+      foodUploadsManagerInstance = new FoodUploadsManager();
+      foodUploadsManagerInstance.init();
+      
+      // Set progress bar widths from data attributes
+      document.querySelectorAll('.progress-bar[data-progress]').forEach(bar => {
+        const progress = bar.getAttribute('data-progress');
+        if (progress !== null) {
+          bar.style.width = progress + '%';
+        }
+      });
+      
+      // Make it globally accessible for debugging
+      window.foodUploadsManager = foodUploadsManagerInstance;
+    } catch (error) {
+      console.error("[Food Uploads] Failed to initialize:", error);
+      
+      // Show error message to user
+      const alertContainer = document.getElementById("alertContainer");
+      if (alertContainer) {
+        alertContainer.innerHTML = `
+          <div class="alert alert-danger border-0 shadow-sm mb-3" role="alert">
+            <div class="d-flex align-items-start">
+              <i class="fas fa-exclamation-triangle me-3 mt-1"></i>
+              <div class="flex-grow-1">
+                Failed to initialize the Food Uploads interface. Please refresh the page or contact support if the problem persists.
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+  });
+
+  // Security: Clear sensitive data on page unload
+  window.addEventListener("beforeunload", function () {
+    try {
+      if (
+        window.foodUploadsManager &&
+        window.foodUploadsManager.statusCheckInterval
+      ) {
+        clearInterval(window.foodUploadsManager.statusCheckInterval);
+      }
+      
+      // Clear any other intervals or timeouts
+      if (foodUploadsManagerInstance) {
+        // Clear any pending operations
+        foodUploadsManagerInstance.isInitializing = false;
+        
+        if (foodUploadsManagerInstance.statusCheckInterval) {
+          clearInterval(foodUploadsManagerInstance.statusCheckInterval);
+        }
+      }
+    } catch (error) {
+      console.warn("[Food Uploads] Error during cleanup:", error);
+    }
+  });
+</script>
+
+<!-- Enhanced Styles for Unified Interface -->
+<style>
+  /* Enhanced tab styling */
+  .nav-pills .nav-link {
+    border-radius: 0.5rem;
+    margin-right: 0.5rem;
+    transition: all 0.2s ease-in-out;
+    border: 2px solid transparent;
+  }
+
+  .nav-pills .nav-link:hover {
+    background-color: #e9ecef;
+    transform: translateY(-1px);
+  }
+
+  .nav-pills .nav-link.active {
+    background-color: #007bff;
+    border-color: #007bff;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.25);
+  }
+
+  /* Progress bar enhancements */
+  .progress {
+    border-radius: 0.5rem;
+    background-color: #e9ecef;
+  }
+
+  .progress-bar {
+    transition: width 0.6s ease;
+  }
+
+  /* Progress bar dynamic width */
+  .progress-bar[data-progress] {
+    width: 0%;
+    transition: width 0.6s ease;
+  }
+
+  /* Job table enhancements */
+  #jobsTable .job-row {
+    transition: background-color 0.2s ease;
+  }
+
+  #jobsTable .job-row:hover {
+    background-color: #f8f9fa !important;
+  }
+
+  /* Alert styling */
+  .alert {
+    border-radius: 0.5rem;
+    border-left-width: 4px;
+    border-left-style: solid;
+  }
+
+  .alert-info {
+    border-left-color: #0dcaf0;
+    background-color: #e7f6fd;
+  }
+
+  .alert-success {
+    border-left-color: #198754;
+    background-color: #d1e7dd;
+  }
+
+  .alert-warning {
+    border-left-color: #ffc107;
+    background-color: #fff3cd;
+  }
+
+  .alert-danger {
+    border-left-color: #dc3545;
+    background-color: #f8d7da;
+  }
+
+  /* Upload area styling */
+  #csvFile:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+  }
+
+  /* Enhanced Form Validation Styles */
+  .form-control:invalid {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
+  }
+
+  .form-control:valid {
+    border-color: #198754;
+  }
+
+  /* Custom focus styles for better accessibility */
+  .btn:focus-visible,
+  .form-control:focus-visible,
+  .nav-link:focus-visible {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+  }
+
+  /* Responsive improvements */
+  @media (max-width: 768px) {
+    .nav-pills .nav-link {
+      margin-bottom: 0.5rem;
+      margin-right: 0;
+    }
+
+    .btn-group {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .table-responsive {
+      font-size: 0.875rem;
+    }
+  }
+
+  /* Accessibility improvements */
+  .visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+
+  /* Loading states */
+  .spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  /* Badge enhancements */
+  .badge {
+    font-size: 0.75em;
+    padding: 0.35em 0.65em;
+    font-weight: 600;
+    letter-spacing: 0.025em;
+  }
+
+  /* Card enhancements */
+  .card {
+    border-radius: 0.75rem;
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: box-shadow 0.15s ease-in-out;
+  }
+
+  .card:hover {
+    box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+  }
+
+  .card-header {
+    border-radius: 0.75rem 0.75rem 0 0 !important;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+  }
+
+  /* File input enhancements */
+  .form-control[type="file"] {
+    border: 2px dashed #dee2e6;
+    background-color: #f8f9fa;
+    transition: all 0.3s ease;
+  }
+
+  .form-control[type="file"]:hover {
+    border-color: #007bff;
+    background-color: #e7f3ff;
+  }
+
+  .form-control[type="file"]:focus {
+    border-color: #007bff;
+    background-color: #e7f3ff;
+    box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25);
+  }
+
+  /* Button hover effects */
+  .btn {
+    transition: all 0.2s ease-in-out;
+  }
+
+  .btn:hover {
+    transform: translateY(-1px);
+  }
+
+  /* Modal enhancements */
+  .modal-content {
+    border-radius: 0.75rem;
+    border: none;
+    box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.175);
+  }
+
+  .modal-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+    border-radius: 0.75rem 0.75rem 0 0;
+  }
+
+  /* Alert icon alignment */
+  .alert .fas {
+    flex-shrink: 0;
+  }
+
+  /* Table hover effects */
+  .table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+  }
+
+  /* Progress bar animations */
+  .progress-bar-animated {
+    animation: progress-bar-stripes 1s linear infinite;
+  }
+
+  @keyframes progress-bar-stripes {
+    0% {
+      background-position-x: 1rem;
+    }
+  }
+
+  /* Responsive text sizing */
+  @media (max-width: 576px) {
+    .h3 {
+      font-size: 1.5rem;
+    }
+    
+    .card-body {
+      padding: 1rem;
+    }
+    
+    .btn {
+      font-size: 0.875rem;
+    }
+  }
+</style>
+
+{% endblock %}

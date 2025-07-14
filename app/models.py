@@ -195,6 +195,7 @@ class Food(db.Model):
     sodium = db.Column(db.Float, default=0)  # in mg
     
     # Additional information
+    description = db.Column(db.Text)  # Optional description for food item
     serving_size = db.Column(db.Float, default=100)  # in grams
     is_verified = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

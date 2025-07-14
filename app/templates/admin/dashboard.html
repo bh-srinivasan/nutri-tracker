@@ -19,16 +19,16 @@ block content %}
             <i class="fas fa-apple-alt"></i> Manage Foods
           </a>
           <a
-            href="{{ url_for('admin.bulk_upload_foods') }}"
-            class="btn btn-outline-info"
-          >
-            <i class="fas fa-upload"></i> Bulk Upload
-          </a>
-          <a
-            href="{{ url_for('admin.upload_jobs') }}"
+            href="{{ url_for('admin.food_uploads') }}"
             class="btn btn-outline-primary"
+            title="Upload food data and track processing status"
           >
-            <i class="fas fa-tasks"></i> Upload Jobs
+            <i class="fas fa-cloud-upload-alt"></i> Food Uploads {% if
+            pending_jobs_count and pending_jobs_count > 0 %}
+            <span class="badge bg-warning text-dark ms-2"
+              >{{ pending_jobs_count }}</span
+            >
+            {% endif %}
           </a>
         </div>
       </div>

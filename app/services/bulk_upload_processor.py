@@ -226,7 +226,7 @@ class BulkUploadProcessor:
         sanitized = {}
         
         # String fields - trim and clean (only supported fields)
-        string_fields = ['name', 'brand', 'category', 'base_unit']
+        string_fields = ['name', 'brand', 'category', 'description', 'base_unit']
         for field in string_fields:
             value = row.get(field, '').strip()
             if value:
@@ -428,6 +428,7 @@ class BulkUploadProcessor:
             name=data['name'],
             brand=data.get('brand', ''),
             category=data.get('category', 'Other'),
+            description=data.get('description', ''),
             calories=data.get('calories_per_100g', 0),
             protein=data.get('protein_per_100g', 0),
             carbs=data.get('carbs_per_100g', 0),

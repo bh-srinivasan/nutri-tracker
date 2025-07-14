@@ -1,209 +1,237 @@
-{% extends "base.html" %}
-
-{% block title %}Upload Jobs - Admin{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% block title %}Upload Jobs - Admin{% endblock %} {%
+block content %}
 <div class="container-fluid mt-4">
-    <div class="row">
-        <div class="col-md-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2><i class="fas fa-upload"></i> Upload Jobs</h2>
-                <a href="{{ url_for('admin.bulk_upload_foods') }}" class="btn btn-primary">
-                    <i class="fas fa-plus"></i> New Upload
-                </a>
-            </div>
+  <div class="row">
+    <div class="col-md-12">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-upload"></i> Upload Jobs</h2>
+        <a
+          href="{{ url_for('admin.bulk_upload_foods') }}"
+          class="btn btn-primary"
+        >
+          <i class="fas fa-plus"></i> New Upload
+        </a>
+      </div>
 
-            {% if jobs.items %}
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">Recent Upload Jobs</h5>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover mb-0">
-                            <thead class="table-dark">
-                                <tr>
-                                    <th>Job ID</th>
-                                    <th>Filename</th>
-                                    <th>Status</th>
-                                    <th>Progress</th>
-                                    <th>Total Rows</th>
-                                    <th>Success</th>
-                                    <th>Failed</th>
-                                    <th>Created</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for job in jobs.items %}
-                                <tr>
-                                    <td>
-                                        <small class="font-monospace">{{ job.job_id[:8] }}...</small>
-                                    </td>
-                                    <td>{{ job.filename }}</td>
-                                    <td>
-                                        {% if job.status == 'completed' %}
-                                            <span class="badge bg-success">{{ job.status.title() }}</span>
-                                        {% elif job.status == 'failed' %}
-                                            <span class="badge bg-danger">{{ job.status.title() }}</span>
-                                        {% elif job.status == 'processing' %}
-                                            <span class="badge bg-warning">{{ job.status.title() }}</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary">{{ job.status.title() }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if job.total_rows > 0 %}
-                                            {% set progress = job.progress_percentage or 0 %}
-                                            <div class="progress" style="height: 20px;">
-                                                <div class="progress-bar progress-bar-custom" 
-                                                     role="progressbar" 
-                                                     data-progress="{{ progress }}"
-                                                     aria-valuenow="{{ progress }}" 
-                                                     aria-valuemin="0" 
-                                                     aria-valuemax="100">
-                                                    {{ progress }}%
-                                                </div>
-                                            </div>
-                                        {% else %}
-                                            <small class="text-muted">-</small>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ job.total_rows }}</td>
-                                    <td>
-                                        {% if job.successful_rows > 0 %}
-                                            <span class="text-success">{{ job.successful_rows }}</span>
-                                        {% else %}
-                                            <span class="text-muted">0</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if job.failed_rows > 0 %}
-                                            <span class="text-danger">{{ job.failed_rows }}</span>
-                                        {% else %}
-                                            <span class="text-muted">0</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <small>{{ job.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
-                                    </td>
-                                    <td>
-                                        <div class="btn-group btn-group-sm">
-                                            <button class="btn btn-outline-info btn-sm" 
-                                                    onclick="showJobDetails('{{ job.job_id }}')"
-                                                    title="View Details">
-                                                <i class="fas fa-info-circle"></i>
-                                            </button>
-                                            {% if job.status == 'processing' %}
-                                            <button class="btn btn-outline-warning btn-sm" 
-                                                    onclick="refreshJobStatus('{{ job.job_id }}')"
-                                                    title="Refresh Status">
-                                                <i class="fas fa-sync-alt"></i>
-                                            </button>
-                                            {% endif %}
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Pagination -->
-            {% if jobs.pages > 1 %}
-            <nav aria-label="Upload jobs pagination" class="mt-4">
-                <ul class="pagination justify-content-center">
-                    {% if jobs.has_prev %}
-                        <li class="page-item">
-                            <a class="page-link" href="{{ url_for('admin.upload_jobs', page=jobs.prev_num) }}">Previous</a>
-                        </li>
-                    {% endif %}
-                    
-                    {% for page_num in jobs.iter_pages() %}
-                        {% if page_num %}
-                            {% if page_num != jobs.page %}
-                                <li class="page-item">
-                                    <a class="page-link" href="{{ url_for('admin.upload_jobs', page=page_num) }}">{{ page_num }}</a>
-                                </li>
-                            {% else %}
-                                <li class="page-item active">
-                                    <span class="page-link">{{ page_num }}</span>
-                                </li>
-                            {% endif %}
-                        {% else %}
-                            <li class="page-item disabled">
-                                <span class="page-link">...</span>
-                            </li>
-                        {% endif %}
-                    {% endfor %}
-                    
-                    {% if jobs.has_next %}
-                        <li class="page-item">
-                            <a class="page-link" href="{{ url_for('admin.upload_jobs', page=jobs.next_num) }}">Next</a>
-                        </li>
-                    {% endif %}
-                </ul>
-            </nav>
-            {% endif %}
-
-            {% else %}
-            <div class="text-center py-5">
-                <i class="fas fa-upload fa-3x text-muted mb-3"></i>
-                <h4>No Upload Jobs</h4>
-                <p class="text-muted">No bulk upload jobs have been created yet.</p>
-                <a href="{{ url_for('admin.bulk_upload_foods') }}" class="btn btn-primary">
-                    <i class="fas fa-plus"></i> Start First Upload
-                </a>
-            </div>
-            {% endif %}
+      {% if jobs.items %}
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">Recent Upload Jobs</h5>
         </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0">
+              <thead class="table-dark">
+                <tr>
+                  <th>Job ID</th>
+                  <th>Filename</th>
+                  <th>Status</th>
+                  <th>Progress</th>
+                  <th>Total Rows</th>
+                  <th>Success</th>
+                  <th>Failed</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for job in jobs.items %}
+                <tr>
+                  <td>
+                    <small class="font-monospace"
+                      >{{ job.job_id[:8] }}...</small
+                    >
+                  </td>
+                  <td>{{ job.filename }}</td>
+                  <td>
+                    {% if job.status == 'completed' %}
+                    <span class="badge bg-success"
+                      >{{ job.status.title() }}</span
+                    >
+                    {% elif job.status == 'failed' %}
+                    <span class="badge bg-danger"
+                      >{{ job.status.title() }}</span
+                    >
+                    {% elif job.status == 'processing' %}
+                    <span class="badge bg-warning"
+                      >{{ job.status.title() }}</span
+                    >
+                    {% else %}
+                    <span class="badge bg-secondary"
+                      >{{ job.status.title() }}</span
+                    >
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if job.total_rows > 0 %} {% set progress =
+                    job.progress_percentage or 0 %}
+                    <div class="progress" style="height: 20px">
+                      <div
+                        class="progress-bar progress-bar-custom"
+                        role="progressbar"
+                        data-progress="{{ progress }}"
+                        aria-valuenow="{{ progress }}"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                      >
+                        {{ progress }}%
+                      </div>
+                    </div>
+                    {% else %}
+                    <small class="text-muted">-</small>
+                    {% endif %}
+                  </td>
+                  <td>{{ job.total_rows }}</td>
+                  <td>
+                    {% if job.successful_rows > 0 %}
+                    <span class="text-success">{{ job.successful_rows }}</span>
+                    {% else %}
+                    <span class="text-muted">0</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if job.failed_rows > 0 %}
+                    <span class="text-danger">{{ job.failed_rows }}</span>
+                    {% else %}
+                    <span class="text-muted">0</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <small
+                      >{{ job.created_at.strftime('%Y-%m-%d %H:%M') }}</small
+                    >
+                  </td>
+                  <td>
+                    <div class="btn-group btn-group-sm">
+                      <button
+                        class="btn btn-outline-info btn-sm"
+                        onclick="showJobDetails('{{ job.job_id }}')"
+                        title="View Details"
+                      >
+                        <i class="fas fa-info-circle"></i>
+                      </button>
+                      {% if job.status == 'processing' %}
+                      <button
+                        class="btn btn-outline-warning btn-sm"
+                        onclick="refreshJobStatus('{{ job.job_id }}')"
+                        title="Refresh Status"
+                      >
+                        <i class="fas fa-sync-alt"></i>
+                      </button>
+                      {% endif %}
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pagination -->
+      {% if jobs.pages > 1 %}
+      <nav aria-label="Upload jobs pagination" class="mt-4">
+        <ul class="pagination justify-content-center">
+          {% if jobs.has_prev %}
+          <li class="page-item">
+            <a
+              class="page-link"
+              href="{{ url_for('admin.upload_jobs', page=jobs.prev_num) }}"
+              >Previous</a
+            >
+          </li>
+          {% endif %} {% for page_num in jobs.iter_pages() %} {% if page_num %}
+          {% if page_num != jobs.page %}
+          <li class="page-item">
+            <a
+              class="page-link"
+              href="{{ url_for('admin.upload_jobs', page=page_num) }}"
+              >{{ page_num }}</a
+            >
+          </li>
+          {% else %}
+          <li class="page-item active">
+            <span class="page-link">{{ page_num }}</span>
+          </li>
+          {% endif %} {% else %}
+          <li class="page-item disabled">
+            <span class="page-link">...</span>
+          </li>
+          {% endif %} {% endfor %} {% if jobs.has_next %}
+          <li class="page-item">
+            <a
+              class="page-link"
+              href="{{ url_for('admin.upload_jobs', page=jobs.next_num) }}"
+              >Next</a
+            >
+          </li>
+          {% endif %}
+        </ul>
+      </nav>
+      {% endif %} {% else %}
+      <div class="text-center py-5">
+        <i class="fas fa-upload fa-3x text-muted mb-3"></i>
+        <h4>No Upload Jobs</h4>
+        <p class="text-muted">No bulk upload jobs have been created yet.</p>
+        <a
+          href="{{ url_for('admin.bulk_upload_foods') }}"
+          class="btn btn-primary"
+        >
+          <i class="fas fa-plus"></i> Start First Upload
+        </a>
+      </div>
+      {% endif %}
     </div>
+  </div>
 </div>
 
 <!-- Job Details Modal -->
 <div class="modal fade" id="jobDetailsModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Upload Job Details</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Upload Job Details</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <div id="jobDetailsContent">
+          <div class="text-center">
+            <div class="spinner-border" role="status">
+              <span class="visually-hidden">Loading...</span>
             </div>
-            <div class="modal-body">
-                <div id="jobDetailsContent">
-                    <div class="text-center">
-                        <div class="spinner-border" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+          </div>
         </div>
+      </div>
     </div>
+  </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
+{% endblock %} {% block scripts %}
 <style>
-.progress-bar-custom {
+  .progress-bar-custom {
     transition: width 0.3s ease;
-}
+  }
 </style>
 <script>
-// Set progress bar widths from data attributes
-document.addEventListener('DOMContentLoaded', function() {
-    const progressBars = document.querySelectorAll('.progress-bar-custom');
-    progressBars.forEach(function(bar) {
-        const progress = bar.getAttribute('data-progress');
-        bar.style.width = progress + '%';
+  // Set progress bar widths from data attributes
+  document.addEventListener("DOMContentLoaded", function () {
+    const progressBars = document.querySelectorAll(".progress-bar-custom");
+    progressBars.forEach(function (bar) {
+      const progress = bar.getAttribute("data-progress");
+      bar.style.width = progress + "%";
     });
-});
+  });
 
-function showJobDetails(jobId) {
-    const modal = new bootstrap.Modal(document.getElementById('jobDetailsModal'));
-    const content = document.getElementById('jobDetailsContent');
-    
+  function showJobDetails(jobId) {
+    const modal = new bootstrap.Modal(
+      document.getElementById("jobDetailsModal")
+    );
+    const content = document.getElementById("jobDetailsContent");
+
     // Show loading spinner
     content.innerHTML = `
         <div class="text-center">
@@ -212,54 +240,74 @@ function showJobDetails(jobId) {
             </div>
         </div>
     `;
-    
+
     modal.show();
-    
+
     // Fetch job details
     fetch(`/admin/bulk-upload-details/${jobId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                content.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
-                return;
-            }
-            
-            let html = `
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.error) {
+          content.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+          return;
+        }
+
+        let html = `
                 <div class="row">
                     <div class="col-md-6">
                         <h6>Job Information</h6>
                         <table class="table table-sm">
-                            <tr><td><strong>Job ID:</strong></td><td><code>${data.job_id}</code></td></tr>
-                            <tr><td><strong>Filename:</strong></td><td>${data.filename}</td></tr>
-                            <tr><td><strong>Status:</strong></td><td><span class="badge bg-${getStatusColor(data.status)}">${data.status}</span></td></tr>
-                            <tr><td><strong>Created By:</strong></td><td>${data.created_by}</td></tr>
-                            <tr><td><strong>Created At:</strong></td><td>${formatDateTime(data.created_at)}</td></tr>
+                            <tr><td><strong>Job ID:</strong></td><td><code>${
+                              data.job_id
+                            }</code></td></tr>
+                            <tr><td><strong>Filename:</strong></td><td>${
+                              data.filename
+                            }</td></tr>
+                            <tr><td><strong>Status:</strong></td><td><span class="badge bg-${getStatusColor(
+                              data.status
+                            )}">${data.status}</span></td></tr>
+                            <tr><td><strong>Created By:</strong></td><td>${
+                              data.created_by
+                            }</td></tr>
+                            <tr><td><strong>Created At:</strong></td><td>${formatDateTime(
+                              data.created_at
+                            )}</td></tr>
                         </table>
                     </div>
                     <div class="col-md-6">
                         <h6>Progress</h6>
                         <table class="table table-sm">
-                            <tr><td><strong>Total Rows:</strong></td><td>${data.total_rows}</td></tr>
-                            <tr><td><strong>Processed:</strong></td><td>${data.processed_rows}</td></tr>
-                            <tr><td><strong>Successful:</strong></td><td class="text-success">${data.successful_rows}</td></tr>
-                            <tr><td><strong>Failed:</strong></td><td class="text-danger">${data.failed_rows}</td></tr>
-                            <tr><td><strong>Progress:</strong></td><td>${data.progress_percentage}%</td></tr>
+                            <tr><td><strong>Total Rows:</strong></td><td>${
+                              data.total_rows
+                            }</td></tr>
+                            <tr><td><strong>Processed:</strong></td><td>${
+                              data.processed_rows
+                            }</td></tr>
+                            <tr><td><strong>Successful:</strong></td><td class="text-success">${
+                              data.successful_rows
+                            }</td></tr>
+                            <tr><td><strong>Failed:</strong></td><td class="text-danger">${
+                              data.failed_rows
+                            }</td></tr>
+                            <tr><td><strong>Progress:</strong></td><td>${
+                              data.progress_percentage
+                            }%</td></tr>
                         </table>
                     </div>
                 </div>
             `;
-            
-            if (data.error_message) {
-                html += `
+
+        if (data.error_message) {
+          html += `
                     <div class="mt-3">
                         <h6>Error Message</h6>
                         <div class="alert alert-danger">${data.error_message}</div>
                     </div>
                 `;
-            }
-            
-            if (data.failed_items && data.failed_items.length > 0) {
-                html += `
+        }
+
+        if (data.failed_items && data.failed_items.length > 0) {
+          html += `
                     <div class="mt-3">
                         <h6>Failed Items</h6>
                         <div class="table-responsive" style="max-height: 300px;">
@@ -273,55 +321,61 @@ function showJobDetails(jobId) {
                                 </thead>
                                 <tbody>
                 `;
-                
-                data.failed_items.forEach(item => {
-                    html += `
+
+          data.failed_items.forEach((item) => {
+            html += `
                         <tr>
                             <td>${item.row_number}</td>
                             <td>${item.food_name}</td>
                             <td><small class="text-danger">${item.error_message}</small></td>
                         </tr>
                     `;
-                });
-                
-                html += `
+          });
+
+          html += `
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 `;
-            }
-            
-            content.innerHTML = html;
-        })
-        .catch(error => {
-            content.innerHTML = `<div class="alert alert-danger">Failed to load job details: ${error.message}</div>`;
-        });
-}
+        }
 
-function refreshJobStatus(jobId) {
+        content.innerHTML = html;
+      })
+      .catch((error) => {
+        content.innerHTML = `<div class="alert alert-danger">Failed to load job details: ${error.message}</div>`;
+      });
+  }
+
+  function refreshJobStatus(jobId) {
     location.reload();
-}
+  }
 
-function getStatusColor(status) {
-    switch(status) {
-        case 'completed': return 'success';
-        case 'failed': return 'danger';
-        case 'processing': return 'warning';
-        default: return 'secondary';
+  function getStatusColor(status) {
+    switch (status) {
+      case "completed":
+        return "success";
+      case "failed":
+        return "danger";
+      case "processing":
+        return "warning";
+      default:
+        return "secondary";
     }
-}
+  }
 
-function formatDateTime(isoString) {
+  function formatDateTime(isoString) {
     return new Date(isoString).toLocaleString();
-}
+  }
 
-// Auto-refresh processing jobs every 5 seconds
-document.addEventListener('DOMContentLoaded', function() {
-    const processingJobs = document.querySelectorAll('tbody tr .badge.bg-warning');
+  // Auto-refresh processing jobs every 5 seconds
+  document.addEventListener("DOMContentLoaded", function () {
+    const processingJobs = document.querySelectorAll(
+      "tbody tr .badge.bg-warning"
+    );
     if (processingJobs.length > 0) {
-        setTimeout(() => location.reload(), 5000);
+      setTimeout(() => location.reload(), 5000);
     }
-});
+  });
 </script>
 {% endblock %}
