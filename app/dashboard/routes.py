@@ -5,7 +5,7 @@ from sqlalchemy import func, desc, and_
 from app import db
 from app.dashboard import bp
 from app.dashboard.forms import MealLogForm, NutritionGoalForm, FoodSearchForm
-from app.models import User, Food, MealLog, NutritionGoal, Challenge, UserChallenge
+from app.models import User, Food, MealLog, NutritionGoal, Challenge, UserChallenge, FoodServing
 
 @bp.route('/')
 @login_required
@@ -73,7 +73,7 @@ def index():
 @bp.route('/log-meal', methods=['GET', 'POST'])
 @login_required
 def log_meal():
-    """Log a meal."""
+    """Log a meal with UOM support."""
     form = MealLogForm()
     
     if form.validate_on_submit():
@@ -82,46 +82,76 @@ def log_meal():
             flash('Food not found.', 'danger')
             return redirect(url_for('dashboard.log_meal'))
         
-        # Create meal log
+        if not food.is_verified:
+            flash('This food has not been verified yet. Please choose a verified food.', 'warning')
+            return redirect(url_for('dashboard.log_meal'))
+        
+        # Calculate normalized quantity in grams
+        original_quantity = form.quantity.data
+        normalized_quantity = original_quantity
+        serving_id = None
+        
+        if form.unit_type.data == 'serving' and form.serving_id.data:
+            # Convert serving to grams
+            serving = FoodServing.query.get(form.serving_id.data)
+            if serving and serving.food_id == food.id:
+                normalized_quantity = original_quantity * serving.serving_quantity
+                serving_id = serving.id
+            else:
+                flash('Invalid serving size selected.', 'danger')
+                return redirect(url_for('dashboard.log_meal'))
+        
+        # Create meal log with UOM support
         meal_log = MealLog(
             user_id=current_user.id,
             food_id=food.id,
-            quantity=form.quantity.data,
+            quantity=normalized_quantity,  # Always stored in grams
+            original_quantity=original_quantity,
+            unit_type=form.unit_type.data,
+            serving_id=serving_id,
             meal_type=form.meal_type.data,
-            date=form.date.data
+            date=date.today()
         )
-        
-        # Calculate nutrition values
-        meal_log.calculate_nutrition()
         
         db.session.add(meal_log)
         db.session.commit()
         
-        flash(f'Logged {form.quantity.data}g of {food.name} for {form.meal_type.data}!', 'success')
+        flash(f'Successfully logged {food.name} for {form.meal_type.data}!', 'success')
         return redirect(url_for('dashboard.index'))
     
-    # Get food ID from query parameter if coming from search
-    food_id = request.args.get('food_id')
-    if food_id:
-        food = Food.query.get(food_id)
-        if food:
-            form.food_id.data = food.id
-            form.food_name.data = f"{food.name} ({food.brand})" if food.brand else food.name
+    # GET request - show form
+    # Get selected food if provided
+    selected_food = None
+    if request.args.get('food_id'):
+        selected_food = Food.query.get(request.args.get('food_id'))
     
-    return render_template('dashboard/log_meal.html', title='Log Meal', form=form)
+    # Pre-select meal type from query parameter
+    meal_type = request.args.get('meal_type')
+    if meal_type in ['breakfast', 'lunch', 'dinner', 'snack']:
+        form.meal_type.data = meal_type
+    
+    # Get recently logged foods for quick access
+    recent_foods = db.session.query(Food).join(MealLog).filter(
+        MealLog.user_id == current_user.id,
+        Food.is_verified == True
+    ).distinct().order_by(MealLog.logged_at.desc()).limit(10).all()
+    
+    return render_template('dashboard/log_meal.html', title='Log Meal', 
+                         form=form, selected_food=selected_food, recent_foods=recent_foods)
 
 @bp.route('/search-foods')
 @login_required
 def search_foods():
-    """Search for foods to log."""
+    """Search for verified foods to log."""
     form = FoodSearchForm()
     foods = []
     
-    search_query = request.args.get('search', '')
+    search_query = request.args.get('q', '')
     category_filter = request.args.get('category', '')
+    page = request.args.get('page', 1, type=int)
     
     if search_query:
-        query = Food.query
+        query = Food.query.filter(Food.is_verified == True)  # Only verified foods
         
         # Text search
         query = query.filter(
@@ -133,16 +163,30 @@ def search_foods():
         if category_filter:
             query = query.filter(Food.category == category_filter)
         
-        foods = query.order_by(Food.name).limit(50).all()
+        # Paginate results
+        pagination = query.order_by(Food.name).paginate(
+            page=page, per_page=12, error_out=False)
+        foods = pagination.items
         
-        if not foods:
-            flash(f'No foods found for "{search_query}". Try a different search term.', 'info')
+        if not foods and page == 1:
+            flash(f'No verified foods found for "{search_query}". Try a different search term.', 'info')
+    else:
+        pagination = None
+    
+    # Get categories for filter dropdown
+    categories = db.session.query(Food.category).filter(
+        Food.is_verified == True,
+        Food.category.isnot(None),
+        Food.category != ''
+    ).distinct().order_by(Food.category).all()
+    categories = [cat[0] for cat in categories]
     
     form.search.data = search_query
     form.category.data = category_filter
     
     return render_template('dashboard/search_foods.html', title='Search Foods',
-                         form=form, foods=foods, search_query=search_query)
+                         form=form, foods=foods, search_query=search_query,
+                         categories=categories, pagination=pagination)
 
 @bp.route('/nutrition-goals', methods=['GET', 'POST'])
 @login_required
