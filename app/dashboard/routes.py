@@ -113,6 +113,9 @@ def log_meal():
             date=date.today()
         )
         
+        # Calculate nutrition values based on quantity
+        meal_log.calculate_nutrition()
+        
         db.session.add(meal_log)
         db.session.commit()
         
