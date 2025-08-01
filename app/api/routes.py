@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from flask_wtf.csrf import validate_csrf
 from wtforms.validators import ValidationError
 from app.api import bp
-from app.models import Food, MealLog, User
+from app.models import Food, MealLog, User, FoodServing
 from app import db
 from functools import wraps
 from datetime import datetime
@@ -73,6 +73,117 @@ def search_foods():
         })
     
     return jsonify({'foods': foods_data})
+
+@bp.route('/foods/search-verified')
+@api_login_required
+def search_verified_foods():
+    """API endpoint for searching only verified foods for meal logging."""
+    query = request.args.get('q', '', type=str)
+    category = request.args.get('category', '', type=str)
+    limit = request.args.get('limit', 20, type=int)
+    
+    if not query or len(query) < 2:
+        return jsonify({'foods': []})
+    
+    # Build query for verified foods only
+    foods_query = Food.query.filter(
+        Food.is_verified == True,  # Only verified foods
+        (Food.name.contains(query) | Food.brand.contains(query))
+    )
+    
+    if category:
+        foods_query = foods_query.filter(Food.category == category)
+    
+    foods = foods_query.order_by(Food.name).limit(limit).all()
+    
+    # Format response with UOM data
+    foods_data = []
+    for food in foods:
+        brand_text = f" ({food.brand})" if food.brand else ""
+        food_data = {
+            'id': food.id,
+            'name': food.name,
+            'brand': food.brand,
+            'display_name': f"{food.name}{brand_text}",
+            'category': food.category,
+            'description': food.description,
+            'is_verified': food.is_verified,
+            'per_100g': {
+                'calories': food.calories,
+                'protein': food.protein,
+                'carbs': food.carbs,
+                'fat': food.fat,
+                'fiber': food.fiber,
+                'sugar': food.sugar,
+                'sodium': food.sodium
+            },
+            'servings': []
+        }
+        
+        # Add serving sizes
+        servings = FoodServing.query.filter_by(food_id=food.id).all()
+        for serving in servings:
+            food_data['servings'].append({
+                'id': serving.id,
+                'name': serving.serving_name,
+                'unit': serving.serving_unit,
+                'quantity': serving.serving_quantity,
+                'is_default': serving.is_default
+            })
+        
+        # Add default grams serving if no servings exist
+        if not food_data['servings']:
+            food_data['servings'].append({
+                'id': None,
+                'name': '100g',
+                'unit': 'grams',
+                'quantity': 100,
+                'is_default': True
+            })
+        
+        foods_data.append(food_data)
+    
+    return jsonify({'foods': foods_data})
+
+@bp.route('/foods/<int:food_id>/servings')
+@api_login_required
+def get_food_servings(food_id):
+    """Get all serving sizes for a specific food."""
+    food = Food.query.get_or_404(food_id)
+    
+    if not food.is_verified:
+        return jsonify({'error': 'Food not verified'}), 400
+    
+    servings = FoodServing.query.filter_by(food_id=food_id).all()
+    
+    servings_data = []
+    for serving in servings:
+        servings_data.append({
+            'id': serving.id,
+            'name': serving.serving_name,
+            'unit': serving.serving_unit,
+            'quantity': serving.serving_quantity,  # Grams equivalent
+            'is_default': serving.is_default
+        })
+    
+    # Always include grams as an option
+    servings_data.insert(0, {
+        'id': None,
+        'name': 'Grams',
+        'unit': 'grams',
+        'quantity': 1,  # 1:1 ratio for grams
+        'is_default': len(servings_data) == 0
+    })
+    
+    return jsonify({
+        'food': {
+            'id': food.id,
+            'name': food.name,
+            'brand': food.brand,
+            'default_serving_size_grams': food.default_serving_size_grams
+        },
+        'servings': servings_data
+    })
 
 @bp.route('/foods/<int:food_id>/nutrition')
 @api_login_required

@@ -196,7 +196,8 @@ class Food(db.Model):
     
     # Additional information
     description = db.Column(db.Text)  # Optional description for food item
-    serving_size = db.Column(db.Float, default=100)  # in grams
+    serving_size = db.Column(db.Float, default=100)  # in grams (legacy field)
+    default_serving_size_grams = db.Column(db.Float, default=100.0)  # Default serving size for UI
     is_verified = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
@@ -221,12 +222,17 @@ class Food(db.Model):
         return f'<Food {self.name}>'
 
 class MealLog(db.Model):
-    """Meal logging model."""
+    """Meal logging model with UOM support."""
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     food_id = db.Column(db.Integer, db.ForeignKey('food.id'), nullable=False)
     
-    quantity = db.Column(db.Float, nullable=False)  # in grams
+    # UOM support
+    quantity = db.Column(db.Float, nullable=False)  # Quantity in grams (normalized)
+    original_quantity = db.Column(db.Float, nullable=False)  # Original quantity entered by user
+    unit_type = db.Column(db.String(20), nullable=False, default='grams')  # grams, serving
+    serving_id = db.Column(db.Integer, db.ForeignKey('food_serving.id'))  # For custom servings
+    
     meal_type = db.Column(db.String(20), nullable=False)  # breakfast, lunch, dinner, snack
     logged_at = db.Column(db.DateTime, default=datetime.utcnow)
     date = db.Column(db.Date, default=datetime.utcnow().date(), index=True)
@@ -238,15 +244,28 @@ class MealLog(db.Model):
     fat = db.Column(db.Float)
     fiber = db.Column(db.Float)
     
+    # Relationships
+    serving = db.relationship('FoodServing', backref='meal_logs')
+    
     def calculate_nutrition(self):
-        """Calculate nutrition values based on quantity."""
-        if self.food:
-            factor = self.quantity / 100
-            self.calories = self.food.calories * factor
-            self.protein = self.food.protein * factor
-            self.carbs = self.food.carbs * factor
-            self.fat = self.food.fat * factor
-            self.fiber = self.food.fiber * factor
+        """Calculate nutrition values based on quantity and unit."""
+        if not self.food:
+            return
+            
+        # Always calculate based on normalized grams
+        factor = self.quantity / 100
+        self.calories = self.food.calories * factor
+        self.protein = self.food.protein * factor
+        self.carbs = self.food.carbs * factor
+        self.fat = self.food.fat * factor
+        self.fiber = self.food.fiber * factor
+    
+    def get_display_quantity_and_unit(self):
+        """Get the display-friendly quantity and unit for this meal log."""
+        if self.unit_type == 'serving' and self.serving:
+            return f"{self.original_quantity} {self.serving.serving_name}"
+        else:
+            return f"{self.original_quantity}g"
     
     def __repr__(self):
         return f'<MealLog {self.user.username} - {self.food.name}>'

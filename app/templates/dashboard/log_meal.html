@@ -1,16 +1,28 @@
-{% extends "base.html" %} {% block title %}Log Meal{% endblock %} {% block
-content %}
+{% extends "base.html" %} 
+{% block title %}Log Meal{% endblock %} 
+{% block content %}
 <div class="container mt-4">
   <div class="row">
     <div class="col-md-8 mx-auto">
       <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h3 mb-0">Log a Meal</h1>
-        <a
-          href="{{ url_for('dashboard.index') }}"
-          class="btn btn-outline-secondary"
-        >
+        <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">
           <i class="fas fa-arrow-left"></i> Back to Dashboard
         </a>
+      </div>
+
+      <!-- Security Notice -->
+      <div class="alert alert-info border-0 mb-4" role="alert">
+        <div class="d-flex">
+          <i class="fas fa-shield-alt text-info me-3 mt-1"></i>
+          <div>
+            <h6 class="alert-heading mb-2">Verified Foods Only</h6>
+            <p class="mb-0 small">
+              For accuracy and safety, you can only log foods that have been verified by our admin team. 
+              These foods have validated nutritional information and accurate serving sizes.
+            </p>
+          </div>
+        </div>
       </div>
 
       <div class="card">
@@ -20,13 +32,13 @@ content %}
 
             <!-- Food Search Section -->
             <div class="mb-4">
-              <label class="form-label">Search for Food</label>
+              <label class="form-label fw-bold">Search for Verified Food</label>
               <div class="input-group">
                 <input
                   type="text"
                   class="form-control"
                   id="foodSearch"
-                  placeholder="Start typing to search foods..."
+                  placeholder="Start typing to search verified foods..."
                 />
                 <button
                   type="button"
@@ -35,6 +47,10 @@ content %}
                 >
                   <i class="fas fa-search"></i>
                 </button>
+              </div>
+              <div class="form-text">
+                <i class="fas fa-info-circle me-1"></i>
+                Only verified foods with accurate nutritional data will be shown
               </div>
               <div id="foodSearchResults" class="mt-2"></div>
             </div>
@@ -55,14 +71,9 @@ content %}
                     </div>
                     <div class="col-md-6">
                       <h6 id="selectedFoodName" class="mb-1"></h6>
-                      <span
-                        id="selectedFoodBrand"
-                        class="badge bg-secondary"
-                      ></span>
-                      <p
-                        id="selectedFoodDescription"
-                        class="text-muted small mb-0"
-                      ></p>
+                      <span id="selectedFoodBrand" class="badge bg-secondary"></span>
+                      <span class="badge bg-success ms-1">Verified</span>
+                      <p id="selectedFoodDescription" class="text-muted small mb-0"></p>
                     </div>
                     <div class="col-md-4">
                       <div class="row text-center">
@@ -91,8 +102,8 @@ content %}
             </div>
 
             <!-- Food ID (Hidden) -->
-            {{ form.food_id(class="form-control", style="display: none;") }} {%
-            if form.food_id.errors %}
+            {{ form.food_id(class="form-control", style="display: none;") }} 
+            {% if form.food_id.errors %}
             <div class="invalid-feedback d-block">
               {% for error in form.food_id.errors %}
               <span>{{ error }}</span>
@@ -100,15 +111,41 @@ content %}
             </div>
             {% endif %}
 
-            <!-- Meal Details -->
+            <!-- Unit of Measure and Serving Size Selection -->
+            <div id="servingSizeSection" class="mb-4" style="display: none">
+              <label class="form-label fw-bold">Select Unit Type and Serving Size</label>
+              <div class="row">
+                <div class="col-md-6">
+                  {{ form.unit_type.label(class="form-label") }}
+                  {{ form.unit_type(class="form-select", id="unitTypeSelect") }}
+                  <div class="form-text">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Choose between grams or serving sizes
+                  </div>
+                </div>
+                <div class="col-md-6" id="servingSelectContainer" style="display: none">
+                  <label for="servingSelect" class="form-label">Serving Size</label>
+                  <select class="form-select" id="servingSelect" name="serving_select">
+                    <option value="">Choose serving size...</option>
+                  </select>
+                  <div class="form-text">
+                    <i class="fas fa-utensils me-1"></i>
+                    Select from available serving sizes
+                  </div>
+                </div>
+              </div>
+              {{ form.serving_id(style="display: none;") }}
+            </div>
+
+            <!-- Quantity Input (Always Enabled) -->
             <div class="row">
               <div class="col-md-6">
                 <div class="mb-3">
-                  {{ form.quantity.label(class="form-label") }}
+                  {{ form.quantity.label(class="form-label fw-bold") }}
                   <div class="input-group">
-                    {{ form.quantity(class="form-control" + (" is-invalid" if
-                    form.quantity.errors else "")) }}
-                    <span class="input-group-text">grams</span>
+                    {{ form.quantity(class="form-control" + (" is-invalid" if form.quantity.errors else ""), 
+                                   id="quantityInput", placeholder="Enter quantity", step="0.1", min="0.1") }}
+                    <span class="input-group-text" id="quantityUnit">grams</span>
                   </div>
                   {% if form.quantity.errors %}
                   <div class="invalid-feedback">
@@ -117,14 +154,17 @@ content %}
                     {% endfor %}
                   </div>
                   {% endif %}
+                  <div class="form-text">
+                    <i class="fas fa-balance-scale me-1"></i>
+                    Enter a positive number (supports decimals)
+                  </div>
                 </div>
               </div>
               <div class="col-md-6">
                 <div class="mb-3">
-                  {{ form.meal_type.label(class="form-label") }} {{
-                  form.meal_type(class="form-select" + (" is-invalid" if
-                  form.meal_type.errors else "")) }} {% if form.meal_type.errors
-                  %}
+                  {{ form.meal_type.label(class="form-label fw-bold") }} 
+                  {{ form.meal_type(class="form-select" + (" is-invalid" if form.meal_type.errors else "")) }} 
+                  {% if form.meal_type.errors %}
                   <div class="invalid-feedback">
                     {% for error in form.meal_type.errors %}
                     <span>{{ error }}</span>
@@ -138,9 +178,9 @@ content %}
             <div class="row">
               <div class="col-md-6">
                 <div class="mb-3">
-                  {{ form.date.label(class="form-label") }} {{
-                  form.date(class="form-control" + (" is-invalid" if
-                  form.date.errors else "")) }} {% if form.date.errors %}
+                  {{ form.date.label(class="form-label fw-bold") }} 
+                  {{ form.date(class="form-control" + (" is-invalid" if form.date.errors else "")) }} 
+                  {% if form.date.errors %}
                   <div class="invalid-feedback">
                     {% for error in form.date.errors %}
                     <span>{{ error }}</span>
@@ -151,7 +191,7 @@ content %}
               </div>
             </div>
 
-            <!-- Nutrition Preview (will be calculated dynamically) -->
+            <!-- Nutrition Preview -->
             <div id="nutritionPreview" class="mb-4" style="display: none">
               <h6>Nutrition Summary for this serving:</h6>
               <div class="row text-center">
@@ -192,7 +232,7 @@ content %}
 
             <!-- Submit Button -->
             <div class="d-grid">
-              {{ form.submit(class="btn btn-primary btn-lg") }}
+              {{ form.submit(class="btn btn-primary btn-lg", disabled=True, id="submitBtn") }}
             </div>
           </form>
         </div>
@@ -226,6 +266,7 @@ content %}
                       {% if food.brand %}
                       <small class="text-muted">{{ food.brand }}</small>
                       {% endif %}
+                      <span class="badge bg-success ms-1" style="font-size: 0.7em;">Verified</span>
                     </div>
                     <button
                       type="button"
@@ -242,8 +283,7 @@ content %}
           </div>
           {% else %}
           <p class="text-muted mb-0">
-            No recently logged foods. Start by searching and logging your first
-            meal!
+            No recently logged foods. Start by searching and logging your first meal!
           </p>
           {% endif %}
         </div>
@@ -252,13 +292,629 @@ content %}
   </div>
 </div>
 
-<!-- Pre-fill data using JSON instead of inline JS -->
-{% if request.args.get('food_id') and selected_food %}
+<!-- Pre-fill data using JSON -->
+{% if selected_food %}
 <script type="application/json" id="preselected-food-data">
   {{ selected_food | tojson }}
 </script>
-{% endif %} {% if request.args.get('meal_type') %}
+{% endif %} 
+
+{% if request.args.get('meal_type') %}
 <script type="application/json" id="preselected-meal-type">
   "{{ request.args.get('meal_type') }}"
 </script>
-{% endif %} {% endblock %}
+{% endif %}
+
+<!-- Enhanced JavaScript for UOM-enabled Meal Logging -->
+<script>
+/**
+ * Enhanced Meal Logging System with Improved UOM Support
+ * 
+ * Key Features:
+ * - After selecting food, unit dropdown shows all serving sizes
+ * - When picking serving size, NO additional serving size field opens
+ * - Each food has default serving size in grams from database
+ * - Quantity field is always enabled for positive numbers
+ * - Clean, modular code with proper validation
+ */
+class EnhancedMealLogger {
+    constructor() {
+        this.selectedFood = null;
+        this.selectedServings = [];
+        this.currentServing = null;
+        this.isInitialized = false;
+        
+        // DOM elements
+        this.elements = {
+            foodSearch: document.getElementById('foodSearch'),
+            searchResults: document.getElementById('foodSearchResults'),
+            selectedFoodSection: document.getElementById('selectedFoodSection'),
+            servingSizeSection: document.getElementById('servingSizeSection'),
+            unitTypeSelect: document.getElementById('unitTypeSelect'),
+            servingSelect: document.getElementById('servingSelect'),
+            servingSelectContainer: document.getElementById('servingSelectContainer'),
+            quantityInput: document.getElementById('quantityInput'),
+            quantityUnit: document.getElementById('quantityUnit'),
+            submitBtn: document.getElementById('submitBtn'),
+            nutritionPreview: document.getElementById('nutritionPreview')
+        };
+        
+        // Security and validation settings
+        this.maxSearchLength = 100;
+        this.searchTimeout = null;
+        this.lastSearchQuery = '';
+        this.maxQuantity = 2000;
+        this.minQuantity = 0.1;
+    }
+
+    /**
+     * Initialize the meal logger with all event handlers and security measures
+     */
+    init() {
+        try {
+            this.setupEventListeners();
+            this.handlePreselectedData();
+            this.setupFormValidation();
+            this.setupQuantityValidation();
+            this.isInitialized = true;
+            
+            console.log('[MealLogger] Enhanced system initialized successfully');
+        } catch (error) {
+            console.error('[MealLogger] Initialization failed:', error);
+            this.showError('Failed to initialize meal logging. Please refresh the page.');
+        }
+    }
+
+    /**
+     * Setup all event listeners with proper validation
+     */
+    setupEventListeners() {
+        // Food search with debouncing and validation
+        if (this.elements.foodSearch) {
+            this.elements.foodSearch.addEventListener('input', (e) => {
+                clearTimeout(this.searchTimeout);
+                const query = this.sanitizeInput(e.target.value);
+                
+                if (query.length >= 2 && query !== this.lastSearchQuery) {
+                    this.searchTimeout = setTimeout(() => {
+                        this.searchVerifiedFoods(query);
+                        this.lastSearchQuery = query;
+                    }, 300);
+                } else if (query.length < 2) {
+                    this.clearSearchResults();
+                }
+            });
+
+            this.elements.foodSearch.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const query = this.sanitizeInput(e.target.value);
+                    if (query.length >= 2) {
+                        this.searchVerifiedFoods(query);
+                    }
+                }
+            });
+        }
+
+        // Unit type selection - shows serving sizes when "serving" is selected
+        if (this.elements.unitTypeSelect) {
+            this.elements.unitTypeSelect.addEventListener('change', (e) => {
+                this.handleUnitTypeChange(e.target.value);
+            });
+        }
+
+        // Serving selection - updates quantity unit display
+        if (this.elements.servingSelect) {
+            this.elements.servingSelect.addEventListener('change', (e) => {
+                this.handleServingChange(e.target.value);
+            });
+        }
+
+        // Quantity input with real-time validation and nutrition updates
+        if (this.elements.quantityInput) {
+            this.elements.quantityInput.addEventListener('input', () => {
+                this.validateQuantityAndUpdateNutrition();
+            });
+            
+            this.elements.quantityInput.addEventListener('blur', () => {
+                this.validateQuantityInput();
+            });
+        }
+
+        // Quick select buttons for recent foods
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.quick-select-food-btn')) {
+                const foodId = e.target.closest('.quick-select-food-btn').dataset.foodId;
+                this.quickSelectFood(foodId);
+            }
+        });
+    }
+        // Quick select buttons for recent foods
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.quick-select-food-btn')) {
+                const foodId = e.target.closest('.quick-select-food-btn').dataset.foodId;
+                this.quickSelectFood(foodId);
+            }
+        });
+    }
+
+    /**
+     * Setup quantity validation with immediate feedback
+     */
+    setupQuantityValidation() {
+        if (this.elements.quantityInput) {
+            // Set validation attributes
+            this.elements.quantityInput.setAttribute('min', this.minQuantity);
+            this.elements.quantityInput.setAttribute('max', this.maxQuantity);
+            this.elements.quantityInput.setAttribute('step', '0.1');
+        }
+    }
+
+    /**
+     * Search for verified foods with enhanced error handling
+     */
+    async searchVerifiedFoods(query) {
+        if (!query || query.length < 2) return;
+
+        try {
+            this.showSearchLoading();
+            
+            const response = await fetch(`/api/foods/search-verified?q=${encodeURIComponent(query)}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            this.displaySearchResults(data.foods);
+            
+        } catch (error) {
+            console.error('[MealLogger] Food search failed:', error);
+            this.showError('Failed to search foods. Please try again.');
+            this.clearSearchResults();
+        }
+    }
+
+    /**
+     * Display search results with improved UI
+     */
+    displaySearchResults(foods) {
+        if (!foods || foods.length === 0) {
+            this.elements.searchResults.innerHTML = `
+                <div class="alert alert-info mt-2">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No verified foods found. Try different search terms.
+                </div>
+            `;
+            return;
+        }
+
+        let html = '<div class="list-group mt-2">';
+        foods.forEach(food => {
+            const brandText = food.brand ? ` (${food.brand})` : '';
+            html += `
+                <button type="button" class="list-group-item list-group-item-action food-search-result" 
+                        data-food-id="${food.id}" onclick="mealLogger.selectFood(${food.id})">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">${this.escapeHtml(food.name)}${this.escapeHtml(brandText)}</h6>
+                            <span class="badge bg-success me-2">Verified</span>
+                            <span class="badge bg-secondary">${this.escapeHtml(food.category)}</span>
+                            <small class="text-muted d-block">${food.per_100g.calories} cal, ${food.per_100g.protein}g protein per 100g</small>
+                        </div>
+                        <i class="fas fa-chevron-right text-muted"></i>
+                    </div>
+                </button>
+            `;
+        });
+        html += '</div>';
+        
+        this.elements.searchResults.innerHTML = html;
+    }
+
+    /**
+     * Select a food and load its serving options with default serving size
+     */
+    async selectFood(foodId) {
+        try {
+            this.showLoading('Loading food details...');
+            
+            // Fetch food details with servings
+            const response = await fetch(`/api/foods/${foodId}/servings`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            this.selectedFood = data.food;
+            this.selectedServings = data.servings;
+            
+            // Update UI components
+            this.displaySelectedFood();
+            this.populateUnitTypeDropdown(); // NEW: Populate unit dropdown with serving sizes
+            this.showServingSizeSection();
+            this.setDefaultQuantity(); // NEW: Set default quantity from database
+            this.clearSearchResults();
+            
+            // Update form fields
+            document.getElementById('food_id').value = foodId;
+            const foodNameField = document.getElementById('food_name');
+            if (foodNameField) {
+                foodNameField.value = `${data.food.name}${data.food.brand ? ` (${data.food.brand})` : ''}`;
+            }
+            
+            this.hideLoading();
+            
+        } catch (error) {
+            console.error('[MealLogger] Food selection failed:', error);
+            this.showError('Failed to load food details. Please try again.');
+            this.hideLoading();
+        }
+    }
+
+    /**
+     * NEW: Set default quantity based on food's default serving size
+     */
+    setDefaultQuantity() {
+        if (this.selectedFood && this.selectedFood.default_serving_size_grams) {
+            this.elements.quantityInput.value = this.selectedFood.default_serving_size_grams;
+            this.validateQuantityAndUpdateNutrition();
+        }
+    }
+
+    /**
+     * Display selected food information
+     */
+    displaySelectedFood() {
+        if (!this.selectedFood) return;
+
+        // Get food nutrition for display
+        fetch(`/api/foods/${this.selectedFood.id}/nutrition`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('selectedFoodName').textContent = data.name;
+                document.getElementById('selectedFoodBrand').textContent = data.brand || '';
+                document.getElementById('selectedFoodBrand').style.display = data.brand ? 'inline' : 'none';
+                document.getElementById('selectedFoodDescription').textContent = data.description || 'No description available';
+                
+                document.getElementById('selectedFoodCalories').textContent = data.per_100g.calories;
+                document.getElementById('selectedFoodProtein').textContent = data.per_100g.protein + 'g';
+                document.getElementById('selectedFoodCarbs').textContent = (data.per_100g.carbs || 0) + 'g';
+                document.getElementById('selectedFoodFat').textContent = (data.per_100g.fat || 0) + 'g';
+                
+                this.elements.selectedFoodSection.style.display = 'block';
+            })
+            .catch(error => {
+                console.error('[MealLogger] Error loading nutrition data:', error);
+            });
+    }
+
+    /**
+     * NEW: Populate unit type dropdown to show all serving sizes
+     * Key requirement: After selecting food, unit dropdown shows all serving sizes
+     */
+    populateUnitTypeDropdown() {
+        const unitSelect = this.elements.unitTypeSelect;
+        
+        // Clear existing options
+        unitSelect.innerHTML = '';
+        
+        // Add grams option (always available)
+        const gramsOption = document.createElement('option');
+        gramsOption.value = 'grams';
+        gramsOption.textContent = 'Grams';
+        unitSelect.appendChild(gramsOption);
+        
+        // Add all available serving sizes as unit options
+        this.selectedServings.forEach(serving => {
+            if (serving.id) { // Skip the default "grams" serving
+                const option = document.createElement('option');
+                option.value = 'serving';
+                option.textContent = serving.name;
+                option.dataset.servingId = serving.id;
+                option.dataset.servingQuantity = serving.quantity;
+                option.dataset.servingName = serving.name;
+                
+                // Mark as selected if it's the default serving
+                if (serving.is_default) {
+                    option.selected = true;
+                }
+                
+                unitSelect.appendChild(option);
+            }
+        });
+        
+        // Trigger change event to update UI
+        this.handleUnitTypeChange(unitSelect.value);
+    }
+
+    /**
+     * UPDATED: Handle unit type change - no additional serving dropdown
+     * Key requirement: When picking serving size, do NOT open another serving size field
+     */
+    handleUnitTypeChange(unitType) {
+        const selectedOption = this.elements.unitTypeSelect.selectedOptions[0];
+        
+        if (unitType === 'serving' && selectedOption.dataset.servingId) {
+            // Use the serving info directly from the selected option
+            this.currentServing = {
+                id: selectedOption.dataset.servingId,
+                name: selectedOption.dataset.servingName,
+                quantity: parseFloat(selectedOption.dataset.servingQuantity)
+            };
+            
+            // Update form fields
+            document.getElementById('serving_id').value = this.currentServing.id;
+            this.elements.quantityUnit.textContent = this.currentServing.name.toLowerCase();
+            
+            // Hide the serving select container since we don't need it
+            this.elements.servingSelectContainer.style.display = 'none';
+            
+        } else {
+            // Grams mode
+            this.currentServing = null;
+            document.getElementById('serving_id').value = '';
+            this.elements.quantityUnit.textContent = 'grams';
+            this.elements.servingSelectContainer.style.display = 'none';
+        }
+        
+        this.validateQuantityAndUpdateNutrition();
+    }
+
+    /**
+     * SIMPLIFIED: Handle serving change (mostly unused now)
+     */
+    handleServingChange(servingValue) {
+        // This method is simplified since we handle serving selection in unit type change
+        if (servingValue && servingValue !== 'grams') {
+            this.currentServing = this.selectedServings.find(s => s.id == servingValue);
+            document.getElementById('serving_id').value = servingValue;
+            
+            if (this.currentServing) {
+                this.elements.quantityUnit.textContent = this.currentServing.name.toLowerCase();
+            }
+        } else {
+            this.currentServing = null;
+            document.getElementById('serving_id').value = '';
+            this.elements.quantityUnit.textContent = 'grams';
+        }
+        
+        this.validateQuantityAndUpdateNutrition();
+    }
+
+    /**
+     * NEW: Validate quantity input with immediate feedback
+     */
+    validateQuantityInput() {
+        const quantity = parseFloat(this.elements.quantityInput.value);
+        const input = this.elements.quantityInput;
+        
+        // Remove previous validation classes
+        input.classList.remove('is-valid', 'is-invalid');
+        
+        if (isNaN(quantity) || quantity < this.minQuantity || quantity > this.maxQuantity) {
+            input.classList.add('is-invalid');
+            return false;
+        } else {
+            input.classList.add('is-valid');
+            return true;
+        }
+    }
+
+    /**
+     * UPDATED: Validate quantity and update nutrition preview
+     * Key requirement: Quantity field always enabled for positive numbers
+     */
+    validateQuantityAndUpdateNutrition() {
+        const quantity = parseFloat(this.elements.quantityInput.value);
+        
+        // Validate input
+        const isValidQuantity = this.validateQuantityInput();
+        
+        if (!this.selectedFood || !isValidQuantity || !quantity || quantity <= 0) {
+            this.elements.nutritionPreview.style.display = 'none';
+            this.updateSubmitButton();
+            return;
+        }
+
+        // Calculate nutrition based on unit type
+        let gramsEquivalent = quantity;
+        
+        if (this.elements.unitTypeSelect.value === 'serving' && this.currentServing) {
+            gramsEquivalent = quantity * this.currentServing.quantity;
+        }
+        
+        // Fetch nutrition and calculate
+        fetch(`/api/foods/${this.selectedFood.id}/nutrition`)
+            .then(response => response.json())
+            .then(data => {
+                const factor = gramsEquivalent / 100;
+                
+                document.getElementById('previewCalories').textContent = Math.round(data.per_100g.calories * factor);
+                document.getElementById('previewProtein').textContent = (data.per_100g.protein * factor).toFixed(1) + 'g';
+                document.getElementById('previewCarbs').textContent = ((data.per_100g.carbs || 0) * factor).toFixed(1) + 'g';
+                document.getElementById('previewFat').textContent = ((data.per_100g.fat || 0) * factor).toFixed(1) + 'g';
+                
+                this.elements.nutritionPreview.style.display = 'block';
+                this.updateSubmitButton();
+            })
+            .catch(error => {
+                console.error('[MealLogger] Nutrition calculation failed:', error);
+            });
+    }
+
+    /**
+     * Update submit button state based on form validation
+     */
+    updateSubmitButton() {
+        const quantity = parseFloat(this.elements.quantityInput.value);
+        const isValidForm = this.selectedFood && 
+                           quantity > 0 && 
+                           quantity >= this.minQuantity && 
+                           quantity <= this.maxQuantity;
+        
+        this.elements.submitBtn.disabled = !isValidForm;
+        
+        if (isValidForm) {
+            this.elements.submitBtn.textContent = 'Log Meal';
+            this.elements.submitBtn.className = 'btn btn-primary btn-lg';
+        } else {
+            this.elements.submitBtn.textContent = 'Select food and enter valid quantity';
+            this.elements.submitBtn.className = 'btn btn-secondary btn-lg';
+        }
+    }
+
+    /**
+     * Quick select food from recent foods
+     */
+    async quickSelectFood(foodId) {
+        await this.selectFood(foodId);
+    }
+
+    /**
+     * Show/hide and utility methods
+     */
+    showServingSizeSection() {
+        this.elements.servingSizeSection.style.display = 'block';
+    }
+
+    clearSearchResults() {
+        this.elements.searchResults.innerHTML = '';
+    }
+
+    showSearchLoading() {
+        this.elements.searchResults.innerHTML = `
+            <div class="text-center py-2">
+                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                Searching verified foods...
+            </div>
+        `;
+    }
+
+    showLoading(message = 'Loading...') {
+        console.log('[MealLogger]', message);
+    }
+
+    hideLoading() {
+        // Implementation for hiding loading state
+    }
+
+    showError(message) {
+        const errorHtml = `
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                ${this.escapeHtml(message)}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        const form = document.getElementById('mealLogForm');
+        form.insertAdjacentHTML('afterbegin', errorHtml);
+    }
+
+    /**
+     * Handle preselected food data from server
+     */
+    handlePreselectedData() {
+        const preselectedFoodData = document.getElementById('preselected-food-data');
+        if (preselectedFoodData) {
+            try {
+                const foodData = JSON.parse(preselectedFoodData.textContent);
+                this.selectFood(foodData.id);
+            } catch (e) {
+                console.error('[MealLogger] Error parsing preselected food data:', e);
+            }
+        }
+
+        const preselectedMealType = document.getElementById('preselected-meal-type');
+        if (preselectedMealType) {
+            try {
+                const mealType = JSON.parse(preselectedMealType.textContent);
+                const mealTypeSelect = document.getElementById('meal_type');
+                if (mealTypeSelect) {
+                    mealTypeSelect.value = mealType;
+                }
+            } catch (e) {
+                console.error('[MealLogger] Error parsing preselected meal type:', e);
+            }
+        }
+    }
+
+    /**
+     * Setup form validation and security measures
+     */
+    setupFormValidation() {
+        const form = document.getElementById('mealLogForm');
+        if (form) {
+            form.addEventListener('submit', (e) => {
+                if (!this.validateForm()) {
+                    e.preventDefault();
+                    this.showError('Please complete all required fields with valid data.');
+                }
+            });
+        }
+    }
+
+    validateForm() {
+        const foodId = document.getElementById('food_id').value;
+        const quantity = parseFloat(this.elements.quantityInput.value);
+        
+        return foodId && 
+               quantity > 0 && 
+               quantity >= this.minQuantity && 
+               quantity <= this.maxQuantity;
+    }
+
+    /**
+     * Sanitize user input to prevent XSS
+     */
+    sanitizeInput(input) {
+        if (typeof input !== 'string') return '';
+        
+        return input
+            .slice(0, this.maxSearchLength)
+            .replace(/[<>\"']/g, '')
+            .trim();
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+}
+
+// Global functions for backward compatibility
+function searchFoods() {
+    const query = document.getElementById('foodSearch').value;
+    if (window.mealLogger && query.length >= 2) {
+        window.mealLogger.searchVerifiedFoods(query);
+    }
+}
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    window.mealLogger = new EnhancedMealLogger();
+    window.mealLogger.init();
+});
+</script>
+
+{% endblock %}

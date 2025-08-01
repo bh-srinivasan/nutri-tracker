@@ -4,13 +4,22 @@ from wtforms.validators import DataRequired, NumberRange, Optional
 from datetime import date
 
 class MealLogForm(FlaskForm):
-    """Form for logging meals."""
+    """Form for logging meals with UOM support."""
     food_id = HiddenField('Food ID', validators=[DataRequired()])
     food_name = StringField('Food', render_kw={'readonly': True})
-    quantity = FloatField('Quantity (grams)', validators=[
+    
+    # UOM fields
+    serving_id = HiddenField('Serving ID')  # For custom servings
+    unit_type = SelectField('Unit Type', choices=[
+        ('grams', 'Grams'),
+        ('serving', 'Serving Size')
+    ], validators=[DataRequired()], default='grams')
+    
+    quantity = FloatField('Quantity', validators=[
         DataRequired(), 
-        NumberRange(min=0.1, max=2000, message='Quantity must be between 0.1 and 2000 grams')
+        NumberRange(min=0.1, max=2000, message='Quantity must be between 0.1 and 2000')
     ])
+    
     meal_type = SelectField('Meal Type', choices=[
         ('breakfast', 'Breakfast'),
         ('lunch', 'Lunch'),
