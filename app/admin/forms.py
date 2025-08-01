@@ -65,7 +65,7 @@ class FoodForm(FlaskForm):
         Optional(), 
         NumberRange(min=1, max=1000, message='Serving size must be between 1 and 1000g')
     ])
-    is_verified = BooleanField('Verified Food Item')
+    is_verified = BooleanField('Verified Food Item', default=True)
     submit = SubmitField('Save Food Item')
 
 class UserManagementForm(FlaskForm):
