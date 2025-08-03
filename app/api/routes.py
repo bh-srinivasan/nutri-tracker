@@ -1,30 +1,13 @@
-from flask import jsonify, request
-from flask_login import login_required, current_user
-from flask_wtf.csrf import validate_csrf
-from wtforms.validators import ValidationError
-from app.api import bp
-from app.models import Food, MealLog, User, FoodServing
+from flask import request, jsonify
+from flask_login import current_user
+from app.models import Food, User, MealLog, FoodServing
 from app import db
+from datetime import datetime, date
 from functools import wraps
-from datetime import datetime
-import logging
-
-# Set up logging
-logger = logging.getLogger(__name__)
-
-def admin_required(f):
-    """Decorator to require admin access for API endpoints."""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated:
-            return jsonify({'error': 'Authentication required'}), 401
-        if not current_user.is_admin:
-            return jsonify({'error': 'Admin access required'}), 403
-        return f(*args, **kwargs)
-    return decorated_function
+from app.api import bp
 
 def api_login_required(f):
-    """Custom login_required decorator for API endpoints that returns JSON instead of redirecting."""
+    """Custom decorator for API routes that handles authentication for AJAX requests."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated:
@@ -35,669 +18,227 @@ def api_login_required(f):
 @bp.route('/foods/search')
 @api_login_required
 def search_foods():
-    """API endpoint for food search with autocomplete."""
-    query = request.args.get('q', '', type=str)
-    category = request.args.get('category', '', type=str)
-    limit = request.args.get('limit', 10, type=int)
+    """Search for foods."""
+    query = request.args.get('q', '').strip()
+    if not query:
+        return jsonify({'error': 'Query parameter required'}), 400
     
-    if not query or len(query) < 2:
-        return jsonify({'foods': []})
+    foods = Food.query.filter(Food.name.ilike(f'%{query}%')).limit(20).all()
     
-    # Build query
-    foods_query = Food.query.filter(
-        Food.name.contains(query) |
-        Food.brand.contains(query)
-    )
-    
-    if category:
-        foods_query = foods_query.filter(Food.category == category)
-    
-    foods = foods_query.order_by(Food.name).limit(limit).all()
-    
-    # Format response
-    foods_data = []
-    for food in foods:
-        brand_text = f" ({food.brand})" if food.brand else ""
-        foods_data.append({
-            'id': food.id,
-            'name': food.name,
-            'brand': food.brand,
-            'display_name': f"{food.name}{brand_text}",
-            'category': food.category,
-            'calories': food.calories,
-            'protein': food.protein,
-            'carbs': food.carbs,
-            'fat': food.fat,
-            'fiber': food.fiber,
-            'serving_size': food.serving_size
-        })
-    
-    return jsonify({'foods': foods_data})
+    return jsonify([{
+        'id': f.id,
+        'name': f.name,
+        'category': f.category,
+        'calories_per_100g': f.calories,
+        'protein_per_100g': f.protein,
+        'carbs_per_100g': f.carbs,
+        'fat_per_100g': f.fat,
+        'verified': f.is_verified
+    } for f in foods])
 
 @bp.route('/foods/search-verified')
-@api_login_required
 def search_verified_foods():
     """API endpoint for searching only verified foods for meal logging."""
-    query = request.args.get('q', '', type=str)
-    category = request.args.get('category', '', type=str)
-    limit = request.args.get('limit', 20, type=int)
-    
-    if not query or len(query) < 2:
-        return jsonify({'foods': []})
-    
-    # Build query for verified foods only
-    foods_query = Food.query.filter(
-        Food.is_verified == True,  # Only verified foods
-        (Food.name.contains(query) | Food.brand.contains(query))
-    )
-    
-    if category:
-        foods_query = foods_query.filter(Food.category == category)
-    
-    foods = foods_query.order_by(Food.name).limit(limit).all()
-    
-    # Format response with UOM data
-    foods_data = []
-    for food in foods:
-        brand_text = f" ({food.brand})" if food.brand else ""
-        food_data = {
-            'id': food.id,
-            'name': food.name,
-            'brand': food.brand,
-            'display_name': f"{food.name}{brand_text}",
-            'category': food.category,
-            'description': food.description,
-            'is_verified': food.is_verified,
-            'per_100g': {
-                'calories': food.calories,
-                'protein': food.protein,
-                'carbs': food.carbs,
-                'fat': food.fat,
-                'fiber': food.fiber,
-                'sugar': food.sugar,
-                'sodium': food.sodium
-            },
-            'servings': []
+    try:
+        # Get foods for search query with filter for verified foods
+        query = request.args.get('q', '').strip()
+        if not query:
+            return jsonify({'error': 'Query parameter required'}), 400
+        
+        # Search only verified foods
+        verified_foods = Food.query.filter(
+            Food.is_verified == True,
+            Food.name.ilike(f'%{query}%')
+        ).limit(50).all()
+        
+        return jsonify([{
+            'id': f.id,
+            'name': f.name,
+            'category': f.category,
+            'calories_per_100g': f.calories,
+            'protein_per_100g': f.protein,
+            'carbs_per_100g': f.carbs,
+            'fat_per_100g': f.fat,
+            'verified': f.is_verified,
+            'default_serving_size_grams': f.default_serving_size_grams
+        } for f in verified_foods])
+        
+    except Exception as e:
+        return jsonify({'error': f'Search failed: {str(e)}'}), 500
+
+@bp.route('/foods/<int:food_id>/debug')
+@api_login_required
+def debug_food_details(food_id):
+    """Debug endpoint to help troubleshoot food loading issues."""
+    try:
+        debug_info = {
+            'food_id': food_id,
+            'user_authenticated': current_user.is_authenticated,
+            'user_id': current_user.id if current_user.is_authenticated else None,
+            'is_admin': current_user.is_admin if current_user.is_authenticated else False,
+            'timestamp': datetime.now().isoformat()
         }
         
-        # Add serving sizes
-        servings = FoodServing.query.filter_by(food_id=food.id).all()
-        for serving in servings:
-            food_data['servings'].append({
-                'id': serving.id,
-                'name': serving.serving_name,
-                'unit': serving.serving_unit,
-                'quantity': serving.serving_quantity,
-                'is_default': serving.is_default
-            })
+        # Check if food exists
+        food = Food.query.get(food_id)
+        if food:
+            debug_info['food_exists'] = True
+            debug_info['food_verified'] = food.is_verified
+            debug_info['food_name'] = food.name
+            debug_info['food_category'] = food.category
+        else:
+            debug_info['food_exists'] = False
+            debug_info['error'] = 'Food not found in database'
+            
+        # Check servings
+        servings = FoodServing.query.filter_by(food_id=food_id).all()
+        debug_info['servings_count'] = len(servings)
+        debug_info['servings'] = [s.unit_type for s in servings]
         
-        # Add default grams serving if no servings exist
-        if not food_data['servings']:
-            food_data['servings'].append({
-                'id': None,
-                'name': '100g',
-                'unit': 'grams',
-                'quantity': 100,
-                'is_default': True
-            })
+        return jsonify(debug_info)
         
-        foods_data.append(food_data)
-    
-    return jsonify({'foods': foods_data})
+    except Exception as e:
+        return jsonify({
+            'error': f'Debug failed: {str(e)}',
+            'food_id': food_id,
+            'timestamp': datetime.now().isoformat()
+        }), 500
 
 @bp.route('/foods/<int:food_id>/servings')
 @api_login_required
 def get_food_servings(food_id):
-    """Get all serving sizes for a specific food."""
-    food = Food.query.get_or_404(food_id)
-    
-    if not food.is_verified:
-        return jsonify({'error': 'Food not verified'}), 400
-    
-    servings = FoodServing.query.filter_by(food_id=food_id).all()
-    
-    servings_data = []
-    for serving in servings:
-        servings_data.append({
-            'id': serving.id,
-            'name': serving.serving_name,
-            'unit': serving.serving_unit,
-            'quantity': serving.serving_quantity,  # Grams equivalent
-            'is_default': serving.is_default
+    """Get complete food details with serving sizes for meal logging."""
+    try:
+        # Get the food first
+        food = Food.query.get(food_id)
+        if not food:
+            return jsonify({'error': 'Food not found'}), 404
+            
+        # Check if food is verified (non-admin users should only see verified foods)
+        if not food.is_verified and not current_user.is_admin:
+            return jsonify({'error': 'Food not available'}), 403
+        
+        # Get serving sizes for this food
+        servings = FoodServing.query.filter_by(food_id=food_id).all()
+        
+        # Return complete food details with servings
+        return jsonify({
+            'food': {
+                'id': food.id,
+                'name': food.name,
+                'brand': food.brand,
+                'category': food.category,
+                'calories_per_100g': food.calories,
+                'protein_per_100g': food.protein,
+                'carbs_per_100g': food.carbs,
+                'fat_per_100g': food.fat,
+                'fiber_per_100g': food.fiber if food.fiber else 0,
+                'sugar_per_100g': food.sugar if food.sugar else 0,
+                'sodium_per_100g': food.sodium if food.sodium else 0,
+                'default_serving_size_grams': food.default_serving_size_grams if food.default_serving_size_grams else 100,
+                'verified': food.is_verified
+            },
+            'servings': [{
+                'id': s.id if s.id else None,
+                'unit_type': s.serving_unit,
+                'size_in_grams': s.serving_quantity,
+                'description': s.serving_name
+            } for s in servings]
         })
-    
-    # Always include grams as an option
-    servings_data.insert(0, {
-        'id': None,
-        'name': 'Grams',
-        'unit': 'grams',
-        'quantity': 1,  # 1:1 ratio for grams
-        'is_default': len(servings_data) == 0
-    })
-    
-    return jsonify({
-        'food': {
-            'id': food.id,
-            'name': food.name,
-            'brand': food.brand,
-            'default_serving_size_grams': food.default_serving_size_grams
-        },
-        'servings': servings_data
-    })
+        
+    except Exception as e:
+        # Log the error for debugging
+        print(f"[API ERROR] Failed to get food servings for food_id {food_id}: {str(e)}")
+        return jsonify({'error': f'Failed to load food details: {str(e)}'}), 500
 
 @bp.route('/foods/<int:food_id>/nutrition')
 @api_login_required
 def get_food_nutrition(food_id):
-    """Get nutrition information for a specific food item."""
-    food = Food.query.get_or_404(food_id)
-    
-    nutrition_data = {
-        'id': food.id,
-        'name': food.name,
-        'brand': food.brand,
-        'category': food.category,
-        'per_100g': {
-            'calories': food.calories,
-            'protein': food.protein,
-            'carbs': food.carbs,
-            'fat': food.fat,
-            'fiber': food.fiber,
-            'sugar': food.sugar,
-            'sodium': food.sodium
-        },
-        'serving_size': food.serving_size,
-        'per_serving': food.get_nutrition_per_serving()
-    }
-    
-    return jsonify(nutrition_data)
+    """Get nutrition information for a specific food."""
+    try:
+        # Get the food first
+        food = Food.query.get(food_id)
+        if not food:
+            return jsonify({'error': 'Food not found'}), 404
+            
+        # Check if food is verified (non-admin users should only see verified foods)
+        if not food.is_verified and not current_user.is_admin:
+            return jsonify({'error': 'Food not available'}), 403
+        
+        # Return nutrition information
+        return jsonify({
+            'id': food.id,
+            'name': food.name,
+            'brand': food.brand,
+            'category': food.category,
+            'description': food.description,
+            'calories_per_100g': food.calories,
+            'protein_per_100g': food.protein,
+            'carbs_per_100g': food.carbs,
+            'fat_per_100g': food.fat,
+            'fiber_per_100g': food.fiber if food.fiber else 0,
+            'sugar_per_100g': food.sugar if food.sugar else 0,
+            'sodium_per_100g': food.sodium if food.sodium else 0,
+            'verified': food.is_verified
+        })
+        
+    except Exception as e:
+        # Log the error for debugging
+        print(f"[API ERROR] Failed to get food nutrition for food_id {food_id}: {str(e)}")
+        return jsonify({'error': f'Failed to load food nutrition: {str(e)}'}), 500
 
-@bp.route('/nutrition/calculate', methods=['POST'])
-@login_required
-def calculate_nutrition():
-    """Calculate nutrition for a given quantity of food."""
-    data = request.get_json()
-    
-    if not data or 'food_id' not in data or 'quantity' not in data:
-        return jsonify({'error': 'Missing food_id or quantity'}), 400
-    
-    food = Food.query.get(data['food_id'])
-    if not food:
-        return jsonify({'error': 'Food not found'}), 404
-    
-    quantity = float(data['quantity'])
-    factor = quantity / 100  # Convert to per quantity
-    
-    nutrition = {
-        'calories': round(food.calories * factor, 1),
-        'protein': round(food.protein * factor, 1),
-        'carbs': round(food.carbs * factor, 1),
-        'fat': round(food.fat * factor, 1),
-        'fiber': round(food.fiber * factor, 1),
-        'sugar': round(food.sugar * factor, 1),
-        'sodium': round(food.sodium * factor, 1)
-    }
-    
-    return jsonify({
-        'food_name': food.name,
-        'quantity': quantity,
-        'nutrition': nutrition
-    })
+@bp.route('/user/meals', methods=['POST'])
+@api_login_required
+def log_meal():
+    """Log a meal for the current user."""
+    try:
+        data = request.get_json()
+        
+        meal_log = MealLog(
+            user_id=current_user.id,
+            food_id=data['food_id'],
+            serving_size_id=data.get('serving_size_id'),
+            quantity=data['quantity'],
+            meal_type=data['meal_type'],
+            log_date=datetime.strptime(data['log_date'], '%Y-%m-%d').date() if data.get('log_date') else date.today()
+        )
+        
+        db.session.add(meal_log)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'id': meal_log.id}), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to log meal: {str(e)}'}), 500
 
-@bp.route('/dashboard/stats')
-@login_required
-def dashboard_stats():
-    """Get dashboard statistics for the current user."""
-    from datetime import date, timedelta
-    from sqlalchemy import func
+@bp.route('/user/meals')
+@api_login_required
+def get_user_meals():
+    """Get meals for the current user."""
+    date_str = request.args.get('date')
+    if date_str:
+        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    else:
+        target_date = date.today()
     
-    today = date.today()
-    
-    # Today's nutrition
-    today_logs = MealLog.query.filter(
-        MealLog.user_id == current_user.id,
-        MealLog.date == today
+    meals = MealLog.query.filter_by(
+        user_id=current_user.id,
+        log_date=target_date
     ).all()
     
-    today_nutrition = {
-        'calories': sum(log.calories or 0 for log in today_logs),
-        'protein': sum(log.protein or 0 for log in today_logs),
-        'carbs': sum(log.carbs or 0 for log in today_logs),
-        'fat': sum(log.fat or 0 for log in today_logs),
-        'fiber': sum(log.fiber or 0 for log in today_logs)
-    }
-    
-    # Weekly average
-    week_ago = today - timedelta(days=7)
-    weekly_data = db.session.query(
-        func.avg(MealLog.calories).label('avg_calories'),
-        func.avg(MealLog.protein).label('avg_protein'),
-        func.avg(MealLog.carbs).label('avg_carbs'),
-        func.avg(MealLog.fat).label('avg_fat')
-    ).filter(
-        MealLog.user_id == current_user.id,
-        MealLog.date >= week_ago
-    ).first()
-    
-    weekly_avg = {
-        'calories': round(weekly_data.avg_calories or 0, 1),
-        'protein': round(weekly_data.avg_protein or 0, 1),
-        'carbs': round(weekly_data.avg_carbs or 0, 1),
-        'fat': round(weekly_data.avg_fat or 0, 1)
-    }
-    
-    # Current goals
-    current_goal = current_user.get_current_nutrition_goal()
-    goals = {}
-    if current_goal:
-        goals = {
-            'calories': current_goal.target_calories,
-            'protein': current_goal.target_protein,
-            'carbs': current_goal.target_carbs,
-            'fat': current_goal.target_fat,
-            'fiber': current_goal.target_fiber
-        }
-    
-    return jsonify({
-        'today': today_nutrition,
-        'weekly_average': weekly_avg,
-        'goals': goals,
-        'date': today.isoformat()
-    })
+    return jsonify([{
+        'id': m.id,
+        'food_name': m.food.name,
+        'quantity': m.quantity,
+        'meal_type': m.meal_type,
+        'calories': m.calculate_calories(),
+        'protein': m.calculate_protein(),
+        'carbs': m.calculate_carbs(),
+        'fat': m.calculate_fat()
+    } for m in meals])
 
-@bp.route('/meal-logs', methods=['GET'])
-@login_required
-def get_meal_logs():
-    """Get meal logs for a specific date range."""
-    start_date = request.args.get('start_date', type=str)
-    end_date = request.args.get('end_date', type=str)
-    
-    query = MealLog.query.filter(MealLog.user_id == current_user.id)
-    
-    if start_date:
-        from datetime import datetime
-        start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
-        query = query.filter(MealLog.date >= start_date_obj)
-    
-    if end_date:
-        from datetime import datetime
-        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
-        query = query.filter(MealLog.date <= end_date_obj)
-    
-    logs = query.order_by(MealLog.date.desc(), MealLog.logged_at.desc()).all()
-    
-    logs_data = []
-    for log in logs:
-        logs_data.append({
-            'id': log.id,
-            'date': log.date.isoformat(),
-            'meal_type': log.meal_type,
-            'food_name': log.food.name,
-            'food_brand': log.food.brand,
-            'quantity': log.quantity,
-            'calories': log.calories,
-            'protein': log.protein,
-            'carbs': log.carbs,
-            'fat': log.fat,
-            'fiber': log.fiber
-        })
-    
-    return jsonify({'meal_logs': logs_data})
-
-@bp.route('/suggestions/high-protein')
-@login_required
-def high_protein_suggestions():
-    """Get high-protein food suggestions."""
-    # Get Indian high-protein foods
-    high_protein_foods = Food.query.filter(
-        Food.protein >= 15,  # Foods with 15g+ protein per 100g
-        Food.category.in_(['legumes', 'dairy', 'meat', 'fish', 'nuts'])
-    ).order_by(Food.protein.desc()).limit(10).all()
-    
-    suggestions = []
-    for food in high_protein_foods:
-        brand_text = f" ({food.brand})" if food.brand else ""
-        suggestions.append({
-            'id': food.id,
-            'name': f"{food.name}{brand_text}",
-            'protein': food.protein,
-            'calories': food.calories,
-            'category': food.category,
-            'protein_per_calorie': round(food.protein / food.calories * 100, 1) if food.calories > 0 else 0
-        })
-    
-    return jsonify({'suggestions': suggestions})
-
-@bp.route('/user/profile')
-@login_required
-def user_profile():
-    """Get current user profile information."""
-    bmr = current_user.calculate_bmr()
-    tdee = current_user.calculate_tdee()
-    
-    profile = {
-        'username': current_user.username,
-        'email': current_user.email,
-        'first_name': current_user.first_name,
-        'last_name': current_user.last_name,
-        'age': current_user.age,
-        'gender': current_user.gender,
-        'height': current_user.height,
-        'weight': current_user.weight,
-        'activity_level': current_user.activity_level,
-        'bmr': bmr,
-        'tdee': tdee,
-        'member_since': current_user.created_at.isoformat() if current_user.created_at else None
-    }
-    
-    return jsonify({'profile': profile})
-
-# Admin API Endpoints
-@bp.route('/admin/users/<int:user_id>')
-@login_required
-@admin_required
-def get_user(user_id):
-    """Get user details for editing."""
-    try:
-        user = User.query.get_or_404(user_id)
-        return jsonify({
-            'id': user.id,
-            'user_id': user.user_id,
-            'username': user.username,
-            'email': user.email,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'is_admin': user.is_admin,
-            'is_active': user.is_active,
-            'created_at': user.created_at.isoformat() if user.created_at else None,
-            'last_login': user.last_login.isoformat() if user.last_login else None
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@bp.route('/admin/users/<int:user_id>', methods=['PUT'])
-@login_required
-@admin_required  
-def update_user(user_id):
-    """Update user details."""
-    try:
-        user = User.query.get_or_404(user_id)
-        data = request.get_json()
-        
-        # Validate required fields
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
-            
-        # Validate CSRF token if provided
-        csrf_token = request.headers.get('X-CSRFToken')
-        if csrf_token:
-            try:
-                validate_csrf(csrf_token)
-            except ValidationError:
-                return jsonify({'error': 'CSRF token validation failed'}), 400
-        
-        # Validate email format if provided (only validate non-empty emails)
-        if 'email' in data and data['email'] and data['email'].strip():
-            import re
-            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-            if not re.match(email_pattern, data['email'].strip()):
-                return jsonify({'error': 'Invalid email format'}), 400
-                
-            # Check for duplicate email (excluding current user)
-            existing_user = User.query.filter(User.email == data['email'].strip(), User.id != user_id).first()
-            if existing_user:
-                return jsonify({'error': 'Email already exists'}), 400
-        
-        # Validate username if provided
-        if 'username' in data and data['username']:
-            if len(data['username']) < 3:
-                return jsonify({'error': 'Username must be at least 3 characters'}), 400
-                
-            # Check for duplicate username (excluding current user)
-            existing_user = User.query.filter(User.username == data['username'], User.id != user_id).first()
-            if existing_user:
-                return jsonify({'error': 'Username already exists'}), 400
-        
-        # Validate required fields (email is now optional)
-        required_fields = ['first_name', 'last_name', 'username']
-        for field in required_fields:
-            if field in data and not data[field].strip():
-                return jsonify({'error': f'{field.replace("_", " ").title()} is required'}), 400
-        
-        # Prevent self-deactivation
-        if 'is_active' in data and not data['is_active'] and user.id == current_user.id:
-            return jsonify({'error': 'Cannot deactivate your own account'}), 400
-        
-        # Update user fields
-        if 'first_name' in data:
-            user.first_name = data['first_name'].strip()
-        if 'last_name' in data:
-            user.last_name = data['last_name'].strip()
-        if 'email' in data:
-            # Handle optional email field - set to None if empty
-            email_value = data['email'].strip() if data['email'] else None
-            user.email = email_value if email_value else None
-        if 'username' in data:
-            user.username = data['username'].strip()
-        if 'is_admin' in data:
-            user.is_admin = bool(data['is_admin'])
-        if 'is_active' in data:
-            user.is_active = bool(data['is_active'])
-            
-        db.session.commit()
-        logger.info(f'User {user.id} updated by admin {current_user.id}')
-        
-        return jsonify({
-            'message': 'User updated successfully',
-            'user': {
-                'id': user.id,
-                'username': user.username,
-                'email': user.email,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-                'is_admin': user.is_admin,
-                'is_active': user.is_active
-            }
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f'Error updating user {user_id}: {str(e)}')
-        return jsonify({'error': str(e)}), 500
-
-@bp.route('/admin/users/<int:user_id>/toggle-status', methods=['POST'])
-@login_required
-@admin_required
-def toggle_user_status(user_id):
-    """Toggle user active status."""
-    try:
-        user = User.query.get_or_404(user_id)
-        
-        # Prevent deactivating the current admin user
-        if user.id == current_user.id:
-            return jsonify({'error': 'Cannot deactivate your own account'}), 400
-            
-        user.is_active = not user.is_active
-        db.session.commit()
-        
-        status = 'activated' if user.is_active else 'deactivated'
-        return jsonify({
-            'message': f'User {status} successfully',
-            'is_active': user.is_active
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
-
-@bp.route('/admin/users/<int:user_id>/reset-password', methods=['POST'])
-@login_required
-@admin_required
-def reset_user_password(user_id):
-    """API endpoint for admin-initiated password reset."""
-    try:
-        user = User.query.get_or_404(user_id)
-        
-        # Prevent admin from resetting their own password this way
-        if user.id == current_user.id:
-            return jsonify({
-                'success': False,
-                'message': 'You cannot reset your own password using this method. Use the change password feature instead.'
-            }), 400
-        
-        # Prevent resetting admin passwords
-        if user.is_admin:
-            return jsonify({
-                'success': False,
-                'message': 'Admin passwords cannot be reset using this method for security reasons.'
-            }), 400
-        
-        # Get password from request
-        data = request.get_json()
-        if not data or 'new_password' not in data:
-            return jsonify({
-                'success': False,
-                'message': 'New password is required.'
-            }), 400
-        
-        new_password = data['new_password']
-        
-        # Validate password strength
-        validation_result = User.validate_password(new_password)
-        if not validation_result['is_valid']:
-            return jsonify({
-                'success': False,
-                'message': 'Password does not meet security requirements.',
-                'errors': validation_result['errors']
-            }), 400
-        
-        # Set the new password
-        user.set_password(new_password)
-        user.password_changed_at = datetime.utcnow()
-        db.session.commit()
-        
-        # Log the password reset action
-        logger.info(f'Admin {current_user.username} reset password for user {user.username}')
-        
-        return jsonify({
-            'success': True,
-            'message': f'Password successfully reset for user {user.username}',
-            'username': user.username
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f'Error resetting password for user {user_id}: {str(e)}')
-        return jsonify({
-            'success': False,
-            'message': 'An error occurred while resetting the password. Please try again.'
-        }), 500
-
-@bp.route('/admin/users', methods=['POST'])
-@login_required
-@admin_required
-def add_user():
-    """Add a new user."""
-    try:
-        data = request.get_json()
-        
-        # Input validation and sanitization
-        user_id = data.get('user_id', '').strip()
-        first_name = data.get('first_name', '').strip()
-        last_name = data.get('last_name', '').strip()
-        email = data.get('email', '').strip() if data.get('email') else None
-        password = data.get('password', '')
-        is_admin = data.get('is_admin', False)
-        
-        # Validate required fields
-        if not user_id:
-            return jsonify({'error': 'User ID is required'}), 400
-        if not first_name:
-            return jsonify({'error': 'First name is required'}), 400
-        if not last_name:
-            return jsonify({'error': 'Last name is required'}), 400
-        if not password:
-            return jsonify({'error': 'Password is required'}), 400
-        
-        # Validate user_id format and uniqueness
-        user_id_validation = User.validate_user_id(user_id)
-        if not user_id_validation['is_valid']:
-            return jsonify({
-                'error': 'Invalid User ID: ' + ', '.join(user_id_validation['errors'])
-            }), 400
-            
-        # Validate email if provided (optional field)
-        if email and not User.validate_email(email):
-            return jsonify({'error': 'Invalid email format'}), 400
-            
-        # Check if email already exists (if provided)
-        if email and User.query.filter_by(email=email).first():
-            return jsonify({'error': 'Email already exists'}), 400
-        
-        # Generate username from first and last name
-        username = User.generate_username(first_name, last_name)
-        
-        # Check if username already exists
-        if User.query.filter_by(username=username).first():
-            return jsonify({'error': 'Generated username already exists. Please try different names.'}), 400
-        
-        # Validate password
-        validation_result = User.validate_password(password)
-        if not validation_result['is_valid']:
-            return jsonify({
-                'error': 'Password does not meet security requirements: ' + ', '.join(validation_result['errors'])
-            }), 400
-        
-        # Create new user
-        user = User(
-            user_id=user_id,
-            username=username,
-            email=email,
-            first_name=first_name,
-            last_name=last_name,
-            is_admin=is_admin,
-            is_active=True
-        )
-        user.set_password(password)
-        
-        db.session.add(user)
-        db.session.commit()
-        
-        logger.info(f'Admin {current_user.username} created new user: {username} (ID: {user_id})')
-        
-        return jsonify({
-            'id': user.id,
-            'user_id': user.user_id,
-            'username': user.username,
-            'message': f'User {username} created successfully'
-        }), 200
-        
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f'Error creating user: {str(e)}')
-        return jsonify({'error': f'Failed to create user: {str(e)}'}), 500
-
-@bp.route('/admin/users/check-user-id')
-@login_required
-@admin_required
-def check_user_id():
-    """Check if a user ID is available."""
-    user_id = request.args.get('user_id', '').strip()
-    
-    if not user_id:
-        return jsonify({'available': False, 'error': 'User ID is required'}), 400
-    
-    # Validate format
-    validation_result = User.validate_user_id(user_id)
-    if not validation_result['is_valid']:
-        return jsonify({
-            'available': False, 
-            'error': ', '.join(validation_result['errors'])
-        }), 400
-    
-    # Check if exists
-    exists = User.check_user_id_exists(user_id)
-    
-    return jsonify({
-        'available': not exists,
-        'user_id': user_id
-    })
+@bp.route('/test')
+def test_api():
+    """Test endpoint to verify API is working."""
+    return jsonify({'status': 'API is working', 'authenticated': current_user.is_authenticated})

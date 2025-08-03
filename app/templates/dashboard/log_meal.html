@@ -345,6 +345,44 @@ class EnhancedMealLogger {
         this.lastSearchQuery = '';
         this.maxQuantity = 2000;
         this.minQuantity = 0.1;
+        
+        // Debug settings
+        this.debugMode = window.location.search.includes('debug=true');
+        if (this.debugMode) {
+            console.log('[MealLogger] Debug mode enabled');
+        }
+    }
+
+    /**
+     * Debug method to troubleshoot food loading issues
+     */
+    async debugFoodIssue(foodId) {
+        try {
+            console.log(`[DEBUG] Checking food ID: ${foodId}`);
+            
+            const response = await fetch(`/api/foods/${foodId}/debug`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            });
+            
+            const debugData = await response.json();
+            console.log('[DEBUG] Food debug info:', debugData);
+            
+            // Show debug info to user if in debug mode
+            if (this.debugMode) {
+                alert(`Debug Info for Food ID ${foodId}:\n${JSON.stringify(debugData, null, 2)}`);
+            }
+            
+            return debugData;
+            
+        } catch (error) {
+            console.error('[DEBUG] Debug request failed:', error);
+            return { error: error.message };
+        }
     }
 
     /**
@@ -429,14 +467,6 @@ class EnhancedMealLogger {
             }
         });
     }
-        // Quick select buttons for recent foods
-        document.addEventListener('click', (e) => {
-            if (e.target.closest('.quick-select-food-btn')) {
-                const foodId = e.target.closest('.quick-select-food-btn').dataset.foodId;
-                this.quickSelectFood(foodId);
-            }
-        });
-    }
 
     /**
      * Setup quantity validation with immediate feedback
@@ -454,9 +484,15 @@ class EnhancedMealLogger {
      * Search for verified foods with enhanced error handling
      */
     async searchVerifiedFoods(query) {
-        if (!query || query.length < 2) return;
+        console.log('[MealLogger] searchVerifiedFoods called with query:', query);
+        
+        if (!query || query.length < 2) {
+            console.log('[MealLogger] Query too short, returning');
+            return;
+        }
 
         try {
+            console.log('[MealLogger] Starting food search...');
             this.showSearchLoading();
             
             const response = await fetch(`/api/foods/search-verified?q=${encodeURIComponent(query)}`, {
@@ -468,12 +504,15 @@ class EnhancedMealLogger {
                 credentials: 'same-origin'
             });
 
+            console.log('[MealLogger] Search response:', response);
+
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
             const data = await response.json();
-            this.displaySearchResults(data.foods);
+            console.log('[MealLogger] Search data received:', data);
+            this.displaySearchResults(data);  // data is already the foods array
             
         } catch (error) {
             console.error('[MealLogger] Food search failed:', error);
@@ -507,7 +546,7 @@ class EnhancedMealLogger {
                             <h6 class="mb-1">${this.escapeHtml(food.name)}${this.escapeHtml(brandText)}</h6>
                             <span class="badge bg-success me-2">Verified</span>
                             <span class="badge bg-secondary">${this.escapeHtml(food.category)}</span>
-                            <small class="text-muted d-block">${food.per_100g.calories} cal, ${food.per_100g.protein}g protein per 100g</small>
+                            <small class="text-muted d-block">${food.calories_per_100g} cal, ${food.protein_per_100g}g protein per 100g</small>
                         </div>
                         <i class="fas fa-chevron-right text-muted"></i>
                     </div>
@@ -520,10 +559,11 @@ class EnhancedMealLogger {
     }
 
     /**
-     * Select a food and load its serving options with default serving size
+     * Select a food and load its serving options with enhanced error handling
      */
     async selectFood(foodId) {
         try {
+            console.log(`[MealLogger] Selecting food with ID: ${foodId}`);
             this.showLoading('Loading food details...');
             
             // Fetch food details with servings
@@ -536,19 +576,39 @@ class EnhancedMealLogger {
                 credentials: 'same-origin'
             });
 
+            console.log(`[MealLogger] API response status: ${response.status}`);
+
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                // Handle specific error cases
+                if (response.status === 401) {
+                    throw new Error('Please log in to access food details');
+                } else if (response.status === 403) {
+                    throw new Error('This food is not available for selection');
+                } else if (response.status === 404) {
+                    throw new Error('Food not found. It may have been removed.');
+                } else {
+                    const errorText = await response.text();
+                    console.error(`[MealLogger] API error response:`, errorText);
+                    throw new Error(`Failed to load food details (Status: ${response.status})`);
+                }
             }
 
             const data = await response.json();
+            console.log(`[MealLogger] Received food data:`, data);
+            
+            // Validate response structure
+            if (!data.food) {
+                throw new Error('Invalid food data received from server');
+            }
+            
             this.selectedFood = data.food;
-            this.selectedServings = data.servings;
+            this.selectedServings = data.servings || [];
             
             // Update UI components
             this.displaySelectedFood();
-            this.populateUnitTypeDropdown(); // NEW: Populate unit dropdown with serving sizes
+            this.populateUnitTypeDropdown();
             this.showServingSizeSection();
-            this.setDefaultQuantity(); // NEW: Set default quantity from database
+            this.setDefaultQuantity();
             this.clearSearchResults();
             
             // Update form fields
@@ -559,10 +619,17 @@ class EnhancedMealLogger {
             }
             
             this.hideLoading();
+            console.log(`[MealLogger] Food selection completed successfully`);
             
         } catch (error) {
             console.error('[MealLogger] Food selection failed:', error);
-            this.showError('Failed to load food details. Please try again.');
+            
+            // Show user-friendly error message with retry option
+            this.showErrorWithRetry(
+                error.message || 'Failed to load food details. Please try again.',
+                () => this.selectFood(foodId),
+                foodId
+            );
             this.hideLoading();
         }
     }
@@ -574,6 +641,9 @@ class EnhancedMealLogger {
         if (this.selectedFood && this.selectedFood.default_serving_size_grams) {
             this.elements.quantityInput.value = this.selectedFood.default_serving_size_grams;
             this.validateQuantityAndUpdateNutrition();
+        } else {
+            // Even if no default serving size, ensure submit button is updated
+            this.updateSubmitButton();
         }
     }
 
@@ -592,10 +662,10 @@ class EnhancedMealLogger {
                 document.getElementById('selectedFoodBrand').style.display = data.brand ? 'inline' : 'none';
                 document.getElementById('selectedFoodDescription').textContent = data.description || 'No description available';
                 
-                document.getElementById('selectedFoodCalories').textContent = data.per_100g.calories;
-                document.getElementById('selectedFoodProtein').textContent = data.per_100g.protein + 'g';
-                document.getElementById('selectedFoodCarbs').textContent = (data.per_100g.carbs || 0) + 'g';
-                document.getElementById('selectedFoodFat').textContent = (data.per_100g.fat || 0) + 'g';
+                document.getElementById('selectedFoodCalories').textContent = data.calories_per_100g;
+                document.getElementById('selectedFoodProtein').textContent = data.protein_per_100g + 'g';
+                document.getElementById('selectedFoodCarbs').textContent = (data.carbs_per_100g || 0) + 'g';
+                document.getElementById('selectedFoodFat').textContent = (data.fat_per_100g || 0) + 'g';
                 
                 this.elements.selectedFoodSection.style.display = 'block';
             })
@@ -745,16 +815,18 @@ class EnhancedMealLogger {
             .then(data => {
                 const factor = gramsEquivalent / 100;
                 
-                document.getElementById('previewCalories').textContent = Math.round(data.per_100g.calories * factor);
-                document.getElementById('previewProtein').textContent = (data.per_100g.protein * factor).toFixed(1) + 'g';
-                document.getElementById('previewCarbs').textContent = ((data.per_100g.carbs || 0) * factor).toFixed(1) + 'g';
-                document.getElementById('previewFat').textContent = ((data.per_100g.fat || 0) * factor).toFixed(1) + 'g';
+                document.getElementById('previewCalories').textContent = Math.round(data.calories_per_100g * factor);
+                document.getElementById('previewProtein').textContent = (data.protein_per_100g * factor).toFixed(1) + 'g';
+                document.getElementById('previewCarbs').textContent = ((data.carbs_per_100g || 0) * factor).toFixed(1) + 'g';
+                document.getElementById('previewFat').textContent = ((data.fat_per_100g || 0) * factor).toFixed(1) + 'g';
                 
                 this.elements.nutritionPreview.style.display = 'block';
                 this.updateSubmitButton();
             })
             .catch(error => {
                 console.error('[MealLogger] Nutrition calculation failed:', error);
+                // Still update submit button even if nutrition preview fails
+                this.updateSubmitButton();
             });
     }
 
@@ -825,6 +897,68 @@ class EnhancedMealLogger {
         
         const form = document.getElementById('mealLogForm');
         form.insertAdjacentHTML('afterbegin', errorHtml);
+    }
+
+    /**
+     * Show error message with retry option for food selection
+     */
+    showErrorWithRetry(message, retryCallback, foodId) {
+        const errorHtml = `
+            <div class="alert alert-danger alert-dismissible fade show food-error-alert" role="alert">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <div class="flex-grow-1">
+                        <strong>Food Loading Error:</strong><br>
+                        ${this.escapeHtml(message)}
+                    </div>
+                    <div class="ms-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary me-2" onclick="window.mealLogger.retryFoodSelection(${foodId})">
+                            <i class="fas fa-redo"></i> Retry
+                        </button>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                </div>
+                <div class="mt-2 small text-muted">
+                    <strong>Troubleshooting tips:</strong>
+                    <ul class="mb-0 mt-1">
+                        <li>Check your internet connection</li>
+                        <li>Try refreshing the page</li>
+                        <li>Search for a different food item</li>
+                        <li>Contact support if the problem persists</li>
+                    </ul>
+                </div>
+            </div>
+        `;
+        
+        const form = document.getElementById('mealLogForm');
+        
+        // Remove any existing food error alerts
+        const existingAlerts = form.querySelectorAll('.food-error-alert');
+        existingAlerts.forEach(alert => alert.remove());
+        
+        form.insertAdjacentHTML('afterbegin', errorHtml);
+        
+        // Store retry callback for later use
+        this.retryCallback = retryCallback;
+    }
+
+    /**
+     * Retry food selection with enhanced logging
+     */
+    async retryFoodSelection(foodId) {
+        console.log(`[MealLogger] Retrying food selection for ID: ${foodId}`);
+        
+        // Clear any existing error alerts
+        const errorAlerts = document.querySelectorAll('.food-error-alert');
+        errorAlerts.forEach(alert => alert.remove());
+        
+        // Run debug check if in debug mode
+        if (this.debugMode) {
+            await this.debugFoodIssue(foodId);
+        }
+        
+        // Retry the food selection
+        this.selectFood(foodId);
     }
 
     /**
@@ -904,16 +1038,25 @@ class EnhancedMealLogger {
 
 // Global functions for backward compatibility
 function searchFoods() {
+    console.log('[Global] searchFoods called');
     const query = document.getElementById('foodSearch').value;
+    console.log('[Global] Query value:', query);
+    console.log('[Global] window.mealLogger:', window.mealLogger);
     if (window.mealLogger && query.length >= 2) {
+        console.log('[Global] Calling mealLogger.searchVerifiedFoods');
         window.mealLogger.searchVerifiedFoods(query);
+    } else {
+        console.log('[Global] Conditions not met - mealLogger:', !!window.mealLogger, 'query length:', query.length);
     }
 }
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('[MealLogger] DOM ready, initializing EnhancedMealLogger...');
     window.mealLogger = new EnhancedMealLogger();
+    console.log('[MealLogger] Created instance:', window.mealLogger);
     window.mealLogger.init();
+    console.log('[MealLogger] Initialization complete');
 });
 </script>
 

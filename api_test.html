@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+</head>
+<body>
+    <h1>API Test Page</h1>
+    <button onclick="testAPI()">Test Search API</button>
+    <div id="results"></div>
+    
+    <script>
+    async function testAPI() {
+        try {
+            console.log('Testing API...');
+            const response = await fetch('/api/foods/search-verified?q=milk', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            });
+            
+            console.log('Response status:', response.status);
+            console.log('Response ok:', response.ok);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Error response:', errorText);
+                document.getElementById('results').innerHTML = `<p style="color: red;">Error: ${response.status} - ${errorText}</p>`;
+                return;
+            }
+            
+            const data = await response.json();
+            console.log('Data received:', data);
+            console.log('Data type:', typeof data);
+            console.log('Data length:', data.length);
+            
+            document.getElementById('results').innerHTML = `
+                <h3>Success!</h3>
+                <p>Found ${data.length} foods</p>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+            
+        } catch (error) {
+            console.error('Fetch error:', error);
+            document.getElementById('results').innerHTML = `<p style="color: red;">Fetch error: ${error.message}</p>`;
+        }
+    }
+    </script>
+</body>
+</html>

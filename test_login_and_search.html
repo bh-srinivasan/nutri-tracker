@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Login and Search</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { border: 1px solid #ccc; padding: 15px; margin: 10px 0; }
+        .result { background: #f5f5f5; padding: 10px; margin: 5px 0; }
+        .success { background: #d4edda; }
+        .error { background: #f8d7da; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        input { padding: 8px; margin: 5px; width: 200px; }
+    </style>
+</head>
+<body>
+    <h1>Nutri Tracker - Login and Search Test</h1>
+    
+    <div class="test-section">
+        <h3>Step 1: Login Test</h3>
+        <input type="text" id="username" placeholder="Username" value="admin">
+        <input type="password" id="password" placeholder="Password" value="admin123">
+        <button onclick="testLogin()">Test Login</button>
+        <div id="loginResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Step 2: Food Search Test</h3>
+        <input type="text" id="searchQuery" placeholder="Search term" value="milk">
+        <button onclick="testFoodSearch()">Test Food Search</button>
+        <div id="searchResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Step 3: Log Meal Page Test</h3>
+        <button onclick="openLogMealPage()">Open Log Meal Page</button>
+        <div id="pageResult" class="result"></div>
+    </div>
+
+    <script>
+        let authCookies = '';
+        
+        async function testLogin() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('loginResult');
+            
+            try {
+                const response = await fetch('http://localhost:5001/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    credentials: 'include',
+                    body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+                });
+                
+                console.log('Login response:', response);
+                
+                if (response.ok || response.status === 302) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `✅ Login successful! Status: ${response.status}`;
+                    
+                    // Store cookies for future requests
+                    authCookies = response.headers.get('set-cookie') || '';
+                    console.log('Auth cookies:', authCookies);
+                } else {
+                    const responseText = await response.text();
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `❌ Login failed! Status: ${response.status}<br><details><summary>Response</summary><pre>${responseText}</pre></details>`;
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `❌ Login error: ${error.message}`;
+            }
+        }
+        
+        async function testFoodSearch() {
+            const query = document.getElementById('searchQuery').value;
+            const resultDiv = document.getElementById('searchResult');
+            
+            try {
+                console.log('Testing food search for:', query);
+                const response = await fetch(`http://localhost:5001/api/foods/search-verified?q=${encodeURIComponent(query)}`, {
+                    method: 'GET',
+                    credentials: 'include',
+                });
+                
+                console.log('Search response:', response);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Search data:', data);
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `✅ Search successful! Found ${data.length} foods:<br><pre>${JSON.stringify(data.slice(0, 2), null, 2)}</pre>`;
+                } else {
+                    const responseText = await response.text();
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `❌ Search failed! Status: ${response.status}<br><details><summary>Response</summary><pre>${responseText}</pre></details>`;
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `❌ Search error: ${error.message}`;
+            }
+        }
+        
+        function openLogMealPage() {
+            const resultDiv = document.getElementById('pageResult');
+            resultDiv.className = 'result';
+            resultDiv.innerHTML = 'Opening Log Meal page in new tab...';
+            window.open('http://localhost:5001/dashboard/log-meal', '_blank');
+        }
+    </script>
+</body>
+</html>
