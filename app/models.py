@@ -249,16 +249,20 @@ class MealLog(db.Model):
     
     def calculate_nutrition(self):
         """Calculate nutrition values based on quantity and unit."""
+        # Load food if not already loaded
+        if not self.food and self.food_id:
+            self.food = Food.query.get(self.food_id)
+        
         if not self.food:
             return
             
         # Always calculate based on normalized grams
         factor = self.quantity / 100
-        self.calories = self.food.calories * factor
-        self.protein = self.food.protein * factor
-        self.carbs = self.food.carbs * factor
-        self.fat = self.food.fat * factor
-        self.fiber = self.food.fiber * factor
+        self.calories = (self.food.calories or 0) * factor
+        self.protein = (self.food.protein or 0) * factor
+        self.carbs = (self.food.carbs or 0) * factor
+        self.fat = (self.food.fat or 0) * factor
+        self.fiber = (self.food.fiber or 0) * factor
     
     def get_display_quantity_and_unit(self):
         """Get the display-friendly quantity and unit for this meal log."""
