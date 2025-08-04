@@ -279,9 +279,12 @@ def history():
 @login_required
 def reports():
     """View nutrition reports and analytics."""
-    # Get date range (default last 30 days)
+    # Get period from request parameters (default 30 days)
+    period = int(request.args.get('period', 30))
+    
+    # Get date range based on period
     end_date = date.today()
-    start_date = end_date - timedelta(days=30)
+    start_date = end_date - timedelta(days=period)
     
     # Get daily nutrition data
     daily_data = db.session.query(
@@ -319,16 +322,17 @@ def reports():
     # Get current goals for comparison
     current_goal = current_user.get_current_nutrition_goal()
     
-    averages = {
-        'calories': avg_calories,
-        'protein': avg_protein,
-        'carbs': avg_carbs,
-        'fat': avg_fat
-    }
+    # Create summary object that matches template expectations
+    summary = type('Summary', (), {
+        'avg_calories': avg_calories,
+        'avg_protein': avg_protein,
+        'avg_carbs': avg_carbs,
+        'avg_fat': avg_fat
+    })()
     
     return render_template('dashboard/reports.html', title='Reports',
-                         daily_data=daily_data, averages=averages, top_foods=top_foods,
-                         current_goal=current_goal, start_date=start_date, end_date=end_date)
+                         daily_data=daily_data, summary=summary, top_foods=top_foods,
+                         current_goal=current_goal, start_date=start_date, end_date=end_date, period=period)
 
 @bp.route('/delete-meal/<int:meal_id>', methods=['POST'])
 @login_required
