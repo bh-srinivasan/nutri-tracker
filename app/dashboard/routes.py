@@ -289,10 +289,10 @@ def reports():
     # Get daily nutrition data
     daily_data = db.session.query(
         MealLog.date,
-        func.sum(MealLog.calories).label('total_calories'),
-        func.sum(MealLog.protein).label('total_protein'),
-        func.sum(MealLog.carbs).label('total_carbs'),
-        func.sum(MealLog.fat).label('total_fat'),
+        func.sum(MealLog.calories).label('calories'),
+        func.sum(MealLog.protein).label('protein'),
+        func.sum(MealLog.carbs).label('carbs'),
+        func.sum(MealLog.fat).label('fat'),
         func.count(MealLog.id).label('meal_count')
     ).filter(
         MealLog.user_id == current_user.id,
@@ -302,10 +302,10 @@ def reports():
     
     # Get weekly averages
     if daily_data:
-        avg_calories = sum(day.total_calories or 0 for day in daily_data) / len(daily_data)
-        avg_protein = sum(day.total_protein or 0 for day in daily_data) / len(daily_data)
-        avg_carbs = sum(day.total_carbs or 0 for day in daily_data) / len(daily_data)
-        avg_fat = sum(day.total_fat or 0 for day in daily_data) / len(daily_data)
+        avg_calories = sum(day.calories or 0 for day in daily_data) / len(daily_data)
+        avg_protein = sum(day.protein or 0 for day in daily_data) / len(daily_data)
+        avg_carbs = sum(day.carbs or 0 for day in daily_data) / len(daily_data)
+        avg_fat = sum(day.fat or 0 for day in daily_data) / len(daily_data)
     else:
         avg_calories = avg_protein = avg_carbs = avg_fat = 0
     
