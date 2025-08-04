@@ -1,7 +1,9 @@
 from datetime import datetime, date, timedelta
-from flask import render_template, redirect, url_for, flash, request, jsonify
+from flask import render_template, redirect, url_for, flash, request, jsonify, make_response
 from flask_login import login_required, current_user
 from sqlalchemy import func, desc, and_
+import csv
+import io
 from app import db
 from app.dashboard import bp
 from app.dashboard.forms import MealLogForm, NutritionGoalForm, FoodSearchForm
@@ -333,6 +335,78 @@ def reports():
     return render_template('dashboard/reports.html', title='Reports',
                          daily_data=daily_data, summary=summary, top_foods=top_foods,
                          current_goal=current_goal, start_date=start_date, end_date=end_date, period=period)
+
+@bp.route('/export-data')
+@login_required
+def export_data():
+    """Export nutrition data in CSV or PDF format."""
+    
+    format_type = request.args.get('format', 'csv').lower()
+    period = request.args.get('period', '30').lower()
+    
+    # Calculate date range based on period
+    end_date = datetime.now().date()
+    if period == '7':
+        start_date = end_date - timedelta(days=7)
+        period_name = "Last 7 Days"
+    elif period == '30':
+        start_date = end_date - timedelta(days=30)
+        period_name = "Last 30 Days"
+    elif period == '90':
+        start_date = end_date - timedelta(days=90)
+        period_name = "Last 90 Days"
+    else:
+        start_date = end_date - timedelta(days=30)
+        period_name = "Last 30 Days"
+    
+    # Get meal logs for the period
+    meal_logs = MealLog.query.filter(
+        MealLog.user_id == current_user.id,
+        MealLog.date >= start_date,
+        MealLog.date <= end_date
+    ).order_by(MealLog.date.desc(), MealLog.logged_at.desc()).all()
+    
+    if format_type == 'csv':
+        # Create CSV export
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Write headers
+        writer.writerow([
+            'Date', 'Meal Type', 'Food Name', 'Brand', 'Quantity', 
+            'Calories', 'Protein (g)', 'Carbs (g)', 'Fat (g)', 'Fiber (g)'
+        ])
+        
+        # Write data rows
+        for meal_log in meal_logs:
+            writer.writerow([
+                meal_log.date.strftime('%Y-%m-%d'),
+                meal_log.meal_type.title(),
+                meal_log.food.name,
+                meal_log.food.brand or '',
+                f"{meal_log.quantity:.1f}g" if meal_log.quantity else "0.0g",
+                f"{meal_log.calories:.1f}" if meal_log.calories else "0.0",
+                f"{meal_log.protein:.1f}" if meal_log.protein else "0.0",
+                f"{meal_log.carbs:.1f}" if meal_log.carbs else "0.0",
+                f"{meal_log.fat:.1f}" if meal_log.fat else "0.0",
+                f"{meal_log.fiber:.1f}" if meal_log.fiber else "0.0"
+            ])
+        
+        # Create response
+        response = make_response(output.getvalue())
+        response.headers['Content-Type'] = 'text/csv'
+        response.headers['Content-Disposition'] = f'attachment; filename=nutrition_data_{period}_{end_date.strftime("%Y%m%d")}.csv'
+        
+        return response
+    
+    elif format_type == 'pdf':
+        # For now, redirect to CSV until PDF library is installed
+        flash('PDF export coming soon! Using CSV format instead.', 'info')
+        return redirect(url_for('dashboard.export_data', format='csv', period=period))
+    
+    else:
+        flash('Invalid export format. Please use CSV or PDF.', 'error')
+        return redirect(url_for('dashboard.reports'))
 
 @bp.route('/delete-meal/<int:meal_id>', methods=['POST'])
 @login_required
