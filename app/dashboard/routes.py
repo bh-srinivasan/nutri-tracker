@@ -266,12 +266,13 @@ def history():
         query = query.filter(MealLog.meal_type == meal_type)
     
     # Get paginated results
-    meal_logs = query.order_by(desc(MealLog.date), desc(MealLog.logged_at)).paginate(
+    pagination = query.order_by(desc(MealLog.date), desc(MealLog.logged_at)).paginate(
         page=page, per_page=20, error_out=False
     )
     
     return render_template('dashboard/history.html', title='Meal History',
-                         meal_logs=meal_logs, start_date=start_date, end_date=end_date,
+                         meal_logs=pagination.items, pagination=pagination, 
+                         start_date=start_date, end_date=end_date,
                          meal_type=meal_type)
 
 @bp.route('/reports')
