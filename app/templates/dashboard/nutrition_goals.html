@@ -172,11 +172,11 @@ block content %}
             <div class="row mb-4">
               <div class="col-md-6">
                 <div class="mb-3">
-                  {{ form.goal.label(class="form-label") }} {{
-                  form.goal(class="form-select" + (" is-invalid" if
-                  form.goal.errors else "")) }} {% if form.goal.errors %}
+                  {{ form.goal_type.label(class="form-label") }} {{
+                  form.goal_type(class="form-select" + (" is-invalid" if
+                  form.goal_type.errors else "")) }} {% if form.goal_type.errors %}
                   <div class="invalid-feedback">
-                    {% for error in form.goal.errors %}
+                    {% for error in form.goal_type.errors %}
                     <span>{{ error }}</span>
                     {% endfor %}
                   </div>
@@ -299,7 +299,7 @@ block content %}
               </div>
             </div>
 
-            <!-- Goal Duration -->
+            {# Goal Duration - Commented out as NutritionGoal model doesn't support date ranges
             <div class="row mb-4">
               <div class="col-md-6">
                 <div class="mb-3">
@@ -330,7 +330,9 @@ block content %}
                 </div>
               </div>
             </div>
+            #}
 
+            <!-- Submit Button -->
             <!-- Submit Button -->
             <div class="d-grid">
               {{ form.submit(class="btn btn-primary btn-lg") }}

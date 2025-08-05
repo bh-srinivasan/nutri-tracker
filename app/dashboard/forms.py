@@ -31,6 +31,31 @@ class MealLogForm(FlaskForm):
 
 class NutritionGoalForm(FlaskForm):
     """Form for setting nutrition goals."""
+    # Personal information for goal calculation
+    weight = FloatField('Current Weight (kg)', validators=[
+        DataRequired(), 
+        NumberRange(min=20, max=300, message='Weight must be between 20 and 300 kg')
+    ])
+    height = FloatField('Height (cm)', validators=[
+        DataRequired(), 
+        NumberRange(min=100, max=250, message='Height must be between 100 and 250 cm')
+    ])
+    age = FloatField('Age', validators=[
+        DataRequired(), 
+        NumberRange(min=10, max=120, message='Age must be between 10 and 120 years')
+    ])
+    gender = SelectField('Gender', choices=[
+        ('male', 'Male'),
+        ('female', 'Female')
+    ], validators=[DataRequired()])
+    activity_level = SelectField('Activity Level', choices=[
+        ('sedentary', 'Sedentary (little/no exercise)'),
+        ('light', 'Light activity (light exercise 1-3 days/week)'),
+        ('moderate', 'Moderate activity (moderate exercise 3-5 days/week)'),
+        ('high', 'High activity (hard exercise 6-7 days/week)'),
+        ('very_high', 'Very high activity (very hard exercise, physical job)')
+    ], validators=[DataRequired()])
+    
     goal_type = SelectField('Goal Type', choices=[
         ('lose', 'Lose Weight'),
         ('maintain', 'Maintain Weight'),

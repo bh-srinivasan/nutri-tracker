@@ -201,6 +201,13 @@ def nutrition_goals():
     current_goal = current_user.get_current_nutrition_goal()
     
     if form.validate_on_submit():
+        # Update user's personal information
+        current_user.weight = form.weight.data
+        current_user.height = form.height.data
+        current_user.age = int(form.age.data)
+        current_user.gender = form.gender.data
+        current_user.activity_level = form.activity_level.data
+        
         # Deactivate current goal if exists
         if current_goal:
             current_goal.is_active = False
@@ -223,14 +230,26 @@ def nutrition_goals():
         flash('Nutrition goals updated successfully!', 'success')
         return redirect(url_for('dashboard.index'))
     
-    elif request.method == 'GET' and current_goal:
-        # Pre-populate form with current goals
-        form.goal_type.data = current_goal.goal_type
-        form.target_calories.data = current_goal.target_calories
-        form.target_protein.data = current_goal.target_protein
-        form.target_carbs.data = current_goal.target_carbs
-        form.target_fat.data = current_goal.target_fat
-        form.target_fiber.data = current_goal.target_fiber
+    elif request.method == 'GET':
+        # Pre-populate form with current user data and goals
+        if current_user.weight:
+            form.weight.data = current_user.weight
+        if current_user.height:
+            form.height.data = current_user.height
+        if current_user.age:
+            form.age.data = current_user.age
+        if current_user.gender:
+            form.gender.data = current_user.gender
+        if current_user.activity_level:
+            form.activity_level.data = current_user.activity_level
+            
+        if current_goal:
+            form.goal_type.data = current_goal.goal_type
+            form.target_calories.data = current_goal.target_calories
+            form.target_protein.data = current_goal.target_protein
+            form.target_carbs.data = current_goal.target_carbs
+            form.target_fat.data = current_goal.target_fat
+            form.target_fiber.data = current_goal.target_fiber
     
     # Calculate recommended values based on user profile
     recommended = calculate_recommended_nutrition(current_user)
