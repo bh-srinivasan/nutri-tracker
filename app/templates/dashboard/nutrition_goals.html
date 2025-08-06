@@ -736,8 +736,8 @@ block content %}
       
       showCustomMessage("We've updated the duration to match your new target date.");
     } else {
-      // Set to custom (empty value)
-      durationSelect.value = '';
+      // Set to custom timeframe
+      durationSelect.value = 'custom';
       userEditedDate = true;
       
       showCustomMessage("Custom date set. We won't change this unless you update the duration again.");
