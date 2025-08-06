@@ -749,6 +749,11 @@ block content %}
     const dateInput = document.getElementById('target_date');
     const durationSelect = document.getElementById('target_duration');
     
+    if (!dateInput || !durationSelect) {
+      console.error('clearTargetDate: Required elements not found');
+      return;
+    }
+    
     // Set flag to prevent handleManualDateChange from triggering
     programmaticChange = true;
     
@@ -773,6 +778,11 @@ block content %}
   function resetToDurationDate() {
     const dateInput = document.getElementById('target_date');
     
+    if (!dateInput) {
+      console.error('resetToDurationDate: Date input element not found');
+      return;
+    }
+    
     if (lastDurationBasedDate) {
       // Set flag to prevent handleManualDateChange from triggering
       programmaticChange = true;
@@ -786,46 +796,65 @@ block content %}
       
       hideAllMessages();
       showAutoFillMessage();
-      document.getElementById('autoFillText').textContent = 
-        'Target date reset to match the selected duration.';
+      const autoFillTextElement = document.getElementById('autoFillText');
+      if (autoFillTextElement) {
+        autoFillTextElement.textContent = 'Target date reset to match the selected duration.';
+      }
     }
   }
 
   // Helper functions for showing/hiding messages
   function hideAllMessages() {
-    document.getElementById('pastDateError').style.display = 'none';
-    document.getElementById('dateAutoFillMessage').style.display = 'none';
-    document.getElementById('dateCustomMessage').style.display = 'none';
-    document.getElementById('dateClearedMessage').style.display = 'none';
-    document.getElementById('dateResetOption').style.display = 'none';
+    // Hide all messages with null checks to prevent errors
+    const pastDateError = document.getElementById('pastDateError');
+    if (pastDateError) pastDateError.style.display = 'none';
+    
+    const dateAutoFillMessage = document.getElementById('dateAutoFillMessage');
+    if (dateAutoFillMessage) dateAutoFillMessage.style.display = 'none';
+    
+    const dateCustomMessage = document.getElementById('dateCustomMessage');
+    if (dateCustomMessage) dateCustomMessage.style.display = 'none';
+    
+    const dateClearedMessage = document.getElementById('dateClearedMessage');
+    if (dateClearedMessage) dateClearedMessage.style.display = 'none';
+    
+    const dateResetOption = document.getElementById('dateResetOption');
+    if (dateResetOption) dateResetOption.style.display = 'none';
   }
 
   function showPastDateError() {
     hideAllMessages();
-    document.getElementById('pastDateError').style.display = 'block';
+    const pastDateError = document.getElementById('pastDateError');
+    if (pastDateError) pastDateError.style.display = 'block';
   }
 
   function showAutoFillMessage() {
     hideAllMessages();
-    document.getElementById('dateAutoFillMessage').style.display = 'block';
+    const dateAutoFillMessage = document.getElementById('dateAutoFillMessage');
+    if (dateAutoFillMessage) dateAutoFillMessage.style.display = 'block';
   }
 
   function showCustomMessage(message) {
     hideAllMessages();
     const customMessageDiv = document.getElementById('dateCustomMessage');
-    customMessageDiv.style.display = 'block';
-    if (message) {
-      document.getElementById('customText').textContent = message;
+    if (customMessageDiv) {
+      customMessageDiv.style.display = 'block';
+      if (message) {
+        const customText = document.getElementById('customText');
+        if (customText) customText.textContent = message;
+      }
     }
   }
 
   function showClearedMessage() {
     hideAllMessages();
-    document.getElementById('dateClearedMessage').style.display = 'block';
+    const dateClearedMessage = document.getElementById('dateClearedMessage');
+    if (dateClearedMessage) dateClearedMessage.style.display = 'block';
   }
 
   function showResetOption() {
-    document.getElementById('dateResetOption').style.display = 'block';
+    const dateResetOption = document.getElementById('dateResetOption');
+    if (dateResetOption) dateResetOption.style.display = 'block';
   }
 
   function validateGoalForm() {
