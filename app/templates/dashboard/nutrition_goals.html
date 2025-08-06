@@ -368,7 +368,7 @@ block content %}
               <div class="col-md-6">
                 <div class="mb-3">
                   {{ form.target_duration.label(class="form-label") }}
-                  {{ form.target_duration(class="form-select", id="targetDuration", onchange="updateTargetDate()") }}
+                  {{ form.target_duration(class="form-select", onchange="updateTargetDate()") }}
                   <div class="form-text">
                     Choose how long you want to work on this goal. You can also set a custom date below.
                   </div>
@@ -378,7 +378,7 @@ block content %}
                 <div class="mb-3">
                   {{ form.target_date.label(class="form-label") }}
                   <div class="input-group">
-                    {{ form.target_date(class="form-control" + (" is-invalid" if form.target_date.errors else ""), id="targetDate", onchange="handleManualDateChange()") }}
+                    {{ form.target_date(class="form-control" + (" is-invalid" if form.target_date.errors else ""), onchange="handleManualDateChange()") }}
                     <button type="button" class="btn btn-outline-secondary" id="clearDateBtn" onclick="clearTargetDate()" title="Clear target date">
                       <i class="fas fa-times"></i>
                     </button>
@@ -589,16 +589,16 @@ block content %}
 
   function updateTargetDate() {
     console.log('updateTargetDate function called'); // Debug log
-    const durationSelect = document.getElementById('targetDuration');
-    const dateInput = document.getElementById('targetDate');
+    const durationSelect = document.getElementById('target_duration');
+    const dateInput = document.getElementById('target_date');
     
     if (!durationSelect) {
-      console.error('Duration select element not found');
+      console.error('Duration select element not found with id: target_duration');
       return;
     }
     
     if (!dateInput) {
-      console.error('Date input element not found');
+      console.error('Date input element not found with id: target_date');
       return;
     }
     
@@ -671,8 +671,8 @@ block content %}
   }
 
   function handleManualDateChange() {
-    const dateInput = document.getElementById('targetDate');
-    const durationSelect = document.getElementById('targetDuration');
+    const dateInput = document.getElementById('target_date');
+    const durationSelect = document.getElementById('target_duration');
     const selectedDate = dateInput.value;
     
     hideAllMessages();
@@ -722,8 +722,8 @@ block content %}
   }
   
   function clearTargetDate() {
-    const dateInput = document.getElementById('targetDate');
-    const durationSelect = document.getElementById('targetDuration');
+    const dateInput = document.getElementById('target_date');
+    const durationSelect = document.getElementById('target_duration');
     
     // Clear both fields
     dateInput.value = '';
@@ -739,7 +739,7 @@ block content %}
   }
   
   function resetToDurationDate() {
-    const dateInput = document.getElementById('targetDate');
+    const dateInput = document.getElementById('target_date');
     
     if (lastDurationBasedDate) {
       dateInput.value = lastDurationBasedDate;
@@ -789,7 +789,7 @@ block content %}
   }
 
   function validateGoalForm() {
-    const dateInput = document.getElementById('targetDate');
+    const dateInput = document.getElementById('target_date');
     const selectedDate = dateInput.value;
 
   // Initialize on page load
@@ -814,13 +814,13 @@ block content %}
     }
     
     // Add event listener for manual date changes
-    const dateInput = document.getElementById('targetDate');
+    const dateInput = document.getElementById('target_date');
     if (dateInput) {
       dateInput.addEventListener('change', handleManualDateChange);
     }
     
     // Also add an alternative event listener for the duration dropdown
-    const durationSelect = document.getElementById('targetDuration');
+    const durationSelect = document.getElementById('target_duration');
     if (durationSelect) {
       console.log('Adding event listener to duration select'); // Debug log
       durationSelect.addEventListener('change', function() {
@@ -895,8 +895,8 @@ block content %}
     }
     
     // Check if there's an existing date to determine if it was user-edited
-    const dateInput = document.getElementById('targetDate');
-    const durationSelect = document.getElementById('targetDuration');
+    const dateInput = document.getElementById('target_date');
+    const durationSelect = document.getElementById('target_duration');
     
     console.log('Date input found:', dateInput); // Debug log
     console.log('Duration select found:', durationSelect); // Debug log
