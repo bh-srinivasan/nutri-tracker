@@ -1,0 +1,16 @@
+{
+    "venvPath": ".",
+    "venv": ".venv",
+    "executionEnvironments": [
+        {
+            "root": ".",
+            "pythonVersion": "3.11",
+            "pythonPlatform": "Windows",
+            "extraPaths": [
+                "C:\\Users\\bhsrinivasan\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\site-packages"
+            ]
+        }
+    ],
+    "typeCheckingMode": "off",
+    "useLibraryCodeForTypes": true
+}

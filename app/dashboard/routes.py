@@ -9,6 +9,26 @@ from app.dashboard import bp
 from app.dashboard.forms import MealLogForm, NutritionGoalForm, FoodSearchForm
 from app.models import User, Food, MealLog, NutritionGoal, Challenge, UserChallenge, FoodServing
 
+def calculate_target_date_from_duration(duration):
+    """Calculate target date based on selected duration."""
+    if not duration:
+        return None
+    
+    today = date.today()
+    duration_map = {
+        '2_weeks': timedelta(weeks=2),
+        '1_month': timedelta(days=30),
+        '2_months': timedelta(days=60),
+        '3_months': timedelta(days=90),
+        '6_months': timedelta(days=180),
+        '1_year': timedelta(days=365)
+    }
+    
+    delta = duration_map.get(duration)
+    if delta:
+        return today + delta
+    return None
+
 @bp.route('/')
 @login_required
 def index():
@@ -208,6 +228,11 @@ def nutrition_goals():
         current_user.gender = form.gender.data
         current_user.activity_level = form.activity_level.data
         
+        # Calculate target date if duration is selected but no manual date is set
+        target_date = form.target_date.data
+        if form.target_duration.data and not target_date:
+            target_date = calculate_target_date_from_duration(form.target_duration.data)
+        
         # Deactivate current goal if exists
         if current_goal:
             current_goal.is_active = False
@@ -221,13 +246,22 @@ def nutrition_goals():
             target_carbs=form.target_carbs.data or 0,
             target_fat=form.target_fat.data or 0,
             target_fiber=form.target_fiber.data or 0,
+            target_weight=form.target_weight.data,
+            target_duration=form.target_duration.data,
+            target_date=target_date,
+            goal_date=datetime.utcnow(),
             is_active=True
         )
         
         db.session.add(new_goal)
         db.session.commit()
         
-        flash('Nutrition goals updated successfully!', 'success')
+        # Create success message with target date info
+        success_msg = 'Nutrition goals updated successfully!'
+        if target_date:
+            success_msg += f' Target date set for {target_date.strftime("%B %d, %Y")}.'
+        
+        flash(success_msg, 'success')
         return redirect(url_for('dashboard.index'))
     
     elif request.method == 'GET':
@@ -250,12 +284,15 @@ def nutrition_goals():
             form.target_carbs.data = current_goal.target_carbs
             form.target_fat.data = current_goal.target_fat
             form.target_fiber.data = current_goal.target_fiber
+            form.target_weight.data = current_goal.target_weight
+            form.target_duration.data = current_goal.target_duration
+            form.target_date.data = current_goal.target_date
     
     # Calculate recommended values based on user profile
     recommended = calculate_recommended_nutrition(current_user)
     
     return render_template('dashboard/nutrition_goals.html', title='Nutrition Goals',
-                         form=form, current_goal=current_goal, recommended=recommended)
+                         form=form, current_goal=current_goal, recommended=recommended, today=date.today())
 
 @bp.route('/history')
 @login_required

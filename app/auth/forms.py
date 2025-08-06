@@ -3,6 +3,13 @@ from wtforms import StringField, PasswordField, SubmitField, BooleanField, Selec
 from wtforms.validators import DataRequired, Email, EqualTo, Length, ValidationError, NumberRange, Optional
 from app.models import User
 
+def optional_email_validator(form, field):
+    """Custom validator for optional email field that only validates format when value is provided"""
+    if field.data and field.data.strip():
+        # Only validate email format if there's actual data
+        email_validator = Email()
+        email_validator(form, field)
+
 class LoginForm(FlaskForm):
     """User login form."""
     username = StringField('Username', validators=[DataRequired(), Length(min=3, max=80)])
@@ -52,6 +59,10 @@ class RegistrationForm(FlaskForm):
 
 class ProfileForm(FlaskForm):
     """User profile form."""
+    username = StringField('Username', validators=[
+        DataRequired(), 
+        Length(min=3, max=80)
+    ])
     first_name = StringField('First Name', validators=[
         DataRequired(), 
         Length(min=1, max=50)
@@ -60,7 +71,7 @@ class ProfileForm(FlaskForm):
         DataRequired(), 
         Length(min=1, max=50)
     ])
-    email = StringField('Email', validators=[DataRequired(), Email()])
+    email = StringField('Email', validators=[optional_email_validator])
     age = IntegerField('Age', validators=[
         Optional(), 
         NumberRange(min=13, max=120, message='Age must be between 13 and 120')
@@ -89,12 +100,24 @@ class ProfileForm(FlaskForm):
     ], validators=[Optional()])
     submit = SubmitField('Update Profile')
     
-    def __init__(self, original_email, *args, **kwargs):
+    def __init__(self, original_username, original_email, *args, **kwargs):
         super(ProfileForm, self).__init__(*args, **kwargs)
+        self.original_username = original_username
         self.original_email = original_email
+    
+    def validate_username(self, username):
+        """Check if username is already taken by another user."""
+        if username.data != self.original_username:
+            user = User.query.filter_by(username=username.data).first()
+            if user:
+                raise ValidationError('Username already taken. Please choose a different one.')
     
     def validate_email(self, email):
         """Check if email is already registered by another user."""
+        # Skip validation if email is empty (optional field)
+        if not email.data or email.data.strip() == '':
+            return
+            
         if email.data != self.original_email:
             user = User.query.filter_by(email=email.data).first()
             if user:

@@ -1,7 +1,12 @@
 from flask_wtf import FlaskForm
 from wtforms import SelectField, FloatField, StringField, SubmitField, HiddenField, DateField
-from wtforms.validators import DataRequired, NumberRange, Optional
-from datetime import date
+from wtforms.validators import DataRequired, NumberRange, Optional, ValidationError
+from datetime import date, datetime, timedelta
+
+def validate_target_date(form, field):
+    """Custom validator for target date - prevent past dates."""
+    if field.data and field.data < date.today():
+        raise ValidationError("Target date cannot be in the past. Please select a future date.")
 
 class MealLogForm(FlaskForm):
     """Form for logging meals with UOM support."""
@@ -36,6 +41,24 @@ class NutritionGoalForm(FlaskForm):
         DataRequired(), 
         NumberRange(min=20, max=300, message='Weight must be between 20 and 300 kg')
     ])
+    target_weight = FloatField('Target Weight (kg)', validators=[
+        Optional(), 
+        NumberRange(min=20, max=300, message='Target weight must be between 20 and 300 kg')
+    ])
+    
+    # Goal timing fields
+    target_duration = SelectField('How long do you plan to work on this goal?', choices=[
+        ('', 'Not sure yet'),
+        ('2_weeks', '2 weeks'),
+        ('1_month', '1 month'),
+        ('2_months', '2 months'),
+        ('3_months', '3 months'),
+        ('6_months', '6 months'),
+        ('1_year', '1 year'),
+        ('custom', 'Custom timeframe')
+    ], validators=[Optional()])
+    
+    target_date = DateField('Target Completion Date', validators=[Optional(), validate_target_date])
     height = FloatField('Height (cm)', validators=[
         DataRequired(), 
         NumberRange(min=100, max=250, message='Height must be between 100 and 250 cm')

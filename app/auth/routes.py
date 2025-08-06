@@ -83,12 +83,14 @@ def register():
 @login_required
 def profile():
     """User profile management route."""
-    form = ProfileForm(current_user.email)
+    form = ProfileForm(current_user.username, current_user.email or '')
     
     if form.validate_on_submit():
+        current_user.username = form.username.data
         current_user.first_name = form.first_name.data
         current_user.last_name = form.last_name.data
-        current_user.email = form.email.data
+        # Handle optional email field - set to None if empty
+        current_user.email = form.email.data if form.email.data and form.email.data.strip() else None
         current_user.age = form.age.data
         current_user.gender = form.gender.data
         current_user.height = form.height.data
@@ -101,9 +103,11 @@ def profile():
     
     elif request.method == 'GET':
         # Pre-populate form with current user data
+        form.username.data = current_user.username
         form.first_name.data = current_user.first_name
         form.last_name.data = current_user.last_name
-        form.email.data = current_user.email
+        # Handle optional email field - show empty string if None
+        form.email.data = current_user.email if current_user.email else ''
         form.age.data = current_user.age
         form.gender.data = current_user.gender
         form.height.data = current_user.height

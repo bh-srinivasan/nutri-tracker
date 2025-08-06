@@ -286,6 +286,14 @@ class NutritionGoal(db.Model):
     target_fat = db.Column(db.Float)
     target_fiber = db.Column(db.Float)
     
+    # Weight goals
+    target_weight = db.Column(db.Float)  # Target weight in kg
+    
+    # Goal timing fields
+    goal_date = db.Column(db.DateTime, default=datetime.utcnow)  # Last updated date
+    target_duration = db.Column(db.String(20))  # Duration selection (e.g., "1 month", "3 months")
+    target_date = db.Column(db.Date)  # Target completion date
+    
     # Goal settings
     goal_type = db.Column(db.String(20), nullable=False)  # lose, maintain, gain
     is_active = db.Column(db.Boolean, default=True)

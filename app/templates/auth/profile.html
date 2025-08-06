@@ -24,8 +24,8 @@
               </div>
               <div class="col-md-6">
                 <div class="mb-3">
-                  {{ form.email.label(class="form-label") }} {{
-                  form.email(class="form-control") }} {% for error in
+                  {{ form.email.label(class="form-label") }} <span class="text-muted small">(Optional)</span>
+                  {{ form.email(class="form-control", placeholder="Enter your email address (optional)") }} {% for error in
                   form.email.errors %}
                   <div class="text-danger small">{{ error }}</div>
                   {% endfor %}

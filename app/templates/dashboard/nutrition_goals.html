@@ -854,20 +854,14 @@ block content %}
       dateInput.addEventListener('change', handleManualDateChange);
     }
     
-    // Also add an alternative event listener for the duration dropdown
-    const durationSelect = document.getElementById('target_duration');
-    if (durationSelect) {
-      console.log('Adding event listener to duration select'); // Debug log
-      durationSelect.addEventListener('change', function() {
-        console.log('Duration select changed via event listener'); // Debug log
-        updateTargetDate();
-      });
-    }
+    // Duration dropdown event listener is handled by inline onchange attribute
+    // to avoid conflicts, so we don't add another addEventListener here
     
     // Check if there's an existing date to determine if it was user-edited
     console.log('Date input found:', dateInput); // Debug log
-    console.log('Duration select found:', durationSelect); // Debug log
+    console.log('Duration select found:', document.getElementById('target_duration')); // Debug log
     
+    const durationSelect = document.getElementById('target_duration');
     if (dateInput && dateInput.value && durationSelect && durationSelect.value) {
       // There's both a date and duration, calculate if they match
       const today = new Date();
@@ -910,53 +904,5 @@ block content %}
     
     return true; // Allow form submission
   }
-  
-  // Initialize on page load
-  document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM Content Loaded'); // Debug log
-    
-    // Test function accessible from console
-    window.testUpdateTargetDate = updateTargetDate;
-    
-    // Set up form validation
-    const form = document.querySelector('form');
-    if (form) {
-      form.addEventListener('submit', function(e) {
-        if (!validateGoalForm()) {
-          e.preventDefault();
-          return false;
-        }
-      });
-    }
-    
-    // Check if there's an existing date to determine if it was user-edited
-    const dateInput = document.getElementById('target_date');
-    const durationSelect = document.getElementById('target_duration');
-    
-    console.log('Date input found:', dateInput); // Debug log
-    console.log('Duration select found:', durationSelect); // Debug log
-    
-    if (dateInput && dateInput.value && durationSelect && durationSelect.value) {
-      // There's both a date and duration, calculate if they match
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const targetDate = new Date(dateInput.value);
-      const timeDiff = targetDate.getTime() - today.getTime();
-      const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
-      
-      const expectedDays = durationToDays[durationSelect.value];
-      
-      if (Math.abs(daysDiff - expectedDays) > 2) { // Allow 2-day tolerance
-        userEditedDate = true;
-        showResetOption();
-      } else {
-        lastDurationBasedDate = dateInput.value;
-      }
-    } else if (dateInput && dateInput.value && (!durationSelect || !durationSelect.value)) {
-      // Date without duration indicates manual entry
-      userEditedDate = true;
-      showResetOption();
-    }
-  });
 </script>
 {% endblock %}
