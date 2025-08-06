@@ -484,13 +484,17 @@ block content %}
     const age = parseInt(document.getElementById("age").value);
     const gender = document.getElementById("gender").value;
     const activityLevel = document.getElementById("activity_level").value;
-    const goal = document.getElementById("goal").value;
+    const goal = document.getElementById("goal_type").value;
 
     if (!weight || !height || !age || !gender || !activityLevel || !goal) {
-      NutriTracker.utils.showToast(
-        "Please fill in all personal information fields first.",
-        "warning"
-      );
+      if (typeof NutriTracker !== 'undefined' && NutriTracker.utils && NutriTracker.utils.showToast) {
+        NutriTracker.utils.showToast(
+          "Please fill in all personal information fields first.",
+          "warning"
+        );
+      } else {
+        alert("Please fill in all personal information fields first.");
+      }
       return;
     }
 
@@ -533,7 +537,11 @@ block content %}
     document.getElementById("targetFat").value = fat;
     document.getElementById("targetFiber").value = fiber;
 
-    NutriTracker.utils.showToast("Goals calculated successfully!", "success");
+    if (typeof NutriTracker !== 'undefined' && NutriTracker.utils && NutriTracker.utils.showToast) {
+      NutriTracker.utils.showToast("Goals calculated successfully!", "success");
+    } else {
+      alert("Goals calculated successfully!");
+    }
   }
 
   // Goal timing functionality
@@ -548,6 +556,16 @@ block content %}
     '3_months': 90,
     '6_months': 180,
     '1_year': 365
+  };
+
+  // Days to duration mapping (reverse lookup)
+  const daysToDuration = {
+    '14': '2_weeks',
+    '30': '1_month',
+    '60': '2_months',
+    '90': '3_months',
+    '180': '6_months',
+    '365': '1_year'
   };
 
   // Function to find the closest duration for a given number of days
@@ -573,6 +591,17 @@ block content %}
     console.log('updateTargetDate function called'); // Debug log
     const durationSelect = document.getElementById('targetDuration');
     const dateInput = document.getElementById('targetDate');
+    
+    if (!durationSelect) {
+      console.error('Duration select element not found');
+      return;
+    }
+    
+    if (!dateInput) {
+      console.error('Date input element not found');
+      return;
+    }
+    
     const duration = durationSelect.value;
     
     console.log('Duration selected:', duration); // Debug log
@@ -591,8 +620,10 @@ block content %}
     if (duration === 'custom') {
       console.log('Custom duration selected, not auto-calculating date'); // Debug log
       showAutoFillMessage();
-      document.getElementById('autoFillText').textContent = 
-        'Custom timeframe selected. Please set your target date manually.';
+      const autoFillTextElement = document.getElementById('autoFillText');
+      if (autoFillTextElement) {
+        autoFillTextElement.textContent = 'Custom timeframe selected. Please set your target date manually.';
+      }
       return;
     }
     
@@ -607,6 +638,12 @@ block content %}
     // Calculate new date
     const today = new Date();
     const days = durationToDays[duration];
+    
+    if (!days) {
+      console.error('No days found for duration:', duration);
+      return;
+    }
+    
     const targetDate = new Date(today);
     targetDate.setDate(today.getDate() + days);
     
@@ -627,8 +664,10 @@ block content %}
     
     // Update message text
     const durationText = durationSelect.options[durationSelect.selectedIndex].text;
-    document.getElementById('autoFillText').textContent = 
-      `Target date updated based on selected duration (${durationText}).`;
+    const autoFillTextElement = document.getElementById('autoFillText');
+    if (autoFillTextElement) {
+      autoFillTextElement.textContent = `Target date updated based on selected duration (${durationText}).`;
+    }
   }
 
   function handleManualDateChange() {
