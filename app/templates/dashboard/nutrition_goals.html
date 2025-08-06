@@ -71,6 +71,47 @@ block content %}
             </span>
           </div>
           {% endif %}
+          {% if current_goal.target_weight %}
+          <div class="text-center mt-3">
+            <span class="badge bg-secondary fs-6">
+              <i class="fas fa-weight"></i> {{ current_goal.target_weight }}kg
+              Target Weight
+            </span>
+          </div>
+          {% endif %}
+          
+          <!-- Goal Timing Information -->
+          <div class="row mt-4">
+            <div class="col-md-6">
+              <div class="card bg-light">
+                <div class="card-body text-center py-2">
+                  <small class="text-muted">Goal Last Updated</small>
+                  <div class="fw-bold">
+                    {{ current_goal.goal_date.strftime('%B %d, %Y') if current_goal.goal_date else current_goal.created_at.strftime('%B %d, %Y') }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% if current_goal.target_date %}
+            <div class="col-md-6">
+              <div class="card bg-primary text-white">
+                <div class="card-body text-center py-2">
+                  <small>Target Completion Date</small>
+                  <div class="fw-bold">
+                    {{ current_goal.target_date.strftime('%B %d, %Y') }}
+                  </div>
+                  {% if current_goal.target_date < today %}
+                  <small><i class="fas fa-exclamation-triangle"></i> Past due</small>
+                  {% elif current_goal.target_date == today %}
+                  <small><i class="fas fa-star"></i> Today!</small>
+                  {% else %}
+                  <small>{{ (current_goal.target_date - today).days }} days to go</small>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            {% endif %}
+          </div>
         </div>
       </div>
       {% endif %}
@@ -106,6 +147,26 @@ block content %}
                   {% endif %}
                 </div>
               </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  {{ form.target_weight.label(class="form-label") }}
+                  <span class="text-muted small">(Optional)</span>
+                  <div class="input-group">
+                    {{ form.target_weight(class="form-control", placeholder="Enter your target weight") }}
+                    <span class="input-group-text">kg</span>
+                  </div>
+                  {% if form.target_weight.errors %}
+                  <div class="invalid-feedback">
+                    {% for error in form.target_weight.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                  </div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            
+            <div class="row mb-4">
               <div class="col-md-6">
                 <div class="mb-3">
                   {{ form.height.label(class="form-label") }}
@@ -298,38 +359,64 @@ block content %}
               </div>
             </div>
 
-            {# Goal Duration - Commented out as NutritionGoal model doesn't support date ranges
+            <!-- Goal Timing Section -->
+            <h6 class="mb-3 mt-4">
+              <i class="fas fa-calendar-alt"></i> Goal Timeline <span class="text-muted small">(Optional)</span>
+            </h6>
+            
             <div class="row mb-4">
               <div class="col-md-6">
                 <div class="mb-3">
-                  {{ form.start_date.label(class="form-label") }} {{
-                  form.start_date(class="form-control" + (" is-invalid" if
-                  form.start_date.errors else "")) }} {% if
-                  form.start_date.errors %}
-                  <div class="invalid-feedback">
-                    {% for error in form.start_date.errors %}
-                    <span>{{ error }}</span>
-                    {% endfor %}
+                  {{ form.target_duration.label(class="form-label") }}
+                  {{ form.target_duration(class="form-select", id="targetDuration", onchange="updateTargetDate()") }}
+                  <div class="form-text">
+                    Choose how long you want to work on this goal. You can also set a custom date below.
                   </div>
-                  {% endif %}
                 </div>
               </div>
               <div class="col-md-6">
                 <div class="mb-3">
-                  {{ form.end_date.label(class="form-label") }} {{
-                  form.end_date(class="form-control" + (" is-invalid" if
-                  form.end_date.errors else "")) }} {% if form.end_date.errors
-                  %}
-                  <div class="invalid-feedback">
-                    {% for error in form.end_date.errors %}
+                  {{ form.target_date.label(class="form-label") }}
+                  <div class="input-group">
+                    {{ form.target_date(class="form-control" + (" is-invalid" if form.target_date.errors else ""), id="targetDate", onchange="handleManualDateChange()") }}
+                    <button type="button" class="btn btn-outline-secondary" id="clearDateBtn" onclick="clearTargetDate()" title="Clear target date">
+                      <i class="fas fa-times"></i>
+                    </button>
+                  </div>
+                  <div class="form-text">
+                    This is when you aim to complete the goal. You can set it manually or let us calculate it based on the duration above.
+                  </div>
+                  {% if form.target_date.errors %}
+                  <div class="invalid-feedback d-block">
+                    {% for error in form.target_date.errors %}
                     <span>{{ error }}</span>
                     {% endfor %}
                   </div>
                   {% endif %}
+                  
+                  <!-- Past date validation error -->
+                  <div id="pastDateError" class="alert alert-danger mt-2" style="display: none;">
+                    <i class="fas fa-exclamation-triangle"></i> Target date cannot be in the past. Please select a future date.
+                  </div>
+                  
+                  <!-- Dynamic feedback messages -->
+                  <div id="dateAutoFillMessage" class="alert alert-info mt-2" style="display: none;">
+                    <i class="fas fa-info-circle"></i> <span id="autoFillText">Auto-filled based on selected duration. You can change this date if you prefer.</span>
+                  </div>
+                  <div id="dateCustomMessage" class="alert alert-success mt-2" style="display: none;">
+                    <i class="fas fa-check-circle"></i> <span id="customText">Custom date set. We won't change this unless you update the duration again.</span>
+                  </div>
+                  <div id="dateClearedMessage" class="alert alert-warning mt-2" style="display: none;">
+                    <i class="fas fa-info-circle"></i> Target date removed. You can set it again anytime.
+                  </div>
+                  <div id="dateResetOption" class="mt-2" style="display: none;">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetToDurationDate()">
+                      <i class="fas fa-undo"></i> Reset to duration-based date
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-            #}
 
             <!-- Submit Button -->
             <!-- Submit Button -->
@@ -448,5 +535,354 @@ block content %}
 
     NutriTracker.utils.showToast("Goals calculated successfully!", "success");
   }
+
+  // Goal timing functionality
+  let userEditedDate = false; // Track if user manually edited the date
+  let lastDurationBasedDate = null; // Store the last auto-calculated date
+  
+  // Duration to days mapping
+  const durationToDays = {
+    '2_weeks': 14,
+    '1_month': 30,
+    '2_months': 60,
+    '3_months': 90,
+    '6_months': 180,
+    '1_year': 365
+  };
+
+  // Function to find the closest duration for a given number of days
+  function findClosestDuration(days) {
+    console.log('Finding closest duration for days:', days); // Debug log
+    
+    let closestDuration = null;
+    let minDifference = Infinity;
+    
+    for (const [duration, durationDays] of Object.entries(durationToDays)) {
+      const difference = Math.abs(days - durationDays);
+      if (difference < minDifference && difference <= 3) { // Allow 3-day tolerance
+        minDifference = difference;
+        closestDuration = duration;
+      }
+    }
+    
+    console.log('Closest duration found:', closestDuration, 'with difference:', minDifference); // Debug log
+    return closestDuration;
+  }
+
+  function updateTargetDate() {
+    console.log('updateTargetDate function called'); // Debug log
+    const durationSelect = document.getElementById('targetDuration');
+    const dateInput = document.getElementById('targetDate');
+    const duration = durationSelect.value;
+    
+    console.log('Duration selected:', duration); // Debug log
+    console.log('Duration element:', durationSelect); // Debug log
+    console.log('Date element:', dateInput); // Debug log
+    
+    hideAllMessages();
+    
+    if (!duration) {
+      // If no duration selected, don't auto-fill date
+      console.log('No duration selected, returning'); // Debug log
+      return;
+    }
+    
+    // Handle custom duration - don't auto-calculate date
+    if (duration === 'custom') {
+      console.log('Custom duration selected, not auto-calculating date'); // Debug log
+      showAutoFillMessage();
+      document.getElementById('autoFillText').textContent = 
+        'Custom timeframe selected. Please set your target date manually.';
+      return;
+    }
+    
+    if (userEditedDate && duration !== 'custom') {
+      // Ask user if they want to override their manual edit
+      if (!confirm('This will override your manually set date. Do you want to continue?')) {
+        console.log('User cancelled override'); // Debug log
+        return;
+      }
+    }
+    
+    // Calculate new date
+    const today = new Date();
+    const days = durationToDays[duration];
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() + days);
+    
+    console.log('Calculated target date:', targetDate); // Debug log
+    
+    // Format date for input (YYYY-MM-DD)
+    const formattedDate = targetDate.toISOString().split('T')[0];
+    dateInput.value = formattedDate;
+    lastDurationBasedDate = formattedDate;
+    
+    console.log('Formatted date set:', formattedDate); // Debug log
+    
+    // Reset user edit flag since this is a duration-based update
+    userEditedDate = false;
+    
+    // Show auto-fill message
+    showAutoFillMessage();
+    
+    // Update message text
+    const durationText = durationSelect.options[durationSelect.selectedIndex].text;
+    document.getElementById('autoFillText').textContent = 
+      `Target date updated based on selected duration (${durationText}).`;
+  }
+
+  function handleManualDateChange() {
+    const dateInput = document.getElementById('targetDate');
+    const durationSelect = document.getElementById('targetDuration');
+    const selectedDate = dateInput.value;
+    
+    hideAllMessages();
+    
+    if (!selectedDate) {
+      // Date was cleared
+      return;
+    }
+    
+    // Check if date is in the past
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const targetDate = new Date(selectedDate);
+    
+    if (targetDate < today) {
+      showPastDateError();
+      return;
+    }
+    
+    // Calculate days difference
+    const timeDiff = targetDate.getTime() - today.getTime();
+    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+    
+    // Check if it matches a predefined duration (with 2-day tolerance)
+    let matchingDuration = null;
+    for (const [days, duration] of Object.entries(daysToDuration)) {
+      if (Math.abs(daysDiff - parseInt(days)) <= 2) {
+        matchingDuration = duration;
+        break;
+      }
+    }
+    
+    if (matchingDuration) {
+      // Update duration dropdown to match
+      durationSelect.value = matchingDuration;
+      userEditedDate = false; // This is now synced
+      
+      showCustomMessage("We've updated the duration to match your new target date.");
+    } else {
+      // Set to custom (empty value)
+      durationSelect.value = '';
+      userEditedDate = true;
+      
+      showCustomMessage("Custom date set. We won't change this unless you update the duration again.");
+      showResetOption();
+    }
+  }
+  
+  function clearTargetDate() {
+    const dateInput = document.getElementById('targetDate');
+    const durationSelect = document.getElementById('targetDuration');
+    
+    // Clear both fields
+    dateInput.value = '';
+    durationSelect.value = '';
+    
+    // Reset flags
+    userEditedDate = false;
+    lastDurationBasedDate = null;
+    
+    // Hide all messages and show cleared message
+    hideAllMessages();
+    showClearedMessage();
+  }
+  
+  function resetToDurationDate() {
+    const dateInput = document.getElementById('targetDate');
+    
+    if (lastDurationBasedDate) {
+      dateInput.value = lastDurationBasedDate;
+      userEditedDate = false;
+      hideAllMessages();
+      showAutoFillMessage();
+      document.getElementById('autoFillText').textContent = 
+        'Target date reset to match the selected duration.';
+    }
+  }
+
+  // Helper functions for showing/hiding messages
+  function hideAllMessages() {
+    document.getElementById('pastDateError').style.display = 'none';
+    document.getElementById('dateAutoFillMessage').style.display = 'none';
+    document.getElementById('dateCustomMessage').style.display = 'none';
+    document.getElementById('dateClearedMessage').style.display = 'none';
+    document.getElementById('dateResetOption').style.display = 'none';
+  }
+
+  function showPastDateError() {
+    hideAllMessages();
+    document.getElementById('pastDateError').style.display = 'block';
+  }
+
+  function showAutoFillMessage() {
+    hideAllMessages();
+    document.getElementById('dateAutoFillMessage').style.display = 'block';
+  }
+
+  function showCustomMessage(message) {
+    hideAllMessages();
+    const customMessageDiv = document.getElementById('dateCustomMessage');
+    customMessageDiv.style.display = 'block';
+    if (message) {
+      document.getElementById('customText').textContent = message;
+    }
+  }
+
+  function showClearedMessage() {
+    hideAllMessages();
+    document.getElementById('dateClearedMessage').style.display = 'block';
+  }
+
+  function showResetOption() {
+    document.getElementById('dateResetOption').style.display = 'block';
+  }
+
+  function validateGoalForm() {
+    const dateInput = document.getElementById('targetDate');
+    const selectedDate = dateInput.value;
+
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM Content Loaded'); // Debug log
+    
+    // Test function accessible from console
+    window.testUpdateTargetDate = updateTargetDate;
+    
+    // Make sure the function is globally available
+    window.updateTargetDate = updateTargetDate;
+    
+    // Set up form validation
+    const form = document.querySelector('form');
+    if (form) {
+      form.addEventListener('submit', function(e) {
+        if (!validateGoalForm()) {
+          e.preventDefault();
+          return false;
+        }
+      });
+    }
+    
+    // Add event listener for manual date changes
+    const dateInput = document.getElementById('targetDate');
+    if (dateInput) {
+      dateInput.addEventListener('change', handleManualDateChange);
+    }
+    
+    // Also add an alternative event listener for the duration dropdown
+    const durationSelect = document.getElementById('targetDuration');
+    if (durationSelect) {
+      console.log('Adding event listener to duration select'); // Debug log
+      durationSelect.addEventListener('change', function() {
+        console.log('Duration select changed via event listener'); // Debug log
+        updateTargetDate();
+      });
+    }
+    
+    // Check if there's an existing date to determine if it was user-edited
+    console.log('Date input found:', dateInput); // Debug log
+    console.log('Duration select found:', durationSelect); // Debug log
+    
+    if (dateInput && dateInput.value && durationSelect && durationSelect.value) {
+      // There's both a date and duration, calculate if they match
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const targetDate = new Date(dateInput.value);
+      const timeDiff = targetDate.getTime() - today.getTime();
+      const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+      
+      const expectedDays = durationToDays[durationSelect.value];
+      
+      if (expectedDays && Math.abs(daysDiff - expectedDays) > 3) { // Allow 3-day tolerance
+        userEditedDate = true;
+        // Auto-select custom for existing dates that don't match predefined durations
+        const matchingDuration = findClosestDuration(daysDiff);
+        if (!matchingDuration) {
+          durationSelect.value = 'custom';
+        }
+      } else {
+        lastDurationBasedDate = dateInput.value;
+      }
+    } else if (dateInput && dateInput.value && (!durationSelect || !durationSelect.value || durationSelect.value === '')) {
+      // Date without duration indicates manual entry - set to custom
+      userEditedDate = true;
+      if (durationSelect) {
+        durationSelect.value = 'custom';
+      }
+    }
+  });
+    if (selectedDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const targetDate = new Date(selectedDate);
+      
+      if (targetDate < today) {
+        showPastDateError();
+        dateInput.focus();
+        return false; // Prevent form submission
+      }
+    }
+    
+    return true; // Allow form submission
+  }
+  
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM Content Loaded'); // Debug log
+    
+    // Test function accessible from console
+    window.testUpdateTargetDate = updateTargetDate;
+    
+    // Set up form validation
+    const form = document.querySelector('form');
+    if (form) {
+      form.addEventListener('submit', function(e) {
+        if (!validateGoalForm()) {
+          e.preventDefault();
+          return false;
+        }
+      });
+    }
+    
+    // Check if there's an existing date to determine if it was user-edited
+    const dateInput = document.getElementById('targetDate');
+    const durationSelect = document.getElementById('targetDuration');
+    
+    console.log('Date input found:', dateInput); // Debug log
+    console.log('Duration select found:', durationSelect); // Debug log
+    
+    if (dateInput && dateInput.value && durationSelect && durationSelect.value) {
+      // There's both a date and duration, calculate if they match
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const targetDate = new Date(dateInput.value);
+      const timeDiff = targetDate.getTime() - today.getTime();
+      const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+      
+      const expectedDays = durationToDays[durationSelect.value];
+      
+      if (Math.abs(daysDiff - expectedDays) > 2) { // Allow 2-day tolerance
+        userEditedDate = true;
+        showResetOption();
+      } else {
+        lastDurationBasedDate = dateInput.value;
+      }
+    } else if (dateInput && dateInput.value && (!durationSelect || !durationSelect.value)) {
+      // Date without duration indicates manual entry
+      userEditedDate = true;
+      showResetOption();
+    }
+  });
 </script>
 {% endblock %}
