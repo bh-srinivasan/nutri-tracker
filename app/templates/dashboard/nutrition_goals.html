@@ -368,7 +368,7 @@ block content %}
               <div class="col-md-6">
                 <div class="mb-3">
                   {{ form.target_duration.label(class="form-label") }}
-                  {{ form.target_duration(class="form-select", onchange="updateTargetDate()") }}
+                  {{ form.target_duration(class="form-select", onchange="console.log('🔥 ONCHANGE TRIGGERED!'); updateTargetDate()") }}
                   <div class="form-text">
                     Choose how long you want to work on this goal. You can also set a custom date below.
                   </div>
@@ -545,6 +545,9 @@ block content %}
   }
 
   // Goal timing functionality
+  console.log('🚀 GOAL TIMING JAVASCRIPT LOADING...'); // Debug log
+  console.log('⏰ Current time:', new Date().toLocaleTimeString()); // Debug log
+  
   let userEditedDate = false; // Track if user manually edited the date
   let lastDurationBasedDate = null; // Store the last auto-calculated date
   let programmaticChange = false; // Flag to prevent handleManualDateChange during programmatic updates
@@ -589,7 +592,9 @@ block content %}
   }
 
   function updateTargetDate() {
-    console.log('updateTargetDate function called'); // Debug log
+    console.log('🎯🎯🎯 UPDATE TARGET DATE FUNCTION CALLED!!! 🎯🎯🎯'); // Enhanced debug log
+    console.log('⏰ Function call time:', new Date().toLocaleTimeString()); // Debug log
+    console.log('updateTargetDate function called'); // Original debug log
     const durationSelect = document.getElementById('target_duration');
     const dateInput = document.getElementById('target_date');
     

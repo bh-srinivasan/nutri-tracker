@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Target Date Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        select, input { padding: 8px; width: 200px; border: 1px solid #ccc; border-radius: 4px; }
+        .debug { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Target Date Functionality Test</h1>
+    
+    <div class="debug">
+        <strong>Debug Information:</strong>
+        <div id="debug-output">Page loaded...</div>
+    </div>
+
+    <form>
+        <div class="form-group">
+            <label for="target_duration">How long do you plan to work on this goal?</label>
+            <select id="target_duration" onchange="updateTargetDate()">
+                <option value="">Not sure yet</option>
+                <option value="2_weeks">2 weeks</option>
+                <option value="1_month">1 month</option>
+                <option value="2_months">2 months</option>
+                <option value="3_months">3 months</option>
+                <option value="6_months">6 months</option>
+                <option value="1_year">1 year</option>
+                <option value="custom">Custom timeframe</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="target_date">Target Completion Date</label>
+            <input type="date" id="target_date" onchange="handleManualDateChange()">
+        </div>
+    </form>
+
+    <script>
+        // Debug function
+        function debugLog(message) {
+            console.log(message);
+            const debugOutput = document.getElementById('debug-output');
+            debugOutput.innerHTML += '<br>' + new Date().toLocaleTimeString() + ': ' + message;
+        }
+
+        // State management
+        let userEditedDate = false;
+        let lastDurationBasedDate = null;
+        let programmaticChange = false;
+        
+        // Duration to days mapping
+        const durationToDays = {
+            '2_weeks': 14,
+            '1_month': 30,
+            '2_months': 60,
+            '3_months': 90,
+            '6_months': 180,
+            '1_year': 365
+        };
+
+        function updateTargetDate() {
+            debugLog('🎯 updateTargetDate function called');
+            
+            const durationSelect = document.getElementById('target_duration');
+            const dateInput = document.getElementById('target_date');
+            
+            if (!durationSelect) {
+                debugLog('❌ Duration select element not found');
+                return;
+            }
+            
+            if (!dateInput) {
+                debugLog('❌ Date input element not found');
+                return;
+            }
+            
+            const duration = durationSelect.value;
+            debugLog('📋 Duration selected: ' + duration);
+            
+            if (!duration || duration === 'custom') {
+                debugLog('⏭️ No duration or custom selected, skipping');
+                return;
+            }
+            
+            if (userEditedDate && duration !== 'custom') {
+                if (!confirm('This will override your manually set date. Do you want to continue?')) {
+                    debugLog('🚫 User cancelled override');
+                    return;
+                }
+                userEditedDate = false;
+            }
+            
+            // Calculate new date
+            const today = new Date();
+            const days = durationToDays[duration];
+            
+            if (!days) {
+                debugLog('❌ No days found for duration: ' + duration);
+                return;
+            }
+            
+            const targetDate = new Date(today);
+            targetDate.setDate(today.getDate() + days);
+            
+            debugLog('📅 Calculated target date: ' + targetDate.toDateString());
+            
+            // Format date for input (YYYY-MM-DD)
+            const formattedDate = targetDate.toISOString().split('T')[0];
+            
+            // Set flag to prevent handleManualDateChange from triggering
+            programmaticChange = true;
+            dateInput.value = formattedDate;
+            lastDurationBasedDate = formattedDate;
+            
+            // Reset the flag after a short delay
+            setTimeout(() => {
+                programmaticChange = false;
+            }, 100);
+            
+            debugLog('✅ Formatted date set: ' + formattedDate);
+            
+            // Reset user edit flag
+            userEditedDate = false;
+        }
+
+        function handleManualDateChange() {
+            if (programmaticChange) {
+                debugLog('🔄 Skipping handleManualDateChange - programmatic change');
+                return;
+            }
+            
+            debugLog('✋ Manual date change detected');
+            userEditedDate = true;
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            debugLog('🚀 DOM Content Loaded');
+            debugLog('🔍 Duration element: ' + (document.getElementById('target_duration') ? 'Found' : 'Not Found'));
+            debugLog('🔍 Date element: ' + (document.getElementById('target_date') ? 'Found' : 'Not Found'));
+            debugLog('🔍 updateTargetDate function: ' + (typeof updateTargetDate));
+            
+            // Make function available globally for testing
+            window.updateTargetDate = updateTargetDate;
+            window.debugLog = debugLog;
+        });
+    </script>
+</body>
+</html>
