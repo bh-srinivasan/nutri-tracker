@@ -547,6 +547,7 @@ block content %}
   // Goal timing functionality
   let userEditedDate = false; // Track if user manually edited the date
   let lastDurationBasedDate = null; // Store the last auto-calculated date
+  let programmaticChange = false; // Flag to prevent handleManualDateChange during programmatic updates
   
   // Duration to days mapping
   const durationToDays = {
@@ -633,6 +634,8 @@ block content %}
         console.log('User cancelled override'); // Debug log
         return;
       }
+      // User confirmed, so reset the flag
+      userEditedDate = false;
     }
     
     // Calculate new date
@@ -651,8 +654,16 @@ block content %}
     
     // Format date for input (YYYY-MM-DD)
     const formattedDate = targetDate.toISOString().split('T')[0];
+    
+    // Set flag to prevent handleManualDateChange from triggering
+    programmaticChange = true;
     dateInput.value = formattedDate;
     lastDurationBasedDate = formattedDate;
+    
+    // Reset the flag after a short delay to allow the change event to fire
+    setTimeout(() => {
+      programmaticChange = false;
+    }, 100);
     
     console.log('Formatted date set:', formattedDate); // Debug log
     
@@ -671,9 +682,17 @@ block content %}
   }
 
   function handleManualDateChange() {
+    // Skip processing if this is a programmatic change
+    if (programmaticChange) {
+      console.log('Skipping handleManualDateChange - programmatic change'); // Debug log
+      return;
+    }
+    
     const dateInput = document.getElementById('target_date');
     const durationSelect = document.getElementById('target_duration');
     const selectedDate = dateInput.value;
+    
+    console.log('handleManualDateChange called - user manual change'); // Debug log
     
     hideAllMessages();
     
@@ -725,6 +744,9 @@ block content %}
     const dateInput = document.getElementById('target_date');
     const durationSelect = document.getElementById('target_duration');
     
+    // Set flag to prevent handleManualDateChange from triggering
+    programmaticChange = true;
+    
     // Clear both fields
     dateInput.value = '';
     durationSelect.value = '';
@@ -732,6 +754,11 @@ block content %}
     // Reset flags
     userEditedDate = false;
     lastDurationBasedDate = null;
+    
+    // Reset the flag after a short delay
+    setTimeout(() => {
+      programmaticChange = false;
+    }, 100);
     
     // Hide all messages and show cleared message
     hideAllMessages();
@@ -742,8 +769,16 @@ block content %}
     const dateInput = document.getElementById('target_date');
     
     if (lastDurationBasedDate) {
+      // Set flag to prevent handleManualDateChange from triggering
+      programmaticChange = true;
       dateInput.value = lastDurationBasedDate;
       userEditedDate = false;
+      
+      // Reset the flag after a short delay
+      setTimeout(() => {
+        programmaticChange = false;
+      }, 100);
+      
       hideAllMessages();
       showAutoFillMessage();
       document.getElementById('autoFillText').textContent = 
