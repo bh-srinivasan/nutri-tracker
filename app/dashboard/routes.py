@@ -2,12 +2,27 @@ from datetime import datetime, date, timedelta
 from flask import render_template, redirect, url_for, flash, request, jsonify, make_response
 from flask_login import login_required, current_user
 from sqlalchemy import func, desc, and_
+from sqlalchemy.orm import joinedload
 import csv
 import io
 from app import db
 from app.dashboard import bp
 from app.dashboard.forms import MealLogForm, NutritionGoalForm, FoodSearchForm
 from app.models import User, Food, MealLog, NutritionGoal, Challenge, UserChallenge, FoodServing
+
+def serialize_food_for_js(food: Food) -> dict:
+    """Return a JSON-serializable dict for the front-end preselect."""
+    return {
+        "id": food.id,
+        "name": food.name,
+        "brand": food.brand,
+        "description": food.description or "",
+        "calories_per_100g": food.calories or 0,
+        "protein_per_100g": food.protein or 0,
+        "carbs_per_100g": food.carbs or 0,
+        "fat_per_100g": food.fat or 0,
+        "image_url": getattr(food, "image_url", "") or "",
+    }
 
 def calculate_target_date_from_duration(duration):
     """Calculate target date based on selected duration."""
@@ -98,6 +113,35 @@ def log_meal():
     """Log a meal with UOM support."""
     form = MealLogForm()
     
+    # Parse ?edit=...
+    edit_param = request.args.get('edit')
+    try:
+        edit_meal_id = int(edit_param) if edit_param else None
+    except ValueError:
+        edit_meal_id = None
+
+    edit_meal = None
+    if edit_meal_id:
+        edit_meal = MealLog.query.options(
+            db.joinedload(MealLog.food)
+        ).filter(
+            MealLog.id == edit_meal_id,
+            MealLog.user_id == current_user.id
+        ).first()
+        if not edit_meal:
+            flash('Meal not found or access denied.', 'danger')
+            return redirect(url_for('dashboard.index'))
+
+    # Pre-populate on GET
+    if edit_meal and request.method == 'GET':
+        form.food_id.data = edit_meal.food_id
+        form.quantity.data = edit_meal.original_quantity
+        form.unit_type.data = edit_meal.unit_type
+        form.serving_id.data = edit_meal.serving_id
+        form.meal_type.data = edit_meal.meal_type
+        form.date.data = edit_meal.date
+
+    # On submit, use form.date.data for both edit and create
     if form.validate_on_submit():
         food = Food.query.get(form.food_id.data)
         if not food:
@@ -123,32 +167,41 @@ def log_meal():
                 flash('Invalid serving size selected.', 'danger')
                 return redirect(url_for('dashboard.log_meal'))
         
-        # Create meal log with UOM support
-        meal_log = MealLog(
-            user_id=current_user.id,
-            food_id=food.id,
-            quantity=normalized_quantity,  # Always stored in grams
-            original_quantity=original_quantity,
-            unit_type=form.unit_type.data,
-            serving_id=serving_id,
-            meal_type=form.meal_type.data,
-            date=date.today()
-        )
-        
-        # Calculate nutrition values based on quantity
-        meal_log.calculate_nutrition()
-        
-        db.session.add(meal_log)
+        if edit_meal:
+            meal_log = edit_meal
+            meal_log.food_id = food.id
+            meal_log.quantity = normalized_quantity
+            meal_log.original_quantity = original_quantity
+            meal_log.unit_type = form.unit_type.data
+            meal_log.serving_id = serving_id
+            meal_log.meal_type = form.meal_type.data
+            meal_log.date = form.date.data
+            meal_log.calculate_nutrition()
+            flash(f'Successfully updated {food.name} for {form.meal_type.data}!', 'success')
+        else:
+            meal_log = MealLog(
+                user_id=current_user.id,
+                food_id=food.id,
+                quantity=normalized_quantity,
+                original_quantity=original_quantity,
+                unit_type=form.unit_type.data,
+                serving_id=serving_id,
+                meal_type=form.meal_type.data,
+                date=form.date.data,  # <--- important
+            )
+            meal_log.calculate_nutrition()
+            db.session.add(meal_log)
+            flash(f'Successfully logged {food.name} for {form.meal_type.data}!', 'success')
+
         db.session.commit()
-        
-        flash(f'Successfully logged {food.name} for {form.meal_type.data}!', 'success')
         return redirect(url_for('dashboard.index'))
-    
+
     # GET request - show form
-    # Get selected food if provided
-    selected_food = None
-    if request.args.get('food_id'):
+    # Get selected food if provided (and not editing)
+    if not edit_meal and request.args.get('food_id'):
         selected_food = Food.query.get(request.args.get('food_id'))
+    else:
+        selected_food = None
     
     # Pre-select meal type from query parameter
     meal_type = request.args.get('meal_type')
@@ -161,8 +214,23 @@ def log_meal():
         Food.is_verified == True
     ).distinct().order_by(MealLog.logged_at.desc()).limit(10).all()
     
-    return render_template('dashboard/log_meal.html', title='Log Meal', 
-                         form=form, selected_food=selected_food, recent_foods=recent_foods)
+    # Build JSON-safe selected_food for template
+    selected_food_json = None
+    if edit_meal:
+        try:
+            selected_food_json = serialize_food_for_js(edit_meal.food)
+        except Exception as e:
+            print(f"Error serializing food for edit meal {edit_meal_id}: {e}")
+            flash('Error loading food details for edit.', 'warning')
+
+    return render_template(
+        'dashboard/log_meal.html',
+        title='Log Meal',
+        form=form,
+        selected_food=selected_food_json,  # <-- dict or None (never ORM)
+        recent_foods=recent_foods,
+        edit_meal=edit_meal,
+    )
 
 @bp.route('/search-foods')
 @login_required
