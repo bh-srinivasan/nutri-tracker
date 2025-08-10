@@ -341,7 +341,7 @@ class EnhancedMealLogger {
             unitTypeSelect: document.getElementById('unitTypeSelect'),
             servingSelect: document.getElementById('servingSelect'),
             servingSelectContainer: document.getElementById('servingSelectContainer'),
-            quantityInput: document.getElementById('quantity'),
+            quantityInput: document.getElementById('quantity') || document.getElementById('quantityInput'),
             quantityUnit: document.getElementById('quantityUnit'),
             submitBtn: document.getElementById('submitBtn'),
             nutritionPreview: document.getElementById('nutritionPreview')
@@ -993,6 +993,23 @@ class EnhancedMealLogger {
                 }
             } catch (e) {
                 console.error('[MealLogger] Error parsing preselected meal type:', e);
+            }
+        }
+
+        // Handle preselected quantity
+        const preselectedQuantity = document.getElementById('preselected-quantity');
+        if (preselectedQuantity) {
+            try {
+                const quantity = JSON.parse(preselectedQuantity.textContent);
+                const quantityInput = document.getElementById('quantity') || document.getElementById('quantityInput');
+                if (quantityInput && quantity) {
+                    quantityInput.value = quantity;
+                    console.log('[MealLogger] Set preselected quantity:', quantity);
+                    // Trigger input event to update nutrition preview
+                    this.validateQuantityAndUpdateNutrition();
+                }
+            } catch (e) {
+                console.error('[MealLogger] Error parsing preselected quantity:', e);
             }
         }
     }
