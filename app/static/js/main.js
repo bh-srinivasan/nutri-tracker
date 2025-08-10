@@ -698,6 +698,21 @@ NutriTracker.logMeal = {
             }
         }
 
+        // Handle pre-selected quantity
+        const preselectedQuantity = document.getElementById('preselected-quantity');
+        if (preselectedQuantity) {
+            try {
+                const quantity = JSON.parse(preselectedQuantity.textContent);
+                const qtyInput = document.getElementById('quantity') || document.getElementById('quantityInput');
+                if (qtyInput && quantity) {
+                    qtyInput.value = quantity;
+                    this.updateNutritionPreview();
+                }
+            } catch (e) {
+                console.error('Error parsing preselected quantity:', e);
+            }
+        }
+
         // Set up event listeners
         this.setupEventListeners();
     },
@@ -706,8 +721,8 @@ NutriTracker.logMeal = {
      * Set up event listeners for meal logging
      */
     setupEventListeners: function() {
-        // Quantity input changes
-        const quantityInput = document.getElementById('quantity');
+        // Quantity input changes - resilient selector
+        const quantityInput = document.getElementById('quantity') || document.getElementById('quantityInput');
         if (quantityInput) {
             quantityInput.addEventListener('input', () => this.updateNutritionPreview());
         }
@@ -881,7 +896,7 @@ NutriTracker.logMeal = {
     updateNutritionPreview: function() {
         if (!this.selectedFood) return;
         
-        const quantityInput = document.getElementById('quantity');
+        const quantityInput = document.getElementById('quantity') || document.getElementById('quantityInput');
         const quantity = quantityInput ? parseFloat(quantityInput.value) || 0 : 0;
         
         const previewDiv = document.getElementById('nutritionPreview');

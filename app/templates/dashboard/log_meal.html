@@ -144,7 +144,7 @@
                   {{ form.quantity.label(class="form-label fw-bold") }}
                   <div class="input-group">
                     {{ form.quantity(class="form-control" + (" is-invalid" if form.quantity.errors else ""), 
-                                   id="quantityInput", placeholder="Enter quantity", step="0.1", min="0.1") }}
+                                   id="quantity", placeholder="Enter quantity", step="0.1", min="0.1") }}
                     <span class="input-group-text" id="quantityUnit">grams</span>
                   </div>
                   {% if form.quantity.errors %}
@@ -294,15 +294,23 @@
 
 <!-- Pre-fill data using JSON -->
 {% if selected_food %}
-<script type="application/json" id="preselected-food-data">
-  {{ selected_food | tojson }}
-</script>
-{% endif %} 
+  <script id="preselected-food-data" type="application/json">
+    {{ selected_food | tojson }}
+  </script>
+{% endif %}
 
-{% if request.args.get('meal_type') %}
-<script type="application/json" id="preselected-meal-type">
-  "{{ request.args.get('meal_type') }}"
-</script>
+{# Optional: preselect meal type #}
+{% if form.meal_type.data %}
+  <script id="preselected-meal-type" type="application/json">
+    {{ form.meal_type.data | tojson }}
+  </script>
+{% endif %}
+
+{# Optional: preselect quantity #}
+{% if form.quantity.data %}
+  <script id="preselected-quantity" type="application/json">
+    {{ form.quantity.data|tojson }}
+  </script>
 {% endif %}
 
 <!-- Enhanced JavaScript for UOM-enabled Meal Logging -->
@@ -333,7 +341,7 @@ class EnhancedMealLogger {
             unitTypeSelect: document.getElementById('unitTypeSelect'),
             servingSelect: document.getElementById('servingSelect'),
             servingSelectContainer: document.getElementById('servingSelectContainer'),
-            quantityInput: document.getElementById('quantityInput'),
+            quantityInput: document.getElementById('quantity'),
             quantityUnit: document.getElementById('quantityUnit'),
             submitBtn: document.getElementById('submitBtn'),
             nutritionPreview: document.getElementById('nutritionPreview')

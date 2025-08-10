@@ -244,7 +244,23 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 For support, email support@nutritracker.com or create an issue in the repository.
 
-## 📈 Roadmap
+## 🧪 Manual Testing Notes
+
+### Edit Meal Quantity Flow
+To test the edit meal quantity functionality:
+
+1. **Test Edit Quantity Prefill**:
+   - Navigate to `/dashboard`
+   - Click "Edit" on a meal with quantity=400g
+   - Verify input shows 400 and preview shows values computed for 400g
+   - Modify quantity; preview updates live
+
+2. **Test Quantity Input Responsiveness**:
+   - Change quantity value in the input field
+   - Verify nutrition preview updates in real-time
+   - Confirm calculations are accurate (e.g., 200g = half of 100g values)
+
+## 🔮 Future Enhancements
 
 - [ ] Mobile app development
 - [ ] Barcode scanning for food items
