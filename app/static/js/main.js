@@ -203,7 +203,7 @@ NutriTracker.api = {
      * Search foods
      */
     searchFoods: async function(query) {
-        const url = `${NutriTracker.config.apiBaseUrl}/foods/search?q=${encodeURIComponent(query)}`;
+        const url = `${NutriTracker.config.apiBaseUrl}/foods/search-verified?q=${encodeURIComponent(query)}`;
         return await this.request(url);
     },
 
@@ -410,10 +410,10 @@ class FoodSearch {
             
             const data = await NutriTracker.api.searchFoods(query);
             
-            // Cache results
-            this.searchCache.set(query, data.foods);
+            // Cache results - API returns array directly
+            this.searchCache.set(query, data);
             
-            this.displayResults(data.foods);
+            this.displayResults(data);
         } catch (error) {
             console.error('Search failed:', error);
             this.displayError('Search failed. Please try again.');
@@ -494,7 +494,7 @@ document.addEventListener('DOMContentLoaded', function() {
     NutriTracker.ui.init();
     
     // Initialize meal logging if on log meal page
-    if (document.getElementById('mealLogForm')) {
+    if (document.getElementById('mealLogForm') || document.getElementById('foodSearch')) {
         NutriTracker.logMeal.init();
     }
     
@@ -675,10 +675,10 @@ NutriTracker.logMeal = {
         if (preselectedFoodData) {
             try {
                 const foodData = JSON.parse(preselectedFoodData.textContent);
-                this.selectFood(foodData.id, foodData.name, foodData.brand || '', 
-                              foodData.description || '', foodData.calories_per_100g, 
-                              foodData.protein_per_100g, foodData.carbs_per_100g || 0, 
-                              foodData.fat_per_100g || 0, foodData.image_url || '');
+                this.selectFood(foodData.id, foodData.name, foodData.brand ?? '', 
+                              foodData.description ?? '', foodData.calories_per_100g, 
+                              foodData.protein_per_100g, foodData.carbs_per_100g ?? 0, 
+                              foodData.fat_per_100g ?? 0, foodData.image_url ?? '');
             } catch (e) {
                 console.error('Error parsing preselected food data:', e);
             }
@@ -727,15 +727,29 @@ NutriTracker.logMeal = {
             quantityInput.addEventListener('input', () => this.updateNutritionPreview());
         }
 
-        // Food search input
+        // Food search input with debounced live search
         const foodSearchInput = document.getElementById('foodSearch');
         if (foodSearchInput) {
+            // Setup debounced search function
+            const debouncedSearch = NutriTracker.utils.debounce(() => {
+                this.searchFoods();
+            }, NutriTracker.config.debounceDelay);
+            
+            foodSearchInput.addEventListener('input', () => {
+                const query = foodSearchInput.value.trim();
+                if (query.length >= 2) {
+                    debouncedSearch();
+                } else if (query.length === 0) {
+                    // Clear results when search is empty
+                    const resultsDiv = document.getElementById('foodSearchResults');
+                    if (resultsDiv) resultsDiv.innerHTML = '';
+                }
+            });
+            
             foodSearchInput.addEventListener('keyup', (event) => {
                 if (event.key === 'Enter') {
+                    event.preventDefault();
                     this.searchFoods();
-                } else if (foodSearchInput.value.length >= 2) {
-                    clearTimeout(foodSearchInput.searchTimeout);
-                    foodSearchInput.searchTimeout = setTimeout(() => this.searchFoods(), 500);
                 }
             });
         }
@@ -757,10 +771,10 @@ NutriTracker.logMeal = {
 
         NutriTracker.utils.showLoading();
         
-        fetch(`/api/foods/search?q=${encodeURIComponent(query)}`)
+        fetch(`/api/foods/search-verified?q=${encodeURIComponent(query)}`)
             .then(response => response.json())
             .then(data => {
-                this.displaySearchResults(data.foods);
+                this.displaySearchResults(data);
             })
             .catch(error => {
                 console.error('Search error:', error);

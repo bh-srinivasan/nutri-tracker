@@ -319,6 +319,8 @@
         });
     </script>
     
-    {% block scripts %}{% endblock %}
+    {% block scripts %}
+        <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
+    {% endblock %}
 </body>
 </html>
