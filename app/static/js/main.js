@@ -692,6 +692,7 @@ NutriTracker.logMeal = {
                 const mealTypeSelect = document.getElementById('meal_type');
                 if (mealTypeSelect) {
                     mealTypeSelect.value = mealType;
+                    this.updateSubmitButton();
                 }
             } catch (e) {
                 console.error('Error parsing preselected meal type:', e);
@@ -707,6 +708,7 @@ NutriTracker.logMeal = {
                 if (qtyInput && quantity) {
                     qtyInput.value = quantity;
                     this.updateNutritionPreview();
+                    this.updateSubmitButton();
                 }
             } catch (e) {
                 console.error('Error parsing preselected quantity:', e);
@@ -724,7 +726,10 @@ NutriTracker.logMeal = {
         // Quantity input changes - resilient selector
         const quantityInput = document.getElementById('quantity') || document.getElementById('quantityInput');
         if (quantityInput) {
-            quantityInput.addEventListener('input', () => this.updateNutritionPreview());
+            quantityInput.addEventListener('input', () => {
+                this.updateNutritionPreview();
+                this.updateSubmitButton();
+            });
         }
 
         // Food search input with debounced live search
@@ -760,6 +765,15 @@ NutriTracker.logMeal = {
             searchButton.onclick = null; // Remove inline handler
             searchButton.addEventListener('click', () => this.searchFoods());
         }
+
+        // Meal type dropdown
+        const mealTypeSelect = document.getElementById('meal_type');
+        if (mealTypeSelect) {
+            mealTypeSelect.addEventListener('change', () => this.updateSubmitButton());
+        }
+
+        // Initialize submit button state
+        this.updateSubmitButton();
     },
 
     /**
@@ -860,6 +874,9 @@ NutriTracker.logMeal = {
         
         // Calculate nutrition preview if quantity is set
         this.updateNutritionPreview();
+        
+        // Enable submit button when food is selected
+        this.updateSubmitButton();
     },
 
     /**
@@ -936,5 +953,41 @@ NutriTracker.logMeal = {
         }
         
         previewDiv.style.display = 'block';
+    },
+
+    /**
+     * Update submit button state based on form validity
+     */
+    updateSubmitButton: function() {
+        const submitBtn = document.getElementById('submitBtn');
+        if (!submitBtn) return;
+        
+        // Check if food is selected
+        const hasFoodSelected = this.selectedFood && this.selectedFood.id;
+        
+        // Check if quantity is valid
+        const quantityInput = document.getElementById('quantity') || document.getElementById('quantityInput');
+        const quantity = quantityInput ? parseFloat(quantityInput.value) || 0 : 0;
+        const hasValidQuantity = quantity > 0;
+        
+        // Check if meal type is selected
+        const mealTypeSelect = document.getElementById('meal_type');
+        const hasMealType = mealTypeSelect ? mealTypeSelect.value : false;
+        
+        // Enable button only if all required fields are filled
+        const isFormValid = hasFoodSelected && hasValidQuantity && hasMealType;
+        
+        submitBtn.disabled = !isFormValid;
+        
+        // Update button text to provide feedback
+        if (!hasFoodSelected) {
+            submitBtn.textContent = 'Select a Food First';
+        } else if (!hasValidQuantity) {
+            submitBtn.textContent = 'Enter Quantity';
+        } else if (!hasMealType) {
+            submitBtn.textContent = 'Select Meal Type';
+        } else {
+            submitBtn.textContent = 'Log Meal';
+        }
     }
 };
