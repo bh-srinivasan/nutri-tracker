@@ -1019,9 +1019,6 @@ Admin.foods = {
     }
 };
 
-// Export for global access
-window.Admin = Admin;
-
 // Initialize admin functionality
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize form field indicators for better UX
