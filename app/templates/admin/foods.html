@@ -282,10 +282,11 @@
                                         <td>{{ food.created_at.strftime('%Y-%m-%d') }}</td>
                                         <td>
                                             <div class="btn-group btn-group-sm" role="group">
-                                                <button type="button" class="btn btn-outline-primary edit-food-btn" 
-                                                        data-food-id="{{ food.id }}" title="Edit Food">
+                                                <a href="{{ url_for('admin.edit_food', food_id=food.id) }}"
+                                                   class="btn btn-outline-primary edit-food-btn"
+                                                   title="Edit Food">
                                                     <i class="fas fa-edit"></i>
-                                                </button>
+                                                </a>
                                                 <button type="button" class="btn btn-outline-{{ 'warning' if food.is_verified else 'success' }} toggle-food-status-btn"
                                                         data-food-id="{{ food.id }}" data-is-verified="{{ food.is_verified }}"
                                                         title="{{ 'Mark Pending' if food.is_verified else 'Verify' }} Food">
