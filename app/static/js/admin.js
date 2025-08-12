@@ -106,7 +106,8 @@ Admin.users = {
             const response = await fetch('/api/admin/users', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: JSON.stringify(requestData)
             });
@@ -902,19 +903,9 @@ Admin.foods = {
     /**
      * Edit food
      */
-    edit: async function(foodId) {
-        try {
-            const response = await fetch(`/api/foods/${foodId}`);
-            const food = await response.json();
-            
-            // Populate edit form (similar to add form)
-            // Implementation depends on having an edit food modal
-            console.log('Edit food:', food);
-            NutriTracker.utils.showToast('Edit food functionality to be implemented', 'info');
-        } catch (error) {
-            console.error('Error fetching food:', error);
-            NutriTracker.utils.showToast('Error loading food data', 'danger');
-        }
+    edit: function(foodId) {
+        // Redirect to existing edit food page
+        window.location.href = `/admin/foods/${foodId}/edit`;
     },
 
     /**
