@@ -1,5 +1,14 @@
 {% extends "base.html" %} {% block content %}
 <div class="container my-5">
+  <!-- Back to Food Management Button -->
+  <div class="row mb-3">
+    <div class="col-12">
+      <a href="{{ url_for('admin.foods') }}" class="btn btn-outline-primary">
+        <i class="fas fa-arrow-left me-2"></i>Back to Food Management
+      </a>
+    </div>
+  </div>
+
   <div class="row justify-content-center">
     <div class="col-md-8">
       <div class="card shadow">
@@ -9,7 +18,21 @@
           </h3>
         </div>
         <div class="card-body p-4">
-          <form method="POST">
+          <!-- Debug: Show form validation errors -->
+          {% if form.errors %}
+          <div class="alert alert-danger">
+            <h6>Form Validation Errors:</h6>
+            <ul class="mb-0">
+            {% for field, errors in form.errors.items() %}
+              {% for error in errors %}
+              <li><strong>{{ form[field].label.text }}:</strong> {{ error }}</li>
+              {% endfor %}
+            {% endfor %}
+            </ul>
+          </div>
+          {% endif %}
+          
+          <form method="POST" data-food-id="{{ food.id }}">
             {{ form.hidden_tag() }}
 
             <div class="row">
@@ -57,7 +80,7 @@
               </div>
             </div>
 
-            <h5 class="mb-3">Nutritional Information (per serving)</h5>
+            <h5 class="mb-3">Nutritional Information (per 100g)</h5>
 
             <div class="row">
               <div class="col-md-3">
@@ -149,21 +172,228 @@
               </div>
             </div>
 
-            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-              <a
-                href="{{ url_for('admin.foods') }}"
-                class="btn btn-secondary me-md-2"
-              >
-                <i class="fas fa-times me-2"></i>Cancel
-              </a>
-              <button type="submit" class="btn btn-warning">
-                <i class="fas fa-save me-2"></i>Update Food
-              </button>
+            <div class="row">
+              <div class="col-md-12">
+                <div class="mb-3">
+                  <div class="form-check">
+                    {{ form.is_verified(class="form-check-input") }}
+                    {{ form.is_verified.label(class="form-check-label") }}
+                  </div>
+                  {% for error in form.is_verified.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                  {% endfor %}
+                </div>
+              </div>
             </div>
           </form>
+
+          <!-- Servings Panel (separate from main form) -->
+          <div class="card mt-4">
+            <div class="card-header bg-light">
+              <h5 class="card-title mb-0">
+                <i class="fas fa-utensils me-2"></i>Servings
+                <small class="text-muted">(Alternative portion sizes)</small>
+              </h5>
+            </div>
+            <div class="card-body">
+                <!-- Current Servings Table -->
+                <div class="table-responsive">
+                  <table class="table table-sm table-hover" id="servingsTable">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Serving Name</th>
+                        <th>Unit</th>
+                        <th>Grams per unit</th>
+                        <th>Default</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="servings-body">
+                      <!-- Default 100g entry -->
+                      <tr class="table-secondary">
+                        <td><strong>100 g</strong></td>
+                        <td>g</td>
+                        <td>100.0</td>
+                        <td>
+                          {% if not food.default_serving_id %}
+                            <span class="badge bg-primary">Default</span>
+                            <small class="text-muted d-block">System default</small>
+                          {% else %}
+                            <span class="text-muted">-</span>
+                          {% endif %}
+                        </td>
+                        <td><em class="text-muted">System default</em></td>
+                      </tr>
+                      
+                      <!-- Custom Servings -->
+                      {% for serving in servings %}
+                      <tr data-serving-id="{{ serving.id }}">
+                        <td class="serving-name">
+                          {{ serving.serving_name }}
+                          {% if food.default_serving_id == serving.id %}
+                            <span class="badge bg-primary ms-2">Default</span>
+                          {% endif %}
+                        </td>
+                        <td class="serving-unit">{{ serving.unit }}</td>
+                        <td class="serving-grams">{{ serving.grams_per_unit }}</td>
+                        <td>
+                          {% if food.default_serving_id == serving.id %}
+                            <button class="btn btn-sm btn-outline-secondary" 
+                                    data-serving-id="{{ serving.id }}" title="Unset default">
+                              <i class="fas fa-times me-1"></i>Unset Default
+                            </button>
+                          {% else %}
+                            <button class="btn btn-sm btn-outline-primary" 
+                                    data-serving-id="{{ serving.id }}" title="Set as default">
+                              <i class="fas fa-check me-1"></i>Set Default
+                            </button>
+                          {% endif %}
+                        </td>
+                        <td>
+                          <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary edit-serving-btn" 
+                                    data-serving-id="{{ serving.id }}" 
+                                    title="Edit">
+                              <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-outline-danger delete-serving-btn" 
+                                    data-serving-id="{{ serving.id }}" title="Delete">
+                              <i class="fas fa-trash"></i>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      {% endfor %}
+                      
+                      {% if not servings %}
+                      <tr id="noServingsRow">
+                        <td colspan="5" class="text-center text-muted">
+                          <em>No custom servings defined. Add servings below to provide convenient portion options.</em>
+                        </td>
+                      </tr>
+                      {% endif %}
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Add New Serving Form (outside main form to prevent nesting) -->
+                <div class="row mt-3">
+                  <div class="col-12">
+                    <h6 class="text-muted">Add New Serving</h6>
+                  </div>
+                </div>
+                <form id="add-serving-form">
+                  <input type="hidden" data-food-id="{{ food.id }}">
+                  <div class="row">
+                    <div class="col-md-4">
+                      <div class="form-group">
+                        <label class="form-label">Serving Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm" name="serving_name" 
+                               placeholder="e.g., 1 cup, 1 piece, 1 slice" maxlength="50">
+                        <div class="invalid-feedback" id="servingNameError"></div>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="form-group">
+                        <label class="form-label">Unit <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm" name="unit" 
+                               placeholder="e.g., cup, piece, slice" maxlength="20">
+                        <div class="invalid-feedback" id="servingUnitError"></div>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="form-group">
+                        <label class="form-label">Grams per unit <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control form-control-sm" name="grams_per_unit" 
+                               step="0.1" min="0.1" max="10000" placeholder="e.g., 250">
+                        <div class="invalid-feedback" id="servingGramsError"></div>
+                      </div>
+                    </div>
+                    <div class="col-md-2">
+                      <label class="form-label">&nbsp;</label>
+                      <div>
+                        <button type="submit" class="btn btn-success btn-sm w-100" id="addServingBtn">
+                          <i class="fas fa-plus me-1"></i>Add
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Form Submit Buttons at the end of page -->
+  <div class="container my-4">
+    <div class="row justify-content-center">
+      <div class="col-md-8">
+        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+          <a
+            href="{{ url_for('admin.foods') }}"
+            class="btn btn-secondary me-md-2"
+          >
+            <i class="fas fa-times me-2"></i>Cancel
+          </a>
+          <button type="button" class="btn btn-warning" onclick="document.querySelector('form[data-food-id]').submit();">
+            <i class="fas fa-save me-2"></i>Update Food
+          </button>
         </div>
       </div>
     </div>
   </div>
 </div>
+
+<!-- Edit Serving Modal -->
+<div class="modal fade" id="editServingModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Serving</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="editServingForm">
+          <input type="hidden" id="editServingId">
+          <div class="mb-3">
+            <label class="form-label">Serving Name <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="editServingName" maxlength="50">
+            <div class="invalid-feedback" id="editServingNameError"></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Unit <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="editServingUnit" maxlength="20">
+            <div class="invalid-feedback" id="editServingUnitError"></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Grams per unit <span class="text-danger">*</span></label>
+            <input type="number" class="form-control" id="editServingGrams" step="0.1" min="0.1" max="10000">
+            <div class="invalid-feedback" id="editServingGramsError"></div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="updateServingBtn">Update Serving</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof Admin !== 'undefined' && Admin.foods && Admin.foods.servings) {
+        Admin.foods.servings.bindEvents();
+    }
+});
+</script>
+
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
 {% endblock %}
