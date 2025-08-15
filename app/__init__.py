@@ -43,6 +43,10 @@ def create_app(config_name=None):
     from app.api import bp as api_bp
     app.register_blueprint(api_bp, url_prefix='/api')
     
+    # Register Swagger API Documentation blueprint
+    from app.swagger_api import swagger_bp
+    app.register_blueprint(swagger_bp, url_prefix='/api/docs')
+    
     from app.main import bp as main_bp
     app.register_blueprint(main_bp)
     
