@@ -2,7 +2,7 @@ import csv
 import io
 import json
 from datetime import datetime, timedelta
-from flask import render_template, redirect, url_for, flash, request, jsonify, current_app
+from flask import render_template, redirect, url_for, flash, request, jsonify, current_app, session
 from flask_login import login_required, current_user
 from sqlalchemy import desc, func
 from app import db
@@ -11,10 +11,11 @@ from app.admin.forms import (
     FoodForm, UserManagementForm, AdminPasswordForm, ResetUserPasswordForm,
     ChallengeForm, BulkFoodUploadForm
 )
-from app.models import User, Food, MealLog, NutritionGoal, Challenge, UserChallenge
+from app.models import User, Food, MealLog, NutritionGoal, Challenge, UserChallenge, FoodServing
 from app.services.bulk_upload_processor import BulkUploadProcessor
 from app.services.food_export_service import FoodExportService
-from app.models import BulkUploadJob, ExportJob
+from app.models import BulkUploadJob, ExportJob, ServingUploadJob, ServingUploadJobItem
+from flask_wtf.csrf import generate_csrf
 
 # Security: Rate limiting for bulk upload
 from functools import wraps
@@ -516,6 +517,12 @@ def edit_food(food_id):
         food = Food.query.get_or_404(food_id)
         form = FoodForm()
         
+        # Debug: Log form validation status
+        current_app.logger.debug(f"Form validation for food {food_id}: valid={form.validate_on_submit()}")
+        if not form.validate_on_submit() and request.method == 'POST':
+            current_app.logger.debug(f"Form errors: {form.errors}")
+            current_app.logger.debug(f"Form data: {request.form}")
+        
         if form.validate_on_submit():
             try:
                 # Security: Store original values for audit trail
@@ -537,10 +544,10 @@ def edit_food(food_id):
                 # Security: Input validation and sanitization
                 def sanitize_text(text, max_length=100):
                     if not text:
-                        return None
+                        return ""  # Return empty string instead of None
                     # Remove potentially dangerous characters, keep alphanumeric, spaces, and basic punctuation
                     sanitized = re.sub(r'[<>"\']', '', str(text).strip())
-                    return sanitized[:max_length] if sanitized else None
+                    return sanitized[:max_length] if sanitized else ""
                 
                 def validate_numeric(value, min_val=0, max_val=10000):
                     try:
@@ -551,7 +558,7 @@ def edit_food(food_id):
                 
                 # Security: Sanitize and validate all inputs
                 food.name = sanitize_text(form.name.data, 100)
-                food.brand = sanitize_text(form.brand.data, 50)
+                food.brand = sanitize_text(form.brand.data, 50) or None  # Keep None for optional fields
                 food.category = sanitize_text(form.category.data, 50)
                 
                 # Security: Validate nutritional values
@@ -567,11 +574,13 @@ def edit_food(food_id):
                 # Security: Validate required fields
                 if not food.name or len(food.name.strip()) == 0:
                     flash('Food name is required and cannot be empty.', 'danger')
-                    return render_template('admin/edit_food.html', title='Edit Food', form=form, food=food)
+                    servings = FoodServing.query.filter_by(food_id=food_id).order_by(FoodServing.serving_name).all()
+                    return render_template('admin/edit_food.html', title='Edit Food', form=form, food=food, servings=servings)
                 
                 if not food.category or len(food.category.strip()) == 0:
                     flash('Food category is required and cannot be empty.', 'danger')
-                    return render_template('admin/edit_food.html', title='Edit Food', form=form, food=food)
+                    servings = FoodServing.query.filter_by(food_id=food_id).order_by(FoodServing.serving_name).all()
+                    return render_template('admin/edit_food.html', title='Edit Food', form=form, food=food, servings=servings)
                 
                 # Security: Check for duplicate food names (excluding current food)
                 existing_food = Food.query.filter(
@@ -583,18 +592,23 @@ def edit_food(food_id):
                     if food.brand and existing_food.brand:
                         if food.brand.lower() == existing_food.brand.lower():
                             flash(f'A food item with name "{food.name}" and brand "{food.brand}" already exists.', 'warning')
-                            return render_template('admin/edit_food.html', title='Edit Food', form=form, food=food)
+                            servings = FoodServing.query.filter_by(food_id=food_id).order_by(FoodServing.serving_name).all()
+                            return render_template('admin/edit_food.html', title='Edit Food', form=form, food=food, servings=servings)
                     elif not food.brand and not existing_food.brand:
                         flash(f'A food item with name "{food.name}" already exists.', 'warning')
-                        return render_template('admin/edit_food.html', title='Edit Food', form=form, food=food)
+                        servings = FoodServing.query.filter_by(food_id=food_id).order_by(FoodServing.serving_name).all()
+                        return render_template('admin/edit_food.html', title='Edit Food', form=form, food=food, servings=servings)
                 
                 # Security: Validate verification status change
                 if hasattr(form, 'is_verified'):
                     food.is_verified = bool(form.is_verified.data)
                 
-                # Security: Use database transaction for atomicity
-                db.session.begin()
-                db.session.commit()
+                # Security: Use database transaction for atomicity - let SQLAlchemy handle it
+                try:
+                    db.session.commit()
+                except Exception as commit_error:
+                    db.session.rollback()
+                    raise commit_error
                 
                 # Security: Log all changes for audit trail
                 changes = []
@@ -613,7 +627,7 @@ def edit_food(food_id):
                     )
                 
                 flash(f'Food item "{food.name}" updated successfully!', 'success')
-                return redirect(url_for('admin.foods'))
+                return redirect(url_for('admin.edit_food', food_id=food_id))
                 
             except Exception as e:
                 # Security: Rollback transaction on error
@@ -623,7 +637,8 @@ def edit_food(food_id):
                     exc_info=True
                 )
                 flash('An error occurred while updating the food item. Please try again.', 'danger')
-                return render_template('admin/edit_food.html', title='Edit Food', form=form, food=food)
+                servings = FoodServing.query.filter_by(food_id=food_id).order_by(FoodServing.serving_name).all()
+                return render_template('admin/edit_food.html', title='Edit Food', form=form, food=food, servings=servings)
         
         elif request.method == 'GET':
             # Security: Populate form with sanitized data
@@ -641,7 +656,10 @@ def edit_food(food_id):
             if hasattr(form, 'is_verified'):
                 form.is_verified.data = food.is_verified
         
-        return render_template('admin/edit_food.html', title='Edit Food', form=form, food=food)
+        # Get servings for this food
+        servings = FoodServing.query.filter_by(food_id=food_id).order_by(FoodServing.serving_name).all()
+        
+        return render_template('admin/edit_food.html', title='Edit Food', form=form, food=food, servings=servings)
         
     except Exception as e:
         current_app.logger.error(
@@ -771,6 +789,208 @@ def delete_food(food_id):
         else:
             flash('An unexpected error occurred. Please try again.', 'danger')
             return redirect(url_for('admin.foods'))
+
+# Food Serving Management Routes
+@bp.route('/foods/<int:food_id>/servings/add', methods=['POST'])
+@login_required
+@admin_required
+def add_food_serving(food_id):
+    """Add a new serving to a food item."""
+    try:
+        food = Food.query.get_or_404(food_id)
+        
+        # Get form data
+        serving_name = request.form.get('serving_name', '').strip()
+        unit = request.form.get('unit', '').strip()
+        grams_per_unit = request.form.get('grams_per_unit', '').strip()
+        
+        # Validation
+        if not serving_name or not unit or not grams_per_unit:
+            return jsonify({'error': 'All fields are required'}), 400
+        
+        try:
+            grams_per_unit = float(grams_per_unit)
+            if grams_per_unit <= 0:
+                return jsonify({'error': 'Grams per unit must be greater than 0'}), 400
+        except ValueError:
+            return jsonify({'error': 'Invalid grams per unit value'}), 400
+        
+        # Check for duplicate serving name and unit for this food (case-insensitive)
+        existing_serving = FoodServing.query.filter(
+            FoodServing.food_id == food_id,
+            func.lower(FoodServing.serving_name) == func.lower(serving_name),
+            func.lower(FoodServing.unit) == func.lower(unit)
+        ).first()
+        
+        if existing_serving:
+            return jsonify({'error': 'A serving with this name and unit already exists'}), 409
+        
+        # Create new serving
+        serving = FoodServing(
+            food_id=food_id,
+            serving_name=serving_name,
+            unit=unit,
+            grams_per_unit=grams_per_unit,
+            created_by=current_user.id
+        )
+        
+        db.session.add(serving)
+        db.session.commit()
+        
+        current_app.logger.info(f"Food serving added by user {current_user.id}: Food {food_id}, Serving '{serving_name}'")
+        
+        return jsonify({
+            'success': True,
+            'serving': {
+                'id': serving.id,
+                'serving_name': serving.serving_name,
+                'unit': serving.unit,
+                'grams_per_unit': serving.grams_per_unit,
+                'is_default': food.default_serving_id == serving.id
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error adding serving to food {food_id}: {str(e)}")
+        return jsonify({'error': 'Failed to add serving'}), 500
+
+@bp.route('/foods/<int:food_id>/servings/<int:serving_id>/edit', methods=['POST'])
+@login_required
+@admin_required
+def edit_food_serving(food_id, serving_id):
+    """Edit an existing serving."""
+    try:
+        food = Food.query.get_or_404(food_id)
+        serving = FoodServing.query.filter_by(id=serving_id, food_id=food_id).first_or_404()
+        
+        # Get form data
+        serving_name = request.form.get('serving_name', '').strip()
+        unit = request.form.get('unit', '').strip()
+        grams_per_unit = request.form.get('grams_per_unit', '').strip()
+        
+        # Validation
+        if not serving_name or not unit or not grams_per_unit:
+            return jsonify({'error': 'All fields are required'}), 400
+        
+        try:
+            grams_per_unit = float(grams_per_unit)
+            if grams_per_unit <= 0:
+                return jsonify({'error': 'Grams per unit must be greater than 0'}), 400
+        except ValueError:
+            return jsonify({'error': 'Invalid grams per unit value'}), 400
+        
+        # Check for duplicate serving name (excluding current serving)
+        existing_serving = FoodServing.query.filter(
+            FoodServing.food_id == food_id,
+            FoodServing.serving_name == serving_name,
+            FoodServing.id != serving_id
+        ).first()
+        
+        if existing_serving:
+            return jsonify({'error': 'A serving with this name already exists for this food'}), 400
+        
+        # Update serving
+        serving.serving_name = serving_name
+        serving.unit = unit
+        serving.grams_per_unit = grams_per_unit
+        
+        db.session.commit()
+        
+        current_app.logger.info(f"Food serving edited by user {current_user.id}: Food {food_id}, Serving {serving_id}")
+        
+        return jsonify({
+            'success': True,
+            'serving': {
+                'id': serving.id,
+                'serving_name': serving.serving_name,
+                'unit': serving.unit,
+                'grams_per_unit': serving.grams_per_unit,
+                'is_default': food.default_serving_id == serving.id
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error editing serving {serving_id} for food {food_id}: {str(e)}")
+        return jsonify({'error': 'Failed to edit serving'}), 500
+
+@bp.route('/foods/<int:food_id>/servings/<int:serving_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_food_serving(food_id, serving_id):
+    """Delete a serving."""
+    try:
+        food = Food.query.get_or_404(food_id)
+        serving = FoodServing.query.filter_by(id=serving_id, food_id=food_id).first_or_404()
+        
+        # Check if this serving is referenced in meal logs
+        from app.models import MealLog
+        meal_log_count = MealLog.query.filter_by(serving_id=serving_id).count()
+        
+        if meal_log_count > 0:
+            return jsonify({
+                'error': f'Cannot delete this serving as it is used in {meal_log_count} meal logs'
+            }), 409
+        
+        # If this is the default serving, clear the default
+        if food.default_serving_id == serving_id:
+            food.default_serving_id = None
+        
+        db.session.delete(serving)
+        db.session.commit()
+        
+        current_app.logger.info(f"Food serving deleted by user {current_user.id}: Food {food_id}, Serving {serving_id}")
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting serving {serving_id} for food {food_id}: {str(e)}")
+        return jsonify({'error': 'Failed to delete serving'}), 500
+
+@bp.route('/foods/<int:food_id>/servings/<int:serving_id>/set-default', methods=['POST'])
+@login_required
+@admin_required
+def set_default_serving(food_id, serving_id):
+    """Set a serving as the default for a food item."""
+    try:
+        food = Food.query.get_or_404(food_id)
+        serving = FoodServing.query.filter_by(id=serving_id, food_id=food_id).first_or_404()
+        
+        # Set as default
+        food.default_serving_id = serving_id
+        db.session.commit()
+        
+        current_app.logger.info(f"Default serving set by user {current_user.id}: Food {food_id}, Serving {serving_id}")
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error setting default serving {serving_id} for food {food_id}: {str(e)}")
+        return jsonify({'error': 'Failed to set default serving'}), 500
+
+@bp.route('/foods/<int:food_id>/servings/<int:serving_id>/unset-default', methods=['POST'])
+@login_required
+@admin_required
+def unset_default_serving(food_id, serving_id):
+    """Unset a serving as the default for a food item."""
+    try:
+        food = Food.query.get_or_404(food_id)
+        
+        if food.default_serving_id == serving_id:
+            food.default_serving_id = None
+            db.session.commit()
+        
+        current_app.logger.info(f"Default serving unset by user {current_user.id}: Food {food_id}, Serving {serving_id}")
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error unsetting default serving {serving_id} for food {food_id}: {str(e)}")
+        return jsonify({'error': 'Failed to unset default serving'}), 500
 
 @bp.route('/foods/bulk-upload', methods=['GET'])
 @login_required
@@ -1388,3 +1608,602 @@ def cleanup_exports():
         flash('Error during cleanup. Please try again.', 'danger')
     
     return redirect(url_for('admin.export_jobs'))
+
+
+# Food Servings Uploads Management
+@bp.route('/food-servings/uploads')
+@login_required
+@admin_required
+def food_servings_uploads():
+    """
+    Unified Food Servings Uploads interface - combines bulk upload and job history.
+    
+    This route provides a unified tabbed interface for uploading servings data
+    and viewing upload history with detailed progress tracking.
+    """
+    try:
+        # Handle JSON API requests based on action parameter
+        action = request.args.get('action')
+        
+        if action == 'job_details':
+            job_id = request.args.get('job_id')
+            if not job_id:
+                return jsonify({'error': 'job_id required'}), 400
+                
+            job = ServingUploadJob.query.filter_by(
+                job_id=job_id, 
+                created_by=current_user.id
+            ).first()
+            
+            if job:
+                return jsonify({
+                    'job_id': job.job_id,
+                    'filename': job.filename,
+                    'status': job.status,
+                    'total_rows': job.total_rows,
+                    'processed_rows': job.processed_rows,
+                    'successful_rows': job.successful_rows,
+                    'failed_rows': job.failed_rows,
+                    'created_at': job.created_at.isoformat(),
+                    'started_at': job.started_at.isoformat() if job.started_at else None,
+                    'completed_at': job.completed_at.isoformat() if job.completed_at else None,
+                    'error_message': job.error_message
+                })
+            else:
+                return jsonify({'error': 'Job not found'}), 404
+        
+        elif action == 'status_check':
+            active_jobs = ServingUploadJob.query.filter(
+                ServingUploadJob.created_by == current_user.id,
+                ServingUploadJob.status.in_(['pending', 'processing'])
+            ).all()
+            
+            job_statuses = []
+            for job in active_jobs:
+                progress_percentage = 0
+                if job.total_rows and job.total_rows > 0:
+                    progress_percentage = round((job.processed_rows or 0) / job.total_rows * 100, 1)
+                
+                job_statuses.append({
+                    'job_id': job.job_id,
+                    'status': job.status,
+                    'processed_rows': job.processed_rows or 0,
+                    'total_rows': job.total_rows or 0,
+                    'progress_percentage': progress_percentage
+                })
+            
+            return jsonify(job_statuses)
+        
+        # Get query parameters for tab selection and pagination
+        active_tab = request.args.get('tab', 'upload')
+        page = request.args.get('page', 1, type=int)
+        per_page = current_app.config.get('UPLOAD_JOBS_PER_PAGE', 10)
+        
+        # Initialize variables
+        jobs = None
+        pending_jobs_count = 0
+        
+        # If history tab is requested, fetch job data
+        if active_tab == 'history':
+            # Get paginated jobs with most recent first
+            jobs = ServingUploadJob.query\
+                .filter_by(created_by=current_user.id)\
+                .order_by(ServingUploadJob.created_at.desc())\
+                .paginate(
+                    page=page, 
+                    per_page=per_page, 
+                    error_out=False
+                )
+        
+        # Get count of pending and processing jobs for badge display
+        pending_jobs_count = ServingUploadJob.query.filter(
+            ServingUploadJob.created_by == current_user.id,
+            ServingUploadJob.status.in_(['pending', 'processing'])
+        ).count()
+        
+        return render_template(
+            'admin/food_servings_uploads.html',
+            jobs=jobs,
+            pending_jobs_count=pending_jobs_count,
+            active_tab=active_tab,
+            csrf_token=generate_csrf
+        )
+        
+    except Exception as e:
+        error_msg = f'Error in food_servings_uploads: {str(e)}'
+        current_app.logger.error(error_msg, exc_info=True)
+        
+        # More detailed error for debugging
+        import traceback
+        traceback_str = traceback.format_exc()
+        current_app.logger.error(f'Full traceback: {traceback_str}')
+        
+        # Show more specific error message
+        flash(f'Error loading upload interface: {str(e)}. Please check logs for details.', 'danger')
+        return redirect(url_for('admin.dashboard'))
+
+
+# Legacy route - redirect to unified interface
+@bp.route('/food-servings/upload', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def food_servings_upload():
+    """Legacy route - redirects to unified interface"""
+    if request.method == 'POST':
+        # Handle POST requests with async processing
+        return food_servings_upload_async()
+    else:
+        # Redirect GET requests to unified interface
+        return redirect(url_for('admin.food_servings_uploads'))
+
+
+@bp.route('/food-servings/upload-async', methods=['POST'])
+@login_required
+@admin_required
+def food_servings_upload_async():
+    """
+    Async bulk upload for food servings via CSV.
+    Creates a job and processes in background.
+    """
+    try:
+        from app.models import ServingUploadJob, ServingUploadJobItem
+        import uuid
+        
+        # Validate file upload
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        if not file.filename.lower().endswith('.csv'):
+            return jsonify({'error': 'Invalid file type. Please upload a CSV file.'}), 400
+        
+        # Create upload job
+        job_id = str(uuid.uuid4())
+        upload_job = ServingUploadJob(
+            job_id=job_id,
+            filename=file.filename,
+            created_by=current_user.id,
+            status='pending'
+        )
+        
+        try:
+            # Read and validate CSV
+            file_content = file.read().decode('utf-8')
+            csv_reader = csv.DictReader(io.StringIO(file_content))
+            
+            # Validate headers
+            required_headers = {'food_key', 'serving_name', 'unit', 'grams_per_unit', 'is_default'}
+            if not required_headers.issubset(set(csv_reader.fieldnames or [])):
+                missing_headers = required_headers - set(csv_reader.fieldnames or [])
+                return jsonify({
+                    'error': f'Missing required columns: {", ".join(missing_headers)}. Please use the template.'
+                }), 400
+            
+            # Count rows for progress tracking
+            rows = list(csv_reader)
+            upload_job.total_rows = len(rows)
+            
+            # Save job to database
+            db.session.add(upload_job)
+            db.session.commit()
+            
+            # Process CSV synchronously for now (can be made async later)
+            results = process_food_servings_csv_with_job(rows, upload_job)
+            
+            # Update job status
+            upload_job.status = 'completed' if results['success'] > 0 else 'failed'
+            upload_job.completed_at = datetime.utcnow()
+            db.session.commit()
+            
+            current_app.logger.info(
+                f"Food servings async upload completed for user {current_user.id}: "
+                f"job_id={job_id}, processed={results['processed']}, "
+                f"success={results['success']}, errors={len(results['errors'])}"
+            )
+            
+            return jsonify({
+                'success': True,
+                'job_id': job_id,
+                'message': f'Upload completed. Processed: {results["processed"]}, Success: {results["success"]}, Errors: {len(results["errors"])}'
+            })
+            
+        except UnicodeDecodeError:
+            upload_job.status = 'failed'
+            upload_job.error_message = 'File encoding error. Please save your CSV file as UTF-8.'
+            upload_job.completed_at = datetime.utcnow()
+            db.session.commit()
+            return jsonify({'error': 'File encoding error. Please save your CSV file as UTF-8.'}), 400
+            
+        except Exception as e:
+            upload_job.status = 'failed'
+            upload_job.error_message = str(e)
+            upload_job.completed_at = datetime.utcnow()
+            db.session.commit()
+            
+            current_app.logger.error(f'Error in async serving upload: {str(e)}', exc_info=True)
+            return jsonify({'error': 'Error processing file. Please try again.'}), 500
+            
+    except Exception as e:
+        current_app.logger.error(f'Error in food_servings_upload_async: {str(e)}', exc_info=True)
+        return jsonify({'error': 'Upload failed. Please try again.'}), 500
+
+
+# Food Servings Bulk Upload Routes
+@bp.route('/food-servings/upload-old', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def food_servings_upload_old():
+    """
+    Bulk upload food servings via CSV.
+    GET: Display upload form with template download
+    POST: Process uploaded CSV file
+    """
+    if request.method == 'GET':
+        current_app.logger.info(f"Food servings upload page accessed by user {current_user.id}")
+        from flask_wtf.csrf import generate_csrf
+        return render_template('admin/food_servings_upload.html', csrf_token=generate_csrf)
+    
+    # POST: Handle file upload
+    try:
+        # Validate file upload
+        if 'file' not in request.files:
+            flash('No file uploaded. Please select a CSV file.', 'danger')
+            return redirect(request.url)
+        
+        file = request.files['file']
+        if file.filename == '':
+            flash('No file selected. Please choose a CSV file.', 'danger')
+            return redirect(request.url)
+        
+        if not file.filename.lower().endswith('.csv'):
+            flash('Invalid file type. Please upload a CSV file.', 'danger')
+            return redirect(request.url)
+        
+        # Read and validate CSV
+        try:
+            # Read file content
+            file_content = file.read().decode('utf-8')
+            csv_reader = csv.DictReader(io.StringIO(file_content))
+            
+            # Validate headers
+            required_headers = {'food_key', 'serving_name', 'unit', 'grams_per_unit', 'is_default'}
+            if not required_headers.issubset(set(csv_reader.fieldnames or [])):
+                missing_headers = required_headers - set(csv_reader.fieldnames or [])
+                flash(f'Missing required columns: {", ".join(missing_headers)}. Please use the template.', 'danger')
+                return redirect(request.url)
+            
+            # Process rows
+            results = process_food_servings_csv(csv_reader)
+            
+            # Flash results
+            if results['errors']:
+                flash(f'Upload completed with errors. Processed: {results["processed"]}, '
+                      f'Success: {results["success"]}, Errors: {len(results["errors"])}', 'warning')
+                # Store errors in session for display
+                session['upload_errors'] = results['errors'][:50]  # Limit to first 50 errors
+            else:
+                flash(f'Upload successful! Processed: {results["processed"]}, '
+                      f'Success: {results["success"]}', 'success')
+                # Clear any previous errors
+                session.pop('upload_errors', None)
+            
+            current_app.logger.info(
+                f"Food servings upload by user {current_user.id}: "
+                f"processed={results['processed']}, success={results['success']}, "
+                f"errors={len(results['errors'])}"
+            )
+            
+        except UnicodeDecodeError:
+            flash('File encoding error. Please save your CSV file as UTF-8.', 'danger')
+        except Exception as e:
+            current_app.logger.error(f'Error processing CSV: {str(e)}', exc_info=True)
+            flash('Error processing CSV file. Please check the format and try again.', 'danger')
+        
+        return redirect(request.url)
+        
+    except Exception as e:
+        current_app.logger.error(f'Error in food servings upload: {str(e)}', exc_info=True)
+        flash('Upload failed. Please try again.', 'danger')
+        return redirect(request.url)
+
+
+@bp.route('/food-servings/template')
+@login_required
+@admin_required
+def download_food_servings_template():
+    """Download CSV template for food servings upload."""
+    try:
+        # Create CSV template
+        output = io.StringIO()
+        writer = csv.writer(output, lineterminator='\n')
+        
+        # Headers
+        writer.writerow(['food_key', 'serving_name', 'unit', 'grams_per_unit', 'is_default'])
+        
+        # Example rows
+        writer.writerow(['1', '1 cup', 'cup', '240.0', 'true'])
+        writer.writerow(['1', '1 tablespoon', 'tbsp', '15.0', 'false'])
+        writer.writerow(['RICE001', '1 bowl', 'bowl', '200.0', 'true'])
+        writer.writerow(['RICE001', '1 cup', 'cup', '160.0', 'false'])
+        
+        # Create response
+        from flask import Response
+        response = Response(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={'Content-Disposition': 'attachment; filename=food_servings_template.csv'}
+        )
+        
+        current_app.logger.info(f"Food servings template downloaded by user {current_user.id}")
+        return response
+        
+    except Exception as e:
+        current_app.logger.error(f'Error generating template: {str(e)}', exc_info=True)
+        flash('Error generating template. Please try again.', 'danger')
+        return redirect(url_for('admin.food_servings_upload'))
+
+
+def process_food_servings_csv(csv_reader):
+    """
+    Process CSV data and upsert food servings.
+    
+    Args:
+        csv_reader: CSV DictReader object
+        
+    Returns:
+        dict: Results summary with processed, success, and error counts
+    """
+    results = {
+        'processed': 0,
+        'success': 0,
+        'errors': []
+    }
+    
+    try:
+        for row_num, row in enumerate(csv_reader, start=2):  # Start at 2 for header
+            results['processed'] += 1
+            
+            try:
+                # Extract and validate data
+                food_key = str(row.get('food_key', '')).strip()
+                serving_name = str(row.get('serving_name', '')).strip()
+                unit = str(row.get('unit', '')).strip()
+                grams_per_unit_str = str(row.get('grams_per_unit', '')).strip()
+                is_default_str = str(row.get('is_default', '')).strip().lower()
+                
+                # Validate required fields
+                if not all([food_key, serving_name, unit, grams_per_unit_str]):
+                    results['errors'].append(f'Row {row_num}: Missing required fields')
+                    continue
+                
+                # Find food by ID or custom key
+                food = None
+                if food_key.isdigit():
+                    food = Food.query.get(int(food_key))
+                else:
+                    # Look for food by name or custom identifier
+                    food = Food.query.filter(
+                        db.or_(
+                            Food.name.ilike(f'%{food_key}%'),
+                            Food.brand.ilike(f'%{food_key}%')
+                        )
+                    ).first()
+                
+                if not food:
+                    results['errors'].append(f'Row {row_num}: Food not found for key "{food_key}"')
+                    continue
+                
+                # Validate grams_per_unit
+                try:
+                    grams_per_unit = float(grams_per_unit_str)
+                    if grams_per_unit <= 0:
+                        results['errors'].append(f'Row {row_num}: grams_per_unit must be greater than 0')
+                        continue
+                except ValueError:
+                    results['errors'].append(f'Row {row_num}: Invalid grams_per_unit "{grams_per_unit_str}"')
+                    continue
+                
+                # Parse is_default
+                is_default = is_default_str in ('true', '1', 'yes', 'y')
+                
+                # Check for existing serving (idempotent operation)
+                existing_serving = FoodServing.query.filter_by(
+                    food_id=food.id,
+                    serving_name=serving_name,
+                    unit=unit
+                ).first()
+                
+                if existing_serving:
+                    # Update existing serving
+                    existing_serving.grams_per_unit = grams_per_unit
+                    existing_serving.created_by = current_user.id
+                    serving = existing_serving
+                else:
+                    # Create new serving
+                    serving = FoodServing(
+                        food_id=food.id,
+                        serving_name=serving_name,
+                        unit=unit,
+                        grams_per_unit=grams_per_unit,
+                        created_by=current_user.id
+                    )
+                    db.session.add(serving)
+                
+                # Handle default setting
+                if is_default:
+                    # First commit the serving to get its ID
+                    db.session.flush()
+                    
+                    # Set as default serving for the food
+                    food.default_serving_id = serving.id
+                
+                db.session.commit()
+                results['success'] += 1
+                
+            except Exception as e:
+                db.session.rollback()
+                results['errors'].append(f'Row {row_num}: {str(e)}')
+                current_app.logger.error(f'Error processing row {row_num}: {str(e)}')
+                continue
+        
+        return results
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error in process_food_servings_csv: {str(e)}', exc_info=True)
+        results['errors'].append(f'Processing error: {str(e)}')
+        return results
+
+
+def process_food_servings_csv_with_job(rows, upload_job):
+    """
+    Process CSV data and upsert food servings with job tracking.
+    
+    Args:
+        rows: List of CSV row dictionaries
+        upload_job: ServingUploadJob instance for tracking progress
+        
+    Returns:
+        dict: Results summary with processed, success, and error counts
+    """
+    from app.models import ServingUploadJobItem
+    
+    results = {
+        'processed': 0,
+        'success': 0,
+        'errors': []
+    }
+    
+    try:
+        upload_job.status = 'processing'
+        upload_job.started_at = datetime.utcnow()
+        db.session.commit()
+        
+        for row_num, row in enumerate(rows, start=2):  # Start at 2 for header
+            results['processed'] += 1
+            upload_job.processed_rows = results['processed']
+            
+            # Create job item for tracking
+            job_item = ServingUploadJobItem(
+                job_id=upload_job.id,
+                row_number=row_num,
+                food_key=str(row.get('food_key', '')).strip(),
+                serving_name=str(row.get('serving_name', '')).strip(),
+                status='processing'
+            )
+            db.session.add(job_item)
+            
+            try:
+                # Extract and validate data
+                food_key = str(row.get('food_key', '')).strip()
+                serving_name = str(row.get('serving_name', '')).strip()
+                unit = str(row.get('unit', '')).strip()
+                grams_per_unit_str = str(row.get('grams_per_unit', '')).strip()
+                is_default_str = str(row.get('is_default', 'false')).strip().lower()
+                
+                # Validation
+                if not food_key:
+                    raise ValueError("food_key is required")
+                
+                if not serving_name:
+                    raise ValueError("serving_name is required")
+                
+                if not unit:
+                    raise ValueError("unit is required")
+                
+                # Convert grams_per_unit to float
+                try:
+                    grams_per_unit = float(grams_per_unit_str)
+                    if grams_per_unit <= 0:
+                        raise ValueError("grams_per_unit must be positive")
+                except (ValueError, TypeError):
+                    raise ValueError(f"Invalid grams_per_unit: '{grams_per_unit_str}'. Must be a positive number.")
+                
+                # Convert is_default to boolean
+                is_default = is_default_str in ('true', '1', 'yes', 'y')
+                
+                # Find the food (by ID or food_key)
+                food = None
+                
+                # Try as integer ID first
+                try:
+                    food_id = int(food_key)
+                    food = Food.query.get(food_id)
+                except (ValueError, TypeError):
+                    pass
+                
+                # If not found by ID, try by name (food_key as name)
+                if not food:
+                    food = Food.query.filter_by(name=food_key).first()
+                
+                if not food:
+                    raise ValueError(f"Food not found for key: '{food_key}'")
+                
+                # Check for existing serving (upsert logic)
+                existing_serving = FoodServing.query.filter_by(
+                    food_id=food.id,
+                    serving_name=serving_name
+                ).first()
+                
+                if existing_serving:
+                    # Update existing serving
+                    existing_serving.unit = unit
+                    existing_serving.grams_per_unit = grams_per_unit
+                    current_serving = existing_serving
+                else:
+                    # Create new serving
+                    current_serving = FoodServing(
+                        food_id=food.id,
+                        serving_name=serving_name,
+                        unit=unit,
+                        grams_per_unit=grams_per_unit
+                    )
+                    db.session.add(current_serving)
+                
+                # Flush to get the serving ID
+                db.session.flush()
+                
+                # Handle default serving logic using food.default_serving_id
+                if is_default:
+                    food.default_serving_id = current_serving.id
+                
+                # Commit this row
+                db.session.commit()
+                
+                # Update job item
+                job_item.status = 'success'
+                job_item.serving_id = current_serving.id
+                job_item.processed_at = datetime.utcnow()
+                
+                results['success'] += 1
+                upload_job.successful_rows = results['success']
+                
+                db.session.commit()
+                
+            except Exception as e:
+                db.session.rollback()
+                error_msg = str(e)
+                results['errors'].append(f'Row {row_num}: {error_msg}')
+                
+                # Update job item
+                job_item.status = 'failed'
+                job_item.error_message = error_msg
+                job_item.processed_at = datetime.utcnow()
+                
+                upload_job.failed_rows = len(results['errors'])
+                
+                db.session.commit()
+                
+                current_app.logger.error(f'Error processing serving row {row_num}: {str(e)}')
+                continue
+        
+        return results
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error in process_food_servings_csv_with_job: {str(e)}', exc_info=True)
+        results['errors'].append(f'Processing error: {str(e)}')
+        return results
