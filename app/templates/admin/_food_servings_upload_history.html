@@ -16,7 +16,6 @@
       <table
         class="table table-striped table-hover mb-0"
         id="jobsTable"
-        data-auto-refresh
       >
         <thead class="table-dark">
           <tr>
@@ -33,93 +32,95 @@
         </thead>
         <tbody>
           {% for job in jobs.items %}
-          <tr data-job-id="{{ job.job_id }}">
+          <tr
+            data-job-id="{{ job.job_id }}"
+            class="job-row {% if job.status == 'processing' %}table-warning{% endif %}"
+          >
             <td>
               <code class="small">{{ job.job_id[:8] }}...</code>
             </td>
             <td>
-              <div class="fw-bold">{{ job.filename }}</div>
-              <small class="text-muted">
-                {% if job.started_at %}
-                  Started: {{ job.started_at.strftime('%H:%M:%S') }}
-                {% endif %}
-                {% if job.completed_at %}
-                  <br>Completed: {{ job.completed_at.strftime('%H:%M:%S') }}
-                {% endif %}
-              </small>
+              <i class="fas fa-utensils text-muted me-2"></i>
+              {{ job.filename }}
             </td>
             <td>
               {% if job.status == 'completed' %}
-                <span class="badge bg-success fs-6">
-                  <i class="fas fa-check me-1"></i>Completed
-                </span>
+              <span class="badge bg-success">
+                <i class="fas fa-check me-1"></i>{{
+                job.status.title() }}
+              </span>
               {% elif job.status == 'failed' %}
-                <span class="badge bg-danger fs-6">
-                  <i class="fas fa-times me-1"></i>Failed
-                </span>
+              <span class="badge bg-danger">
+                <i class="fas fa-times me-1"></i>{{
+                job.status.title() }}
+              </span>
               {% elif job.status == 'processing' %}
-                <span class="badge bg-warning text-dark fs-6">
-                  <i class="fas fa-spinner fa-spin me-1"></i>Processing
-                </span>
+              <span class="badge bg-warning text-dark">
+                <i class="fas fa-spinner fa-spin me-1"></i>{{
+                job.status.title() }}
+              </span>
               {% else %}
-                <span class="badge bg-secondary fs-6">
-                  <i class="fas fa-clock me-1"></i>Pending
-                </span>
+              <span class="badge bg-secondary">
+                <i class="fas fa-clock me-1"></i>{{
+                job.status.title() }}
+              </span>
               {% endif %}
             </td>
-            <td style="width: 120px;">
-              <div class="progress mb-1" style="height: 8px;">
+            <td>
+              {% set progress = ((job.processed_rows /
+              job.total_rows * 100) if job.total_rows > 0 else
+              0) | round %}
+              <div
+                class="progress"
+                style="width: 100px; height: 8px"
+              >
                 <div
-                  class="progress-bar 
-                    {% if job.status == 'completed' %}bg-success
-                    {% elif job.status == 'failed' %}bg-danger
-                    {% elif job.status == 'processing' %}bg-warning
-                    {% else %}bg-secondary{% endif %}"
+                  class="progress-bar {% if job.status == 'completed' %}bg-success {% elif job.status == 'failed' %}bg-danger {% elif job.status == 'processing' %}bg-warning {% else %}bg-secondary{% endif %}"
+                  data-progress="{{ progress }}"
                   role="progressbar"
-                  data-progress="{{ job.progress_percentage|default(0) }}"
-                  aria-valuenow="{{ job.progress_percentage|default(0) }}"
+                  aria-valuenow="{{ progress }}"
                   aria-valuemin="0"
                   aria-valuemax="100"
                 ></div>
               </div>
-              <small class="text-muted">
-                {{ job.progress_percentage|default(0) }}%
+              <small class="text-muted">{{ progress }}%</small>
+            </td>
+            <td>{{ job.total_rows or 0 }}</td>
+            <td>
+              <span class="text-success"
+                >{{ job.successful_rows or 0 }}</span
+              >
+            </td>
+            <td>
+              <span class="text-danger"
+                >{{ job.failed_rows or 0 }}</span
+              >
+            </td>
+            <td>
+              <small
+                title="{{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') }}"
+              >
+                {{ job.created_at.strftime('%m/%d %H:%M') }}
               </small>
             </td>
             <td>
-              <span class="badge bg-info fs-6">{{ job.total_rows or 0 }}</span>
-            </td>
-            <td>
-              <span class="badge bg-success fs-6">{{ job.successful_rows or 0 }}</span>
-            </td>
-            <td>
-              <span class="badge bg-danger fs-6">{{ job.failed_rows or 0 }}</span>
-            </td>
-            <td>
-              <div class="small">
-                {{ job.created_at.strftime('%Y-%m-%d') }}
-                <br>
-                <span class="text-muted">{{ job.created_at.strftime('%H:%M:%S') }}</span>
-              </div>
-            </td>
-            <td>
-              <div class="btn-group-vertical btn-group-sm" role="group">
+              <div class="btn-group btn-group-sm" role="group">
                 <button
                   type="button"
-                  class="btn btn-outline-primary btn-sm"
-                  onclick="showJobDetails('{{ job.job_id }}')"
-                  title="View detailed job information"
+                  class="btn btn-outline-primary view-details-btn"
+                  data-job-id="{{ job.job_id }}"
+                  title="View detailed results"
                 >
-                  <i class="fas fa-info-circle me-1"></i>Details
+                  <i class="fas fa-eye"></i>
                 </button>
-                {% if job.status == 'failed' and job.error_message %}
+                {% if job.status == 'processing' %}
                 <button
                   type="button"
-                  class="btn btn-outline-danger btn-sm"
-                  onclick="showErrorDetails('{{ job.job_id }}', '{{ job.error_message|e }}')"
-                  title="View error details"
+                  class="btn btn-outline-info refresh-job-btn"
+                  data-job-id="{{ job.job_id }}"
+                  title="Refresh status"
                 >
-                  <i class="fas fa-exclamation-triangle me-1"></i>Error
+                  <i class="fas fa-sync-alt"></i>
                 </button>
                 {% endif %}
               </div>
@@ -130,123 +131,280 @@
       </table>
     </div>
   </div>
-
-  <!-- Pagination -->
-  {% if jobs.pages > 1 %}
-  <div class="card-footer bg-light">
-    <nav aria-label="Upload jobs pagination">
-      <ul class="pagination pagination-sm justify-content-center mb-0">
-        {% if jobs.has_prev %}
-        <li class="page-item">
-          <a
-            class="page-link"
-            href="{{ url_for('admin.food_servings_uploads', tab='history', page=jobs.prev_num) }}"
-            aria-label="Previous"
-          >
-            <span aria-hidden="true">&laquo;</span>
-          </a>
-        </li>
-        {% endif %}
-
-        {% for page_num in jobs.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
-          {% if page_num %}
-            {% if page_num != jobs.page %}
-            <li class="page-item">
-              <a
-                class="page-link"
-                href="{{ url_for('admin.food_servings_uploads', tab='history', page=page_num) }}"
-              >
-                {{ page_num }}
-              </a>
-            </li>
-            {% else %}
-            <li class="page-item active">
-              <span class="page-link">{{ page_num }}</span>
-            </li>
-            {% endif %}
-          {% else %}
-          <li class="page-item disabled">
-            <span class="page-link">...</span>
-          </li>
-          {% endif %}
-        {% endfor %}
-
-        {% if jobs.has_next %}
-        <li class="page-item">
-          <a
-            class="page-link"
-            href="{{ url_for('admin.food_servings_uploads', tab='history', page=jobs.next_num) }}"
-            aria-label="Next"
-          >
-            <span aria-hidden="true">&raquo;</span>
-          </a>
-        </li>
-        {% endif %}
-      </ul>
-    </nav>
-  </div>
-  {% endif %}
 </div>
-{% else %}
-<!-- Empty State -->
-<div class="card">
-  <div class="card-body text-center py-5">
-    <div class="mb-4">
-      <i class="fas fa-history fa-5x text-muted opacity-50"></i>
-    </div>
-    <h4 class="text-muted mb-3">No Upload Jobs Found</h4>
-    <p class="text-muted mb-4">
-      You haven't uploaded any serving data files yet. Upload your first CSV file to see the history here.
-    </p>
-    <a
-      href="{{ url_for('admin.food_servings_uploads', tab='upload') }}"
-      class="btn btn-primary btn-lg"
-    >
-      <i class="fas fa-upload me-2"></i>Start Your First Upload
-    </a>
-  </div>
+
+<!-- Pagination -->
+{% if jobs.pages > 1 %}
+<nav aria-label="Upload jobs pagination" class="mt-4">
+  <ul class="pagination justify-content-center">
+    {% if jobs.has_prev %}
+    <li class="page-item">
+      <a
+        class="page-link"
+        href="{{ url_for('admin.food_servings_uploads', tab='history', page=jobs.prev_num) }}"
+      >
+        <i class="fas fa-chevron-left"></i> Previous
+      </a>
+    </li>
+    {% endif %} {% for page_num in jobs.iter_pages() %} {% if
+    page_num %} {% if page_num != jobs.page %}
+    <li class="page-item">
+      <a
+        class="page-link"
+        href="{{ url_for('admin.food_servings_uploads', tab='history', page=page_num) }}"
+        >{{ page_num }}</a
+      >
+    </li>
+    {% else %}
+    <li class="page-item active">
+      <span class="page-link">{{ page_num }}</span>
+    </li>
+    {% endif %} {% else %}
+    <li class="page-item disabled">
+      <span class="page-link">...</span>
+    </li>
+    {% endif %} {% endfor %} {% if jobs.has_next %}
+    <li class="page-item">
+      <a
+        class="page-link"
+        href="{{ url_for('admin.food_servings_uploads', tab='history', page=jobs.next_num) }}"
+      >
+        Next <i class="fas fa-chevron-right"></i>
+      </a>
+    </li>
+    {% endif %}
+  </ul>
+</nav>
+{% endif %} {% else %}
+<!-- No Jobs State -->
+<div class="text-center py-5">
+  <i class="fas fa-utensils fa-4x text-muted mb-3"></i>
+  <h5 class="text-muted mb-3">No upload jobs found</h5>
+  <p class="text-muted mb-4">
+    Start by uploading your first serving data file
+  </p>
+  <a
+    href="{{ url_for('admin.food_servings_uploads', tab='upload') }}"
+    class="btn btn-primary"
+  >
+    <i class="fas fa-upload me-2"></i>Upload Serving Data
+  </a>
 </div>
 {% endif %}
 
+<!-- JavaScript for History Tab -->
 <script>
-function showErrorDetails(jobId, errorMessage) {
-    // Create error modal or show inline error
-    const modal = document.createElement('div');
-    modal.className = 'modal fade';
-    modal.innerHTML = `
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title">
-                        <i class="fas fa-exclamation-triangle me-2"></i>Error Details
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <h6>Job ID: ${jobId}</h6>
-                    <div class="alert alert-danger">
-                        <pre class="mb-0">${errorMessage}</pre>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-    
-    const bsModal = new bootstrap.Modal(modal);
-    bsModal.show();
-    
-    // Clean up modal when hidden
-    modal.addEventListener('hidden.bs.modal', () => {
-        modal.remove();
-    });
-}
+  let historyRefreshInterval;
 
-// Set progress bar widths from data attributes
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.progress-bar[data-progress]').forEach(function(bar) {
-        var progress = bar.getAttribute('data-progress');
-        bar.style.width = progress + '%';
+  function initializeHistoryTab() {
+    // Auto-refresh for active jobs
+    startAutoRefresh();
+
+    // Progress bar animations
+    animateProgressBars();
+
+    // Add event handlers
+    document.querySelectorAll('.view-details-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        const jobId = this.dataset.jobId;
+        viewJobDetails(jobId);
+      });
     });
-});
+
+    document.querySelectorAll('.refresh-job-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        const jobId = this.dataset.jobId;
+        refreshJobStatus(jobId);
+      });
+    });
+  }
+
+  function startAutoRefresh() {
+    // Clear any existing interval
+    if (historyRefreshInterval) {
+      clearInterval(historyRefreshInterval);
+    }
+
+    // Check if there are any processing jobs
+    const processingJobs = document.querySelectorAll('.job-row.table-warning');
+    
+    if (processingJobs.length > 0) {
+      historyRefreshInterval = setInterval(function() {
+        // Refresh status for each processing job
+        processingJobs.forEach(function(row) {
+          const jobId = row.dataset.jobId;
+          refreshJobStatus(jobId, false); // Silent refresh
+        });
+      }, 3000); // Every 3 seconds
+    }
+  }
+
+  function animateProgressBars() {
+    document.querySelectorAll('.progress-bar').forEach(function(bar) {
+      const progress = bar.dataset.progress || 0;
+      
+      // Set initial width to 0
+      bar.style.width = '0%';
+      
+      // Animate to target width
+      setTimeout(function() {
+        bar.style.transition = 'width 0.6s ease-in-out';
+        bar.style.width = progress + '%';
+      }, 100);
+    });
+  }
+
+  function refreshJobStatus(jobId, showSpinner = true) {
+    const row = document.querySelector(`[data-job-id="${jobId}"]`);
+    if (!row) return;
+
+    if (showSpinner) {
+      // Show loading state
+      const refreshBtn = row.querySelector('.refresh-job-btn i');
+      if (refreshBtn) {
+        refreshBtn.classList.add('fa-spin');
+      }
+    }
+
+    fetch(`{{ url_for('admin.servings_upload_status_check') }}/${jobId}`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.error) {
+          console.error('Error refreshing job status:', data.error);
+          return;
+        }
+
+        updateJobRow(row, data);
+        
+        // If job completed, stop auto-refresh and reload page
+        if (data.status === 'completed' || data.status === 'failed') {
+          if (historyRefreshInterval) {
+            clearInterval(historyRefreshInterval);
+          }
+          // Reload to get updated counts and final status
+          setTimeout(() => location.reload(), 1000);
+        }
+      })
+      .catch(error => {
+        console.error('Error refreshing job status:', error);
+      })
+      .finally(() => {
+        if (showSpinner) {
+          // Remove loading state
+          const refreshBtn = row.querySelector('.refresh-job-btn i');
+          if (refreshBtn) {
+            refreshBtn.classList.remove('fa-spin');
+          }
+        }
+      });
+  }
+
+  function updateJobRow(row, data) {
+    // Update status badge
+    const statusCell = row.cells[2];
+    let statusBadge = '';
+    
+    if (data.status === 'completed') {
+      statusBadge = '<span class="badge bg-success"><i class="fas fa-check me-1"></i>Completed</span>';
+      row.classList.remove('table-warning');
+    } else if (data.status === 'failed') {
+      statusBadge = '<span class="badge bg-danger"><i class="fas fa-times me-1"></i>Failed</span>';
+      row.classList.remove('table-warning');
+    } else if (data.status === 'processing') {
+      statusBadge = '<span class="badge bg-warning text-dark"><i class="fas fa-spinner fa-spin me-1"></i>Processing</span>';
+      row.classList.add('table-warning');
+    } else {
+      statusBadge = '<span class="badge bg-secondary"><i class="fas fa-clock me-1"></i>Pending</span>';
+    }
+    statusCell.innerHTML = statusBadge;
+
+    // Update progress
+    const progressCell = row.cells[3];
+    const progressBar = progressCell.querySelector('.progress-bar');
+    const progressText = progressCell.querySelector('small');
+    
+    if (progressBar && data.progress_percentage !== undefined) {
+      progressBar.style.width = data.progress_percentage + '%';
+      progressBar.setAttribute('aria-valuenow', data.progress_percentage);
+      progressBar.dataset.progress = data.progress_percentage;
+      
+      // Update progress bar color based on status
+      progressBar.className = 'progress-bar';
+      if (data.status === 'completed') {
+        progressBar.classList.add('bg-success');
+      } else if (data.status === 'failed') {
+        progressBar.classList.add('bg-danger');
+      } else if (data.status === 'processing') {
+        progressBar.classList.add('bg-warning');
+      } else {
+        progressBar.classList.add('bg-secondary');
+      }
+    }
+    
+    if (progressText) {
+      progressText.textContent = (data.progress_percentage || 0) + '%';
+    }
+
+    // Update counts if provided
+    if (data.total_rows !== undefined) {
+      row.cells[4].textContent = data.total_rows;
+    }
+    if (data.successful_rows !== undefined) {
+      row.cells[5].innerHTML = `<span class="text-success">${data.successful_rows}</span>`;
+    }
+    if (data.failed_rows !== undefined) {
+      row.cells[6].innerHTML = `<span class="text-danger">${data.failed_rows}</span>`;
+    }
+
+    // Update action buttons
+    const actionsCell = row.cells[8];
+    if (data.status !== 'processing') {
+      // Remove refresh button if job is no longer processing
+      const refreshBtn = actionsCell.querySelector('.refresh-job-btn');
+      if (refreshBtn) {
+        refreshBtn.remove();
+      }
+    }
+  }
+
+  function viewJobDetails(jobId) {
+    // Create and show modal with job details
+    const modal = new bootstrap.Modal(document.createElement('div'));
+    
+    // For now, show a simple alert - this can be enhanced later
+    fetch(`{{ url_for('admin.servings_upload_status_check') }}/${jobId}`)
+      .then(response => response.json())
+      .then(data => {
+        let details = `Job ID: ${jobId}\n`;
+        details += `Status: ${data.status}\n`;
+        details += `Progress: ${data.progress_percentage || 0}%\n`;
+        details += `Total Rows: ${data.total_rows || 0}\n`;
+        details += `Successful: ${data.successful_rows || 0}\n`;
+        details += `Failed: ${data.failed_rows || 0}\n`;
+        
+        if (data.error_message) {
+          details += `\nError: ${data.error_message}`;
+        }
+        
+        alert(details);
+      })
+      .catch(error => {
+        console.error('Error fetching job details:', error);
+        alert('Error fetching job details');
+      });
+  }
+
+  // Initialize when page loads
+  document.addEventListener('DOMContentLoaded', function() {
+    if (document.getElementById('jobsTable')) {
+      initializeHistoryTab();
+    }
+  });
+
+  // Clean up interval when page unloads
+  window.addEventListener('beforeunload', function() {
+    if (historyRefreshInterval) {
+      clearInterval(historyRefreshInterval);
+    }
+  });
 </script>

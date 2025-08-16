@@ -1831,6 +1831,47 @@ def food_servings_upload_async():
         return jsonify({'error': 'Upload failed. Please try again.'}), 500
 
 
+@bp.route('/food-servings/status/<job_id>')
+@login_required
+@admin_required
+def servings_upload_status_check(job_id):
+    """
+    Check the status of a specific servings upload job.
+    Returns JSON with job status and progress information.
+    """
+    try:
+        job = ServingUploadJob.query.filter_by(
+            job_id=job_id,
+            created_by=current_user.id
+        ).first()
+        
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+        
+        # Calculate progress percentage
+        progress_percentage = 0
+        if job.total_rows and job.total_rows > 0:
+            progress_percentage = round((job.processed_rows or 0) / job.total_rows * 100, 1)
+        
+        return jsonify({
+            'job_id': job.job_id,
+            'status': job.status,
+            'processed_rows': job.processed_rows or 0,
+            'total_rows': job.total_rows or 0,
+            'successful_rows': job.successful_rows or 0,
+            'failed_rows': job.failed_rows or 0,
+            'progress_percentage': progress_percentage,
+            'error_message': job.error_message,
+            'created_at': job.created_at.isoformat() if job.created_at else None,
+            'started_at': job.started_at.isoformat() if job.started_at else None,
+            'completed_at': job.completed_at.isoformat() if job.completed_at else None
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f'Error checking servings upload status: {str(e)}', exc_info=True)
+        return jsonify({'error': 'Failed to check job status'}), 500
+
+
 # Food Servings Bulk Upload Routes
 @bp.route('/food-servings/upload-old', methods=['GET', 'POST'])
 @login_required
