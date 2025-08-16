@@ -1016,6 +1016,419 @@ Admin.foods = {
             console.error('Error with bulk upload:', error);
             NutriTracker.utils.showToast(error.message || 'Bulk upload failed', 'danger');
         }
+    },
+
+    /**
+     * Food Servings Management Module
+     */
+    servings: {
+        /**
+         * Bind events for serving management
+         */
+        bindEvents: function() {
+            // Bind add serving form submit
+            const addServingForm = document.getElementById('add-serving-form');
+            if (addServingForm) {
+                addServingForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const foodId = this.querySelector('[data-food-id]').getAttribute('data-food-id');
+                    Admin.foods.servings.add(foodId, this);
+                });
+            }
+
+            // Bind button clicks using event delegation
+            document.addEventListener('click', function(e) {
+                const servingId = e.target.getAttribute('data-serving-id') || 
+                                e.target.closest('[data-serving-id]')?.getAttribute('data-serving-id');
+                
+                if (!servingId) return;
+
+                const foodId = document.querySelector('[data-food-id]').getAttribute('data-food-id');
+
+                // Set Default button
+                if (e.target.textContent.includes('Set Default') || 
+                    e.target.closest('button')?.textContent.includes('Set Default')) {
+                    e.preventDefault();
+                    Admin.foods.servings.setDefault(foodId, servingId);
+                }
+
+                // Unset Default button  
+                if (e.target.textContent.includes('Unset Default') || 
+                    e.target.closest('button')?.textContent.includes('Unset Default')) {
+                    e.preventDefault();
+                    Admin.foods.servings.unsetDefault(foodId, servingId);
+                }
+
+                // Edit button - check for class or text
+                if (e.target.classList.contains('edit-serving-btn') || 
+                    e.target.closest('.edit-serving-btn') ||
+                    e.target.textContent.trim() === 'Edit' || 
+                    e.target.closest('button')?.textContent.trim() === 'Edit') {
+                    e.preventDefault();
+                    Admin.foods.servings.edit(foodId, servingId);
+                }
+
+                // Delete button - check for class or text
+                if (e.target.classList.contains('delete-serving-btn') || 
+                    e.target.closest('.delete-serving-btn') ||
+                    e.target.textContent.trim() === 'Delete' || 
+                    e.target.closest('button')?.textContent.trim() === 'Delete') {
+                    e.preventDefault();
+                    Admin.foods.servings.remove(foodId, servingId);
+                }
+            });
+        },
+
+        /**
+         * Add new serving
+         */
+        add: async function(foodId, formEl) {
+            try {
+                const formData = new FormData(formEl);
+                // Add CSRF token
+                const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+                formData.append('csrf_token', csrfToken);
+
+                const response = await fetch(`/admin/foods/${foodId}/servings/add`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Success - prepend new row to servings table
+                    Admin.foods.servings.prependServingRow(data.serving);
+                    formEl.reset(); // Clear form
+                    NutriTracker.utils.showToast('Serving added successfully!', 'success');
+                } else if (response.status === 400) {
+                    // Show validation error
+                    NutriTracker.utils.showToast(data.error || 'Invalid serving data', 'danger');
+                } else {
+                    throw new Error(data.error || 'Failed to add serving');
+                }
+            } catch (error) {
+                console.error('Error adding serving:', error);
+                NutriTracker.utils.showToast('Failed to add serving', 'danger');
+            }
+        },
+
+        /**
+         * Set serving as default
+         */
+        setDefault: async function(foodId, servingId) {
+            try {
+                const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+                
+                const response = await fetch(`/admin/foods/${foodId}/servings/${servingId}/set-default`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    Admin.foods.servings.updateDefaultBadges(servingId);
+                    NutriTracker.utils.showToast('Default serving updated!', 'success');
+                } else {
+                    throw new Error(data.error || 'Failed to set default serving');
+                }
+            } catch (error) {
+                console.error('Error setting default serving:', error);
+                NutriTracker.utils.showToast('Failed to set default serving', 'danger');
+            }
+        },
+
+        /**
+         * Unset serving as default
+         */
+        unsetDefault: async function(foodId, servingId) {
+            try {
+                const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+                
+                const response = await fetch(`/admin/foods/${foodId}/servings/${servingId}/unset-default`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    Admin.foods.servings.updateDefaultBadges(null); // No serving is default
+                    NutriTracker.utils.showToast('Default serving removed. System default (100 g) is now active.', 'success');
+                } else {
+                    throw new Error(data.error || 'Failed to unset default serving');
+                }
+            } catch (error) {
+                console.error('Error unsetting default serving:', error);
+                NutriTracker.utils.showToast('Failed to unset default serving', 'danger');
+            }
+        },
+
+        /**
+         * Edit serving inline
+         */
+        edit: function(foodId, servingId) {
+            const row = document.querySelector(`tr[data-serving-id="${servingId}"]`);
+            if (!row) return;
+
+            const nameCell = row.querySelector('.serving-name');
+            const unitCell = row.querySelector('.serving-unit');
+            const gramsCell = row.querySelector('.serving-grams');
+
+            // Get current values
+            const currentName = nameCell.textContent.trim();
+            const currentUnit = unitCell.textContent.trim();
+            const currentGrams = gramsCell.textContent.trim();
+
+            // Create inline edit form
+            nameCell.innerHTML = `<input type="text" class="form-control form-control-sm" value="${currentName}" maxlength="50">`;
+            unitCell.innerHTML = `<input type="text" class="form-control form-control-sm" value="${currentUnit}" maxlength="20">`;
+            gramsCell.innerHTML = `<input type="number" class="form-control form-control-sm" value="${currentGrams}" step="0.1" min="0.1" max="10000">`;
+
+            // Update action buttons
+            const actionsCell = row.querySelector('td:last-child .btn-group');
+            actionsCell.innerHTML = `
+                <button class="btn btn-sm btn-success" onclick="Admin.foods.servings.saveEdit(${foodId}, ${servingId})">Save</button>
+                <button class="btn btn-sm btn-secondary" onclick="Admin.foods.servings.cancelEdit(${servingId}, '${currentName}', '${currentUnit}', '${currentGrams}')">Cancel</button>
+            `;
+        },
+
+        /**
+         * Save inline edit
+         */
+        saveEdit: async function(foodId, servingId) {
+            const row = document.querySelector(`tr[data-serving-id="${servingId}"]`);
+            if (!row) return;
+
+            const nameInput = row.querySelector('.serving-name input');
+            const unitInput = row.querySelector('.serving-unit input');
+            const gramsInput = row.querySelector('.serving-grams input');
+
+            const servingName = nameInput.value.trim();
+            const unit = unitInput.value.trim();
+            const gramsPerUnit = gramsInput.value.trim();
+
+            // Validation
+            if (!servingName || !unit || !gramsPerUnit) {
+                NutriTracker.utils.showToast('All fields are required', 'danger');
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('serving_name', servingName);
+                formData.append('unit', unit);
+                formData.append('grams_per_unit', gramsPerUnit);
+                formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
+
+                const response = await fetch(`/admin/foods/${foodId}/servings/${servingId}/edit`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Update cells with new values
+                    row.querySelector('.serving-name').textContent = servingName;
+                    row.querySelector('.serving-unit').textContent = unit;
+                    row.querySelector('.serving-grams').textContent = gramsPerUnit;
+
+                    // Restore action buttons
+                    Admin.foods.servings.restoreActionButtons(row, servingId);
+                    
+                    NutriTracker.utils.showToast('Serving updated successfully!', 'success');
+                } else {
+                    throw new Error(data.error || 'Failed to update serving');
+                }
+            } catch (error) {
+                console.error('Error updating serving:', error);
+                NutriTracker.utils.showToast('Failed to update serving', 'danger');
+            }
+        },
+
+        /**
+         * Cancel inline edit
+         */
+        cancelEdit: function(servingId, originalName, originalUnit, originalGrams) {
+            const row = document.querySelector(`tr[data-serving-id="${servingId}"]`);
+            if (!row) return;
+
+            // Restore original values
+            row.querySelector('.serving-name').textContent = originalName;
+            row.querySelector('.serving-unit').textContent = originalUnit;
+            row.querySelector('.serving-grams').textContent = originalGrams;
+
+            // Restore action buttons
+            Admin.foods.servings.restoreActionButtons(row, servingId);
+        },
+
+        /**
+         * Remove serving
+         */
+        remove: async function(foodId, servingId) {
+            const row = document.querySelector(`tr[data-serving-id="${servingId}"]`);
+            if (!row) return;
+
+            const servingName = row.querySelector('.serving-name').textContent.trim();
+            
+            if (!confirm(`Are you sure you want to delete the serving "${servingName}"?`)) {
+                return;
+            }
+
+            try {
+                const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+                
+                const response = await fetch(`/admin/foods/${foodId}/servings/${servingId}/delete`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Remove row from table
+                    row.remove();
+                    NutriTracker.utils.showToast('Serving deleted successfully!', 'success');
+                } else if (response.status === 409) {
+                    // Handle conflict - serving is referenced
+                    NutriTracker.utils.showToast(data.error || 'Cannot delete serving as it is used in meal logs', 'warning');
+                } else {
+                    throw new Error(data.error || 'Failed to delete serving');
+                }
+            } catch (error) {
+                console.error('Error deleting serving:', error);
+                NutriTracker.utils.showToast('Failed to delete serving', 'danger');
+            }
+        },
+
+        /**
+         * Helper: Prepend new serving row to table
+         */
+        prependServingRow: function(serving) {
+            const tbody = document.getElementById('servings-body');
+            if (!tbody) return;
+
+            // Remove "no servings" row if it exists
+            const noServingsRow = document.getElementById('noServingsRow');
+            if (noServingsRow) {
+                noServingsRow.remove();
+            }
+
+            const row = document.createElement('tr');
+            row.setAttribute('data-serving-id', serving.id);
+            row.innerHTML = `
+                <td class="serving-name">${serving.serving_name}</td>
+                <td class="serving-unit">${serving.unit}</td>
+                <td class="serving-grams">${serving.grams_per_unit}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" 
+                            data-serving-id="${serving.id}" title="Set as default">
+                        <i class="fas fa-check me-1"></i>Set Default
+                    </button>
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary edit-serving-btn" 
+                                data-serving-id="${serving.id}" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-outline-danger delete-serving-btn" 
+                                data-serving-id="${serving.id}" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+
+            // Insert after the system default row
+            const systemDefaultRow = tbody.querySelector('.table-secondary');
+            if (systemDefaultRow) {
+                systemDefaultRow.insertAdjacentElement('afterend', row);
+            } else {
+                tbody.appendChild(row);
+            }
+        },
+
+        /**
+         * Helper: Update default badges and buttons
+         */
+        updateDefaultBadges: function(defaultServingId) {
+            const tbody = document.getElementById('servings-body');
+            if (!tbody) return;
+
+            // Update system default (100g row)
+            const systemDefaultCell = tbody.querySelector('.table-secondary td:nth-child(4)');
+            if (systemDefaultCell) {
+                if (defaultServingId === null) {
+                    systemDefaultCell.innerHTML = `
+                        <span class="badge bg-primary">Default</span>
+                        <small class="text-muted d-block">System default</small>
+                    `;
+                } else {
+                    systemDefaultCell.innerHTML = '<span class="text-muted">-</span>';
+                }
+            }
+
+            // Update all custom servings
+            tbody.querySelectorAll('tr[data-serving-id]').forEach(row => {
+                const servingId = row.getAttribute('data-serving-id');
+                const nameCell = row.querySelector('.serving-name');
+                const defaultCell = row.querySelector('td:nth-child(4)');
+                
+                if (servingId === defaultServingId) {
+                    // This serving is now default - add badge to name and update buttons
+                    const servingName = nameCell.textContent.trim();
+                    nameCell.innerHTML = `
+                        ${servingName}
+                        <span class="badge bg-primary ms-2">Default</span>
+                    `;
+                    defaultCell.innerHTML = `
+                        <button class="btn btn-sm btn-outline-secondary" 
+                                data-serving-id="${servingId}" title="Unset default">
+                            <i class="fas fa-times me-1"></i>Unset Default
+                        </button>
+                    `;
+                } else {
+                    // This serving is not default - remove badge and update buttons
+                    const servingName = nameCell.textContent.replace('Default', '').trim();
+                    nameCell.innerHTML = servingName;
+                    defaultCell.innerHTML = `
+                        <button class="btn btn-sm btn-outline-primary" 
+                                data-serving-id="${servingId}" title="Set as default">
+                            <i class="fas fa-check me-1"></i>Set Default
+                        </button>
+                    `;
+                }
+            });
+        },
+
+        /**
+         * Helper: Restore action buttons for a row
+         */
+        restoreActionButtons: function(row, servingId) {
+            const actionsCell = row.querySelector('td:last-child .btn-group');
+            actionsCell.innerHTML = `
+                <button class="btn btn-outline-secondary edit-serving-btn" 
+                        data-serving-id="${servingId}" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-outline-danger delete-serving-btn" 
+                        data-serving-id="${servingId}" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            `;
+        }
     }
 };
 

@@ -31,7 +31,7 @@ class MealLogForm(FlaskForm):
         ('dinner', 'Dinner'),
         ('snack', 'Snack')
     ], validators=[DataRequired()])
-    date = DateField('Date', default=date.today, validators=[DataRequired()])
+    date = DateField('Date', default=date.today, format='%Y-%m-%d', validators=[DataRequired()])
     submit = SubmitField('Log Meal')
 
 class NutritionGoalForm(FlaskForm):

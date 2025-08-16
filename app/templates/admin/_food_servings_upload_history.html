@@ -1,0 +1,252 @@
+<!-- Jobs Table -->
+{% if jobs and jobs.items %}
+<div class="card">
+  <div class="card-header">
+    <div
+      class="d-flex justify-content-between align-items-center"
+    >
+      <h5 class="mb-0">Recent Upload Jobs</h5>
+      <small class="text-muted">
+        Showing {{ jobs.items|length }} of {{ jobs.total }} jobs
+      </small>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table
+        class="table table-striped table-hover mb-0"
+        id="jobsTable"
+        data-auto-refresh
+      >
+        <thead class="table-dark">
+          <tr>
+            <th scope="col">Job ID</th>
+            <th scope="col">Filename</th>
+            <th scope="col">Status</th>
+            <th scope="col">Progress</th>
+            <th scope="col">Total Rows</th>
+            <th scope="col">Success</th>
+            <th scope="col">Failed</th>
+            <th scope="col">Created</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for job in jobs.items %}
+          <tr data-job-id="{{ job.job_id }}">
+            <td>
+              <code class="small">{{ job.job_id[:8] }}...</code>
+            </td>
+            <td>
+              <div class="fw-bold">{{ job.filename }}</div>
+              <small class="text-muted">
+                {% if job.started_at %}
+                  Started: {{ job.started_at.strftime('%H:%M:%S') }}
+                {% endif %}
+                {% if job.completed_at %}
+                  <br>Completed: {{ job.completed_at.strftime('%H:%M:%S') }}
+                {% endif %}
+              </small>
+            </td>
+            <td>
+              {% if job.status == 'completed' %}
+                <span class="badge bg-success fs-6">
+                  <i class="fas fa-check me-1"></i>Completed
+                </span>
+              {% elif job.status == 'failed' %}
+                <span class="badge bg-danger fs-6">
+                  <i class="fas fa-times me-1"></i>Failed
+                </span>
+              {% elif job.status == 'processing' %}
+                <span class="badge bg-warning text-dark fs-6">
+                  <i class="fas fa-spinner fa-spin me-1"></i>Processing
+                </span>
+              {% else %}
+                <span class="badge bg-secondary fs-6">
+                  <i class="fas fa-clock me-1"></i>Pending
+                </span>
+              {% endif %}
+            </td>
+            <td style="width: 120px;">
+              <div class="progress mb-1" style="height: 8px;">
+                <div
+                  class="progress-bar 
+                    {% if job.status == 'completed' %}bg-success
+                    {% elif job.status == 'failed' %}bg-danger
+                    {% elif job.status == 'processing' %}bg-warning
+                    {% else %}bg-secondary{% endif %}"
+                  role="progressbar"
+                  data-progress="{{ job.progress_percentage|default(0) }}"
+                  aria-valuenow="{{ job.progress_percentage|default(0) }}"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                ></div>
+              </div>
+              <small class="text-muted">
+                {{ job.progress_percentage|default(0) }}%
+              </small>
+            </td>
+            <td>
+              <span class="badge bg-info fs-6">{{ job.total_rows or 0 }}</span>
+            </td>
+            <td>
+              <span class="badge bg-success fs-6">{{ job.successful_rows or 0 }}</span>
+            </td>
+            <td>
+              <span class="badge bg-danger fs-6">{{ job.failed_rows or 0 }}</span>
+            </td>
+            <td>
+              <div class="small">
+                {{ job.created_at.strftime('%Y-%m-%d') }}
+                <br>
+                <span class="text-muted">{{ job.created_at.strftime('%H:%M:%S') }}</span>
+              </div>
+            </td>
+            <td>
+              <div class="btn-group-vertical btn-group-sm" role="group">
+                <button
+                  type="button"
+                  class="btn btn-outline-primary btn-sm"
+                  onclick="showJobDetails('{{ job.job_id }}')"
+                  title="View detailed job information"
+                >
+                  <i class="fas fa-info-circle me-1"></i>Details
+                </button>
+                {% if job.status == 'failed' and job.error_message %}
+                <button
+                  type="button"
+                  class="btn btn-outline-danger btn-sm"
+                  onclick="showErrorDetails('{{ job.job_id }}', '{{ job.error_message|e }}')"
+                  title="View error details"
+                >
+                  <i class="fas fa-exclamation-triangle me-1"></i>Error
+                </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  {% if jobs.pages > 1 %}
+  <div class="card-footer bg-light">
+    <nav aria-label="Upload jobs pagination">
+      <ul class="pagination pagination-sm justify-content-center mb-0">
+        {% if jobs.has_prev %}
+        <li class="page-item">
+          <a
+            class="page-link"
+            href="{{ url_for('admin.food_servings_uploads', tab='history', page=jobs.prev_num) }}"
+            aria-label="Previous"
+          >
+            <span aria-hidden="true">&laquo;</span>
+          </a>
+        </li>
+        {% endif %}
+
+        {% for page_num in jobs.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+          {% if page_num %}
+            {% if page_num != jobs.page %}
+            <li class="page-item">
+              <a
+                class="page-link"
+                href="{{ url_for('admin.food_servings_uploads', tab='history', page=page_num) }}"
+              >
+                {{ page_num }}
+              </a>
+            </li>
+            {% else %}
+            <li class="page-item active">
+              <span class="page-link">{{ page_num }}</span>
+            </li>
+            {% endif %}
+          {% else %}
+          <li class="page-item disabled">
+            <span class="page-link">...</span>
+          </li>
+          {% endif %}
+        {% endfor %}
+
+        {% if jobs.has_next %}
+        <li class="page-item">
+          <a
+            class="page-link"
+            href="{{ url_for('admin.food_servings_uploads', tab='history', page=jobs.next_num) }}"
+            aria-label="Next"
+          >
+            <span aria-hidden="true">&raquo;</span>
+          </a>
+        </li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
+  {% endif %}
+</div>
+{% else %}
+<!-- Empty State -->
+<div class="card">
+  <div class="card-body text-center py-5">
+    <div class="mb-4">
+      <i class="fas fa-history fa-5x text-muted opacity-50"></i>
+    </div>
+    <h4 class="text-muted mb-3">No Upload Jobs Found</h4>
+    <p class="text-muted mb-4">
+      You haven't uploaded any serving data files yet. Upload your first CSV file to see the history here.
+    </p>
+    <a
+      href="{{ url_for('admin.food_servings_uploads', tab='upload') }}"
+      class="btn btn-primary btn-lg"
+    >
+      <i class="fas fa-upload me-2"></i>Start Your First Upload
+    </a>
+  </div>
+</div>
+{% endif %}
+
+<script>
+function showErrorDetails(jobId, errorMessage) {
+    // Create error modal or show inline error
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.innerHTML = `
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Error Details
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <h6>Job ID: ${jobId}</h6>
+                    <div class="alert alert-danger">
+                        <pre class="mb-0">${errorMessage}</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+    
+    // Clean up modal when hidden
+    modal.addEventListener('hidden.bs.modal', () => {
+        modal.remove();
+    });
+}
+
+// Set progress bar widths from data attributes
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.progress-bar[data-progress]').forEach(function(bar) {
+        var progress = bar.getAttribute('data-progress');
+        bar.style.width = progress + '%';
+    });
+});
+</script>

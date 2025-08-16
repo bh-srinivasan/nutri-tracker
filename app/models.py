@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date as dt_date
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -198,12 +198,14 @@ class Food(db.Model):
     description = db.Column(db.Text)  # Optional description for food item
     serving_size = db.Column(db.Float, default=100)  # in grams (legacy field)
     default_serving_size_grams = db.Column(db.Float, default=100.0)  # Default serving size for UI
+    default_serving_id = db.Column(db.Integer, db.ForeignKey('food_serving.id'))  # Optional default serving
     is_verified = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
     
     # Relationships
     meal_logs = db.relationship('MealLog', backref='food', lazy='dynamic')
+    default_serving = db.relationship('FoodServing', uselist=False, foreign_keys='Food.default_serving_id', post_update=True)
     
     def get_nutrition_per_serving(self):
         """Get nutrition information per serving size."""
@@ -228,14 +230,17 @@ class MealLog(db.Model):
     food_id = db.Column(db.Integer, db.ForeignKey('food.id'), nullable=False)
     
     # UOM support
-    quantity = db.Column(db.Float, nullable=False)  # Quantity in grams (normalized)
+    quantity = db.Column(db.Float, nullable=False)  # Quantity in grams (normalized) - DEPRECATED, use logged_grams
     original_quantity = db.Column(db.Float, nullable=False)  # Original quantity entered by user
     unit_type = db.Column(db.String(20), nullable=False, default='grams')  # grams, serving
     serving_id = db.Column(db.Integer, db.ForeignKey('food_serving.id'))  # For custom servings
     
+    # New field for normalized grams calculation
+    logged_grams = db.Column(db.Float, nullable=False)  # Always in grams, calculated value
+    
     meal_type = db.Column(db.String(20), nullable=False)  # breakfast, lunch, dinner, snack
     logged_at = db.Column(db.DateTime, default=datetime.utcnow)
-    date = db.Column(db.Date, default=datetime.utcnow().date(), index=True)
+    date = db.Column(db.Date, default=dt_date.today, index=True)
     
     # Calculated nutrition values (stored for performance)
     calories = db.Column(db.Float)
@@ -243,26 +248,39 @@ class MealLog(db.Model):
     carbs = db.Column(db.Float)
     fat = db.Column(db.Float)
     fiber = db.Column(db.Float)
+    sugar = db.Column(db.Float)  # Added for completeness
+    sodium = db.Column(db.Float)  # Added for completeness
     
     # Relationships
     serving = db.relationship('FoodServing', backref='meal_logs')
     
     def calculate_nutrition(self):
-        """Calculate nutrition values based on quantity and unit."""
+        """Calculate nutrition values using the nutrition service."""
+        from app.services.nutrition import compute_nutrition
+        
         # Load food if not already loaded
-        if not self.food and self.food_id:
+        if not hasattr(self, 'food') or not self.food:
             self.food = Food.query.get(self.food_id)
         
         if not self.food:
             return
             
-        # Always calculate based on normalized grams
-        factor = self.quantity / 100
-        self.calories = (self.food.calories or 0) * factor
-        self.protein = (self.food.protein or 0) * factor
-        self.carbs = (self.food.carbs or 0) * factor
-        self.fat = (self.food.fat or 0) * factor
-        self.fiber = (self.food.fiber or 0) * factor
+        # Use the nutrition service for consistent calculations
+        nutrition = compute_nutrition(self.food, grams=self.logged_grams)
+        
+        # Store calculated values
+        self.calories = nutrition['calories']
+        self.protein = nutrition['protein']
+        self.carbs = nutrition['carbs']
+        self.fat = nutrition['fat']
+        self.fiber = nutrition['fiber']
+        self.sugar = nutrition['sugar']
+        self.sodium = nutrition['sodium']
+    
+    @property
+    def effective_grams(self):
+        """Get the effective grams for this meal log (backward compatibility)."""
+        return self.logged_grams if hasattr(self, 'logged_grams') and self.logged_grams is not None else self.quantity
     
     def get_display_quantity_and_unit(self):
         """Get the display-friendly quantity and unit for this meal log."""
@@ -325,7 +343,7 @@ class UserChallenge(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     challenge_id = db.Column(db.Integer, db.ForeignKey('challenge.id'), nullable=False)
     
-    start_date = db.Column(db.Date, default=datetime.utcnow().date())
+    start_date = db.Column(db.Date, default=dt_date.today)
     end_date = db.Column(db.Date)
     current_progress = db.Column(db.Float, default=0)
     is_completed = db.Column(db.Boolean, default=False)
@@ -372,21 +390,30 @@ class FoodNutrition(db.Model):
 class FoodServing(db.Model):
     """Standard serving sizes for foods."""
     id = db.Column(db.Integer, primary_key=True)
-    food_id = db.Column(db.Integer, db.ForeignKey('food.id'), nullable=False)
+    food_id = db.Column(db.Integer, db.ForeignKey('food.id', ondelete='CASCADE'), nullable=False, index=True)
     
     # Serving information
     serving_name = db.Column(db.String(50), nullable=False)  # "1 cup", "1 medium", "1 slice"
-    serving_unit = db.Column(db.String(20), nullable=False)  # cup, piece, slice, tbsp
-    serving_quantity = db.Column(db.Float, nullable=False)   # How many base units this serving contains
-    is_default = db.Column(db.Boolean, default=False)
+    unit = db.Column(db.String(20), nullable=False)  # cup, piece, slice, tbsp
+    grams_per_unit = db.Column(db.Float, nullable=False)  # How many grams this serving contains
     
+    # Metadata
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'))  # Optional user reference
+    
+    # Constraints
+    __table_args__ = (
+        db.UniqueConstraint('food_id', 'serving_name', 'unit', name='uq_food_serving_name_unit'),
+        db.CheckConstraint('grams_per_unit > 0', name='ck_grams_per_unit_positive'),
+        db.Index('ix_food_serving_food_id', 'food_id'),
+    )
     
     # Relationships
-    food = db.relationship('Food', backref='servings')
+    food = db.relationship('Food', backref=db.backref('servings', lazy='dynamic'), foreign_keys=[food_id])
+    creator = db.relationship('User', backref='created_servings')
     
     def __repr__(self):
-        return f'<FoodServing {self.food.name} - {self.serving_name}>'
+        return f'<FoodServing {self.food.name if self.food else "Unknown"} - {self.serving_name}>'
 
 class BulkUploadJob(db.Model):
     """Track bulk upload jobs for async processing."""
@@ -501,3 +528,72 @@ class ExportJob(db.Model):
     
     def __repr__(self):
         return f'<ExportJob {self.job_id} - {self.export_type}>'
+
+
+class ServingUploadJob(db.Model):
+    """Track serving upload jobs for async processing."""
+    id = db.Column(db.Integer, primary_key=True)
+    job_id = db.Column(db.String(36), unique=True, nullable=False, index=True)
+    
+    # Job details
+    filename = db.Column(db.String(255), nullable=False)
+    total_rows = db.Column(db.Integer, default=0)
+    processed_rows = db.Column(db.Integer, default=0)
+    successful_rows = db.Column(db.Integer, default=0)
+    failed_rows = db.Column(db.Integer, default=0)
+    
+    # Job status
+    status = db.Column(db.String(20), default='pending')  # pending, processing, completed, failed
+    error_message = db.Column(db.Text)
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    started_at = db.Column(db.DateTime)
+    completed_at = db.Column(db.DateTime)
+    
+    # User who initiated the job
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Relationships
+    user = db.relationship('User', backref='serving_upload_jobs')
+    job_items = db.relationship('ServingUploadJobItem', backref='job', lazy='dynamic', cascade='all, delete-orphan')
+    
+    def __init__(self, **kwargs):
+        if 'job_id' not in kwargs or not kwargs['job_id']:
+            kwargs['job_id'] = str(uuid.uuid4())
+        super(ServingUploadJob, self).__init__(**kwargs)
+    
+    @property
+    def progress_percentage(self):
+        """Calculate job progress as percentage."""
+        if self.total_rows == 0:
+            return 0
+        return round((self.processed_rows / self.total_rows) * 100, 2)
+    
+    def __repr__(self):
+        return f'<ServingUploadJob {self.job_id} - {self.status}>'
+
+
+class ServingUploadJobItem(db.Model):
+    """Individual items in serving upload jobs."""
+    id = db.Column(db.Integer, primary_key=True)
+    job_id = db.Column(db.Integer, db.ForeignKey('serving_upload_job.id'), nullable=False)
+    
+    # Row information
+    row_number = db.Column(db.Integer, nullable=False)
+    food_key = db.Column(db.String(50))
+    serving_name = db.Column(db.String(100))
+    
+    # Processing status
+    status = db.Column(db.String(20), default='pending')  # pending, success, failed, skipped
+    error_message = db.Column(db.Text)
+    serving_id = db.Column(db.Integer, db.ForeignKey('food_serving.id'))  # Reference to created serving
+    
+    # Timestamps
+    processed_at = db.Column(db.DateTime)
+    
+    # Relationships
+    serving = db.relationship('FoodServing', backref='upload_items')
+    
+    def __repr__(self):
+        return f'<ServingUploadJobItem {self.job.job_id} - Row {self.row_number}>'

@@ -152,44 +152,88 @@ def log_meal():
             flash('This food has not been verified yet. Please choose a verified food.', 'warning')
             return redirect(url_for('dashboard.log_meal'))
         
-        # Calculate normalized quantity in grams
+        # Get input quantity from form
         original_quantity = form.quantity.data
-        normalized_quantity = original_quantity
-        serving_id = None
         
+        # Calculate nutrition and logged grams based on input method
         if form.unit_type.data == 'serving' and form.serving_id.data:
-            # Convert serving to grams
+            # Serving-based submission: resolve FoodServing and compute logged_grams
             serving = FoodServing.query.get(form.serving_id.data)
             if serving and serving.food_id == food.id:
-                normalized_quantity = original_quantity * serving.serving_quantity
+                # Calculate logged_grams from serving
+                logged_grams = original_quantity * serving.grams_per_unit
+                
+                # Use nutrition service to compute nutrients
+                from app.services.nutrition import compute_nutrition
+                nutrition_result = compute_nutrition(food, serving=serving, quantity=original_quantity)
+                
+                calories = nutrition_result['calories']
+                protein = nutrition_result['protein']
+                carbs = nutrition_result['carbs']
+                fat = nutrition_result['fat']
+                fiber = nutrition_result['fiber']
+                sugar = nutrition_result['sugar']
+                sodium = nutrition_result['sodium']
                 serving_id = serving.id
             else:
                 flash('Invalid serving size selected.', 'danger')
                 return redirect(url_for('dashboard.log_meal'))
+        else:
+            # Grams-based submission: use direct grams input
+            logged_grams = original_quantity
+            
+            # Use nutrition service to compute nutrients
+            from app.services.nutrition import compute_nutrition
+            nutrition_result = compute_nutrition(food, grams=original_quantity)
+            
+            calories = nutrition_result['calories']
+            protein = nutrition_result['protein']
+            carbs = nutrition_result['carbs']
+            fat = nutrition_result['fat']
+            fiber = nutrition_result['fiber']
+            sugar = nutrition_result['sugar']
+            sodium = nutrition_result['sodium']
+            serving_id = None
         
         if edit_meal:
             meal_log = edit_meal
             meal_log.food_id = food.id
-            meal_log.quantity = normalized_quantity
+            meal_log.quantity = original_quantity
             meal_log.original_quantity = original_quantity
             meal_log.unit_type = form.unit_type.data
             meal_log.serving_id = serving_id
             meal_log.meal_type = form.meal_type.data
             meal_log.date = form.date.data
-            meal_log.calculate_nutrition()
+            # Set the computed nutrition values directly
+            meal_log.logged_grams = logged_grams
+            meal_log.calories = calories
+            meal_log.protein = protein
+            meal_log.carbs = carbs
+            meal_log.fat = fat
+            meal_log.fiber = fiber
+            meal_log.sugar = sugar
+            meal_log.sodium = sodium
             flash(f'Successfully updated {food.name} for {form.meal_type.data}!', 'success')
         else:
             meal_log = MealLog(
                 user_id=current_user.id,
                 food_id=food.id,
-                quantity=normalized_quantity,
+                quantity=original_quantity,
                 original_quantity=original_quantity,
                 unit_type=form.unit_type.data,
                 serving_id=serving_id,
                 meal_type=form.meal_type.data,
-                date=form.date.data,  # <--- important
+                date=form.date.data,
+                # Set the computed nutrition values directly
+                logged_grams=logged_grams,
+                calories=calories,
+                protein=protein,
+                carbs=carbs,
+                fat=fat,
+                fiber=fiber,
+                sugar=sugar,
+                sodium=sodium
             )
-            meal_log.calculate_nutrition()
             db.session.add(meal_log)
             flash(f'Successfully logged {food.name} for {form.meal_type.data}!', 'success')
 

@@ -1,0 +1,414 @@
+{% include 'admin/components/_upload_security_notice.html' %}
+
+<div class="p-4">
+  <!-- Template Section -->
+  <div class="row mb-4">
+    <div class="col-lg-6">
+      <div class="card border-info h-100">
+        <div class="card-header bg-light">
+          <h5 class="card-title mb-0">
+            <i class="fas fa-file-csv text-info me-2"></i>Upload
+            Template
+          </h5>
+        </div>
+        <div class="card-body">
+          <p class="text-muted mb-3">
+            Use our standardized template to ensure compatibility:
+          </p>
+
+          <!-- Template Preview -->
+          <div class="bg-light p-3 rounded mb-3">
+            <h6 class="text-muted small mb-2">
+              REQUIRED COLUMNS:
+            </h6>
+            <div class="row small">
+              <div class="col-6">
+                <code>food_key</code><br />
+                <code>serving_name</code>
+              </div>
+              <div class="col-6">
+                <code>unit</code><br />
+                <code>grams_per_unit</code>
+              </div>
+            </div>
+            <h6 class="text-muted small mb-2 mt-2">
+              OPTIONAL COLUMNS:
+            </h6>
+            <div class="row small">
+              <div class="col-6">
+                <code>is_default</code>
+              </div>
+              <div class="col-6">
+                <em class="text-muted">More optional fields may be added</em>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-grid">
+            <a
+              href="{{ url_for('admin.download_food_servings_template') }}"
+              class="btn btn-outline-info"
+              download
+              title="Download the complete CSV template with sample serving data"
+            >
+              <i class="fas fa-download me-2"></i>Download
+              Complete Template
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      {% include 'admin/components/_upload_validation_rules.html' %}
+    </div>
+  </div>
+
+  <!-- Upload Section -->
+  <div class="card border-primary">
+    <div class="card-header bg-primary text-white">
+      <h5 class="card-title mb-0">
+        <i class="fas fa-upload me-2"></i>Upload Your Data
+      </h5>
+    </div>
+    <div class="card-body">
+      <!-- Upload Form -->
+      <form
+        id="asyncUploadForm"
+        method="POST"
+        enctype="multipart/form-data"
+        action="{{ url_for('admin.food_servings_upload_async') }}"
+        class="mb-4"
+      >
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        
+        <div class="row align-items-end">
+          <div class="col-md-8">
+            <div class="mb-3">
+              <label for="csvFile" class="form-label fw-bold"
+                >Select CSV File</label
+              >
+              <input
+                type="file"
+                class="form-control form-control-lg"
+                id="csvFile"
+                name="file"
+                accept=".csv"
+                required
+                aria-describedby="csvFileHelp"
+              />
+              <div id="csvFileHelp" class="form-text">
+                <i class="fas fa-info-circle me-1"></i>
+                Only CSV files are accepted. Maximum size: 10MB
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="d-grid mb-3">
+              <button
+                type="submit"
+                class="btn btn-primary btn-lg"
+                id="uploadBtn"
+              >
+                <i class="fas fa-cloud-upload-alt me-2"></i>
+                Start Upload
+              </button>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      {% include 'admin/components/_upload_progress.html' %}
+    </div>
+  </div>
+</div>
+
+<script>
+// Handle async form submission
+document.getElementById('asyncUploadForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const fileInput = document.getElementById('csvFile');
+    const file = fileInput.files[0];
+    const uploadBtn = document.getElementById('uploadBtn');
+    const progressDiv = document.getElementById('uploadProgress');
+    const alertContainer = document.getElementById('alertContainer');
+    
+    // Clear previous alerts
+    alertContainer.innerHTML = '';
+    
+    // Validate file
+    if (!file) {
+        showAlert('Please select a CSV file.', 'danger');
+        return;
+    }
+    
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+        showAlert('Please select a valid CSV file.', 'danger');
+        return;
+    }
+    
+    if (file.size > 10 * 1024 * 1024) { // 10MB
+        showAlert('File size must be less than 10MB.', 'danger');
+        return;
+    }
+    
+    // Show progress and disable button
+    uploadBtn.disabled = true;
+    uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Starting Upload...';
+    progressDiv.classList.remove('d-none');
+    
+    // Submit form via fetch
+    fetch(this.action, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('jobId').textContent = data.job_id;
+            document.getElementById('progressText').textContent = 'Upload completed successfully!';
+            document.getElementById('progressBar').style.width = '100%';
+            document.getElementById('progressBar').classList.remove('progress-bar-animated');
+            document.getElementById('progressBar').classList.add('bg-success');
+            
+            showAlert(data.message, 'success');
+            
+            // Reset form after delay
+            setTimeout(() => {
+                progressDiv.classList.add('d-none');
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i>Start Upload';
+                fileInput.value = '';
+            }, 3000);
+        } else {
+            throw new Error(data.error || 'Upload failed');
+        }
+    })
+    .catch(error => {
+        console.error('Upload error:', error);
+        showAlert(error.message || 'Upload failed. Please try again.', 'danger');
+        
+        // Reset button
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i>Start Upload';
+        progressDiv.classList.add('d-none');
+    });
+});
+
+function showAlert(message, type) {
+    const alertContainer = document.getElementById('alertContainer');
+    const alertHtml = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    `;
+    alertContainer.innerHTML = alertHtml;
+}
+</script>
+
+        <!-- Progress Section (Initially Hidden) -->
+        <div id="uploadProgress" class="mb-4" style="display: none">
+            <div class="card border-info">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">
+                        <i class="fas fa-cog fa-spin me-2"></i>Processing Upload
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small fw-bold">Progress</span>
+                            <span id="progressText" class="small text-muted">Initializing...</span>
+                        </div>
+                        <div class="progress" style="height: 8px">
+                            <div
+                                id="progressBar"
+                                class="progress-bar progress-bar-striped progress-bar-animated bg-info"
+                                role="progressbar"
+                                style="width: 0%"
+                                aria-valuenow="0"
+                                aria-valuemin="0"
+                                aria-valuemax="100"
+                            ></div>
+                        </div>
+                    </div>
+                    <div id="progressStats" class="small text-muted">
+                        <span class="me-3">Job ID: <span id="jobId">-</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alert Container -->
+        <div id="alertContainer"></div>
+
+        <!-- Processing Notice -->
+        <div class="alert alert-light border border-info">
+            <div class="d-flex">
+                <i class="fas fa-info-circle text-info me-3 mt-1"></i>
+                <div>
+                    <strong>Asynchronous Processing:</strong>
+                    Your upload will be processed in the background.
+                    Switch to the <strong>History</strong> tab to monitor progress and view detailed results.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Form JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadForm = document.getElementById('asyncUploadForm');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const fileInput = document.getElementById('csvFile');
+    const progressSection = document.getElementById('uploadProgress');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const jobIdSpan = document.getElementById('jobId');
+    const alertContainer = document.getElementById('alertContainer');
+
+    let isUploading = false;
+
+    // File validation
+    if (fileInput) {
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            clearAlerts();
+            const errors = [];
+
+            // Check file size (10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                errors.push('File size exceeds maximum allowed size (10MB)');
+            }
+
+            // Check file extension
+            if (!file.name.toLowerCase().endsWith('.csv')) {
+                errors.push('Invalid file type. Only CSV files are allowed.');
+            }
+
+            if (errors.length > 0) {
+                showAlert(errors.join('<br>'), 'danger');
+                e.target.value = '';
+            }
+        });
+    }
+
+    // Form submission
+    if (uploadForm) {
+        uploadForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            if (isUploading) return;
+
+            const file = fileInput.files[0];
+            if (!file) {
+                showAlert('Please select a CSV file to upload.', 'warning');
+                return;
+            }
+
+            try {
+                isUploading = true;
+                setUploadingState(true);
+                showProgress();
+                clearAlerts();
+
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('csrf_token', '{{ csrf_token() }}');
+
+                const response = await fetch('{{ url_for("admin.food_servings_upload_async") }}', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin'
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    jobIdSpan.textContent = result.job_id.substring(0, 8) + '...';
+                    showAlert(result.message, 'success');
+                    updateProgress(100, 'Upload completed successfully!');
+                    
+                    // Reset form after delay
+                    setTimeout(() => {
+                        uploadForm.reset();
+                        hideProgress();
+                    }, 3000);
+                } else {
+                    throw new Error(result.error || 'Upload failed');
+                }
+
+            } catch (error) {
+                console.error('Upload error:', error);
+                showAlert(`Upload failed: ${error.message}`, 'danger');
+                hideProgress();
+            } finally {
+                isUploading = false;
+                setUploadingState(false);
+            }
+        });
+    }
+
+    function setUploadingState(uploading) {
+        if (uploadBtn) {
+            uploadBtn.disabled = uploading;
+            uploadBtn.innerHTML = uploading 
+                ? '<i class="fas fa-spinner fa-spin me-2"></i>Uploading...'
+                : '<i class="fas fa-cloud-upload-alt me-2"></i>Upload';
+        }
+        
+        if (fileInput) {
+            fileInput.disabled = uploading;
+        }
+    }
+
+    function showProgress() {
+        if (progressSection) {
+            progressSection.style.display = 'block';
+            updateProgress(0, 'Starting upload...');
+        }
+    }
+
+    function hideProgress() {
+        if (progressSection) {
+            progressSection.style.display = 'none';
+        }
+    }
+
+    function updateProgress(percentage, text) {
+        if (progressBar) {
+            progressBar.style.width = `${percentage}%`;
+            progressBar.setAttribute('aria-valuenow', percentage.toString());
+        }
+        
+        if (progressText) {
+            progressText.textContent = text;
+        }
+    }
+
+    function showAlert(message, type) {
+        if (!alertContainer) return;
+
+        const alertHtml = `
+            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                <div>${message}</div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+        
+        alertContainer.innerHTML = alertHtml;
+    }
+
+    function clearAlerts() {
+        if (alertContainer) {
+            alertContainer.innerHTML = '';
+        }
+    }
+});
+</script>

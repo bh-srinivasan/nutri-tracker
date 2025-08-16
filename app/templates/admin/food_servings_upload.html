@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container my-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-10">
+      <!-- Header -->
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h1 class="h2 mb-2">Food Servings Upload</h1>
+          <p class="text-muted">Bulk upload serving sizes for food items via CSV</p>
+        </div>
+        <a href="{{ url_for('admin.foods') }}" class="btn btn-outline-secondary">
+          <i class="fas fa-arrow-left me-2"></i>Back to Foods
+        </a>
+      </div>
+
+      <!-- Main Upload Card -->
+      <div class="card shadow border-0">
+        <div class="card-header bg-primary text-white py-3">
+          <div class="d-flex align-items-center">
+            <i class="fas fa-upload fa-lg me-3"></i>
+            <div>
+              <h4 class="card-title mb-1">Upload Food Servings</h4>
+              <p class="mb-0 opacity-75">Add or update serving sizes for multiple foods at once</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-body p-4">
+          <!-- Instructions -->
+          <div class="alert alert-info border-0 mb-4">
+            <div class="d-flex">
+              <i class="fas fa-info-circle text-info me-3 mt-1"></i>
+              <div>
+                <h6 class="alert-heading mb-2">How it works</h6>
+                <ul class="mb-0 small">
+                  <li><strong>Idempotent uploads:</strong> Re-running the same file won't create duplicates</li>
+                  <li><strong>Food identification:</strong> Use food ID numbers or food names/brands as keys</li>
+                  <li><strong>Default servings:</strong> Set one serving per food as the default</li>
+                  <li><strong>Error reporting:</strong> Clear feedback for any invalid or missing data</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- Template Download Section -->
+          <div class="row mb-4">
+            <div class="col-md-6">
+              <div class="card border-success">
+                <div class="card-header bg-light">
+                  <h5 class="card-title mb-0">
+                    <i class="fas fa-download text-success me-2"></i>1. Download Template
+                  </h5>
+                </div>
+                <div class="card-body">
+                  <p class="card-text">Download the CSV template with proper headers and example data.</p>
+                  <a href="{{ url_for('admin.download_food_servings_template') }}" 
+                     class="btn btn-success">
+                    <i class="fas fa-file-csv me-2"></i>Download Template
+                  </a>
+                </div>
+              </div>
+            </div>
+            
+            <div class="col-md-6">
+              <div class="card border-info">
+                <div class="card-header bg-light">
+                  <h5 class="card-title mb-0">
+                    <i class="fas fa-table text-info me-2"></i>2. Fill Your Data
+                  </h5>
+                </div>
+                <div class="card-body">
+                  <p class="card-text">Required columns:</p>
+                  <ul class="small">
+                    <li><code>food_key</code> - Food ID or name/brand</li>
+                    <li><code>serving_name</code> - e.g., "1 cup", "1 slice"</li>
+                    <li><code>unit</code> - e.g., "cup", "piece", "tbsp"</li>
+                    <li><code>grams_per_unit</code> - Weight in grams</li>
+                    <li><code>is_default</code> - true/false for default serving</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Upload Form -->
+          <div class="card border-warning">
+            <div class="card-header bg-light">
+              <h5 class="card-title mb-0">
+                <i class="fas fa-cloud-upload-alt text-warning me-2"></i>3. Upload Your File
+              </h5>
+            </div>
+            <div class="card-body">
+              <form method="POST" enctype="multipart/form-data" id="uploadForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
+                
+                <div class="mb-3">
+                  <label for="file" class="form-label">Select CSV File</label>
+                  <input type="file" 
+                         class="form-control" 
+                         id="file" 
+                         name="file" 
+                         accept=".csv" 
+                         required>
+                  <div class="form-text">
+                    Only CSV files are accepted. Maximum file size: 10MB
+                  </div>
+                </div>
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+                  <button type="submit" class="btn btn-primary btn-lg" id="uploadBtn">
+                    <i class="fas fa-upload me-2"></i>Upload Servings
+                  </button>
+                  <button type="button" class="btn btn-secondary" onclick="document.getElementById('file').value=''; toggleUploadButton();">
+                    <i class="fas fa-times me-2"></i>Clear
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- Upload Status -->
+          <div id="uploadStatus" class="mt-4" style="display: none;">
+            <div class="alert alert-info">
+              <div class="d-flex align-items-center">
+                <div class="spinner-border spinner-border-sm me-3" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <div>
+                  <strong>Processing upload...</strong><br>
+                  <small class="text-muted">Please wait while we validate and import your data.</small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Display Upload Errors (if any) -->
+          {% if session.get('upload_errors') %}
+          <div class="card border-danger mt-4" data-clear-errors="true">
+            <div class="card-header bg-danger text-white">
+              <h6 class="card-title mb-0">
+                <i class="fas fa-exclamation-triangle me-2"></i>Upload Errors
+              </h6>
+            </div>
+            <div class="card-body">
+              <p class="card-text mb-3">
+                The following errors occurred during upload. Please fix these issues and try again:
+              </p>
+              <div class="alert alert-light border">
+                <ul class="mb-0 small">
+                  {% for error in session.upload_errors %}
+                  <li>{{ error }}</li>
+                  {% endfor %}
+                  {% if session.upload_errors|length == 50 %}
+                  <li><em>... and more errors. Only first 50 shown.</em></li>
+                  {% endif %}
+                </ul>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Guidelines -->
+          <div class="mt-5">
+            <h5 class="mb-3">Upload Guidelines</h5>
+            <div class="row">
+              <div class="col-md-6">
+                <div class="card h-100 border-0 bg-light">
+                  <div class="card-body">
+                    <h6 class="card-title text-success">
+                      <i class="fas fa-check-circle me-2"></i>Best Practices
+                    </h6>
+                    <ul class="card-text small mb-0">
+                      <li>Use the provided template format</li>
+                      <li>Include header row with exact column names</li>
+                      <li>Use numeric food IDs when possible</li>
+                      <li>Specify grams as decimal numbers</li>
+                      <li>Set only one default serving per food</li>
+                      <li>Test with a small file first</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card h-100 border-0 bg-light">
+                  <div class="card-body">
+                    <h6 class="card-title text-danger">
+                      <i class="fas fa-times-circle me-2"></i>Common Issues
+                    </h6>
+                    <ul class="card-text small mb-0">
+                      <li>Missing required columns</li>
+                      <li>Invalid food keys (food not found)</li>
+                      <li>Non-numeric grams_per_unit values</li>
+                      <li>Duplicate serving names for same food</li>
+                      <li>File encoding issues (save as UTF-8)</li>
+                      <li>Empty rows or missing data</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('file');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const uploadForm = document.getElementById('uploadForm');
+    const uploadStatus = document.getElementById('uploadStatus');
+    
+    // Enable/disable upload button based on file selection
+    function toggleUploadButton() {
+        uploadBtn.disabled = !fileInput.files.length;
+    }
+    
+    fileInput.addEventListener('change', toggleUploadButton);
+    toggleUploadButton(); // Initial state
+    
+    // Show upload status on form submission
+    uploadForm.addEventListener('submit', function() {
+        uploadStatus.style.display = 'block';
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+    });
+    
+    // Clear session upload errors on page load (for next upload)
+    const errorCard = document.querySelector('[data-clear-errors="true"]');
+    if (errorCard) {
+        fetch('/admin/food-servings-upload', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({'clear_errors': true})
+        });
+    }
+});
+</script>
+{% endblock %}
