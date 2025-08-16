@@ -266,7 +266,7 @@
       }
     }
 
-    fetch(`{{ url_for('admin.servings_upload_status_check') }}/${jobId}`)
+    fetch(`/admin/food-servings/status/${jobId}`)
       .then(response => response.json())
       .then(data => {
         if (data.error) {
@@ -372,7 +372,7 @@
     const modal = new bootstrap.Modal(document.createElement('div'));
     
     // For now, show a simple alert - this can be enhanced later
-    fetch(`{{ url_for('admin.servings_upload_status_check') }}/${jobId}`)
+    fetch(`/admin/food-servings/status/${jobId}`)
       .then(response => response.json())
       .then(data => {
         let details = `Job ID: ${jobId}\n`;
