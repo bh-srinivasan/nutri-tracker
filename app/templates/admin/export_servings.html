@@ -1,0 +1,278 @@
+{% extends "base.html" %} {% block title %}Export Servings - Admin{% endblock %} {%
+block content %}
+<div class="container-fluid mt-4">
+  <div class="row">
+    <div class="col-md-12">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-download"></i> Export Servings</h2>
+        <a href="{{ url_for('admin.export_jobs') }}" class="btn btn-secondary">
+          <i class="fas fa-list"></i> View Export Jobs
+        </a>
+      </div>
+
+      <!-- Export Statistics -->
+      <div class="row mb-4">
+        <div class="col-md-3">
+          <div class="card text-center">
+            <div class="card-body">
+              <h4 class="text-primary">{{ stats.total_servings }}</h4>
+              <p class="card-text">Total Servings</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card text-center">
+            <div class="card-body">
+              <h4 class="text-success">{{ stats.foods_with_servings }}</h4>
+              <p class="card-text">Foods with Servings</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card text-center">
+            <div class="card-body">
+              <h4 class="text-info">{{ stats.total_units }}</h4>
+              <p class="card-text">Total Units</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card text-center">
+            <div class="card-body">
+              <h4 class="text-warning">{{ stats.serving_creators }}</h4>
+              <p class="card-text">Active Contributors</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Export Form -->
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">Export Configuration</h5>
+        </div>
+        <div class="card-body">
+          <form method="POST">
+            <div class="row">
+              <!-- Export Format -->
+              <div class="col-md-6 mb-3">
+                <label for="format" class="form-label">Export Format</label>
+                <select class="form-select" id="format" name="format" required>
+                  <option value="servings_csv">CSV (Comma Separated Values)</option>
+                  <option value="servings_json">
+                    JSON (JavaScript Object Notation)
+                  </option>
+                </select>
+                <div class="form-text">
+                  Choose the format for your export file.
+                </div>
+              </div>
+
+              <!-- Food Category Filter -->
+              <div class="col-md-6 mb-3">
+                <label for="category" class="form-label">Category Filter</label>
+                <select class="form-select" id="category" name="category">
+                  <option value="">All Categories</option>
+                  {% for category in categories %}
+                  <option value="{{ category }}">{{ category }}</option>
+                  {% endfor %}
+                </select>
+                <div class="form-text">Filter by food category (optional).</div>
+              </div>
+
+              <!-- Brand Filter -->
+              <div class="col-md-6 mb-3">
+                <label for="brand" class="form-label">Brand Filter</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="brand"
+                  name="brand"
+                  placeholder="Enter brand name (partial match)"
+                />
+                <div class="form-text">Filter by brand name (optional).</div>
+              </div>
+
+              <!-- Name Search -->
+              <div class="col-md-6 mb-3">
+                <label for="name_contains" class="form-label"
+                  >Name Contains</label
+                >
+                <input
+                  type="text"
+                  class="form-control"
+                  id="name_contains"
+                  name="name_contains"
+                  placeholder="Search in food names"
+                />
+                <div class="form-text">
+                  Search for servings of foods containing specific text.
+                </div>
+              </div>
+
+              <!-- Verification Status -->
+              <div class="col-md-6 mb-3">
+                <label for="is_verified" class="form-label"
+                  >Verification Status</label
+                >
+                <select class="form-select" id="is_verified" name="is_verified">
+                  <option value="">All Foods</option>
+                  <option value="true">Verified Only</option>
+                  <option value="false">Unverified Only</option>
+                </select>
+                <div class="form-text">Filter by verification status.</div>
+              </div>
+
+              <!-- Unit Filter -->
+              <div class="col-md-6 mb-3">
+                <label for="unit" class="form-label">Serving Unit</label>
+                <select class="form-select" id="unit" name="unit">
+                  <option value="">All Units</option>
+                  {% for unit in units %}
+                  <option value="{{ unit }}">{{ unit }}</option>
+                  {% endfor %}
+                </select>
+                <div class="form-text">Filter by serving unit type (optional).</div>
+              </div>
+
+              <!-- Date Range -->
+              <div class="col-md-3 mb-3">
+                <label for="created_after" class="form-label"
+                  >Created After</label
+                >
+                <input
+                  type="date"
+                  class="form-control"
+                  id="created_after"
+                  name="created_after"
+                />
+                <div class="form-text">Start date filter.</div>
+              </div>
+
+              <div class="col-md-3 mb-3">
+                <label for="created_before" class="form-label"
+                  >Created Before</label
+                >
+                <input
+                  type="date"
+                  class="form-control"
+                  id="created_before"
+                  name="created_before"
+                />
+                <div class="form-text">End date filter.</div>
+              </div>
+
+              <!-- Serving Filters -->
+              <div class="col-md-6 mb-3">
+                <label for="serving_name_contains" class="form-label"
+                  >Serving Name Contains</label
+                >
+                <input
+                  type="text"
+                  class="form-control"
+                  id="serving_name_contains"
+                  name="serving_name_contains"
+                  placeholder="e.g., cup, medium, slice"
+                />
+                <div class="form-text">Search for servings containing specific text.</div>
+              </div>
+
+              <div class="col-md-6 mb-3">
+                <label for="grams_min" class="form-label"
+                  >Minimum Grams per Unit</label
+                >
+                <input
+                  type="number"
+                  class="form-control"
+                  id="grams_min"
+                  name="grams_min"
+                  min="0"
+                  step="0.1"
+                  placeholder="e.g., 50"
+                />
+                <div class="form-text">Filter by minimum grams per serving.</div>
+              </div>
+                />
+                <div class="form-text">End date filter for serving creation.</div>
+              </div>
+            </div>
+
+            <!-- Export Options -->
+            <div class="row mt-4">
+              <div class="col-md-12">
+                <div class="card bg-light">
+                  <div class="card-body">
+                    <h6 class="card-title">Export Information</h6>
+                    <ul class="mb-0">
+                      <li>
+                        <strong>CSV Format:</strong> Includes all serving data with
+                        food information, suitable for spreadsheet applications
+                      </li>
+                      <li>
+                        <strong>JSON Format:</strong> Structured data with
+                        nested food and serving information, suitable for
+                        developers
+                      </li>
+                      <li>
+                        <strong>File Retention:</strong> Export files are kept
+                        for 24 hours after generation
+                      </li>
+                      <li>
+                        <strong>Processing Time:</strong> Large exports may take
+                        several minutes to complete
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="row mt-4">
+              <div class="col-md-12">
+                <button type="submit" class="btn btn-primary btn-lg">
+                  <i class="fas fa-download"></i> Start Export
+                </button>
+                <button
+                  type="reset"
+                  class="btn btn-outline-secondary btn-lg ms-2"
+                >
+                  <i class="fas fa-undo"></i> Reset Filters
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    // Add some interactivity for better UX
+    const formatSelect = document.getElementById("format");
+    const form = document.querySelector("form");
+
+    formatSelect.addEventListener("change", function () {
+      const selectedFormat = this.value;
+      // Could add format-specific help text or options here
+    });
+
+    form.addEventListener("submit", function (e) {
+      // Show processing indicator
+      const submitButton = form.querySelector('button[type="submit"]');
+      const originalText = submitButton.innerHTML;
+
+      submitButton.innerHTML =
+        '<i class="fas fa-spinner fa-spin"></i> Starting Export...';
+      submitButton.disabled = true;
+
+      // Re-enable after a delay to prevent double submission
+      setTimeout(() => {
+        submitButton.innerHTML = originalText;
+        submitButton.disabled = false;
+      }, 3000);
+    });
+  });
+</script>
+{% endblock %}

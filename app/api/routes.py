@@ -4,6 +4,7 @@ from app.models import Food, User, MealLog, FoodServing
 from app import db
 from datetime import datetime, date
 from functools import wraps
+from sqlalchemy import case
 from app.api import bp
 
 def api_login_required(f):
@@ -118,8 +119,12 @@ def get_food_servings(food_id):
         if not food.is_verified and not current_user.is_admin:
             return jsonify({'error': 'Food not available'}), 403
         
-        # Get serving sizes for this food
-        servings = FoodServing.query.filter_by(food_id=food_id).all()
+        # Get serving sizes for this food with proper ordering
+        # Order by: default serving first (if exists), then alphabetically by serving_name
+        servings = FoodServing.query.filter_by(food_id=food_id).order_by(
+            case((FoodServing.id == food.default_serving_id, 0), else_=1),
+            FoodServing.serving_name
+        ).all()
         
         # Return complete food details with servings
         return jsonify({
@@ -142,8 +147,10 @@ def get_food_servings(food_id):
                 'id': s.id if s.id else None,
                 'unit_type': s.unit,
                 'size_in_grams': s.grams_per_unit,
-                'description': s.serving_name
-            } for s in servings]
+                'description': s.serving_name,
+                'is_default': (s.id == food.default_serving_id)
+            } for s in servings],
+            'default_serving_id': food.default_serving_id
         })
         
     except Exception as e:

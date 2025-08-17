@@ -57,9 +57,13 @@ block content %}
                     >
                   </td>
                   <td>
-                    <span class="badge bg-info"
-                      >{{ job.export_type.upper() }}</span
-                    >
+                    {% if job.export_type.startswith('servings') %}
+                      <span class="badge bg-success">SERVINGS</span>
+                      <br><small class="text-muted">{{ job.export_type.split('_')[1].upper() }}</small>
+                    {% else %}
+                      <span class="badge bg-info">FOODS</span>
+                      <br><small class="text-muted">{{ job.export_type.upper() }}</small>
+                    {% endif %}
                   </td>
                   <td>
                     {% if job.status == 'completed' %} {% if job.is_expired %}
@@ -267,6 +271,13 @@ block content %}
           return;
         }
 
+        let exportTypeBadge = '';
+        if (data.export_type.startsWith('servings')) {
+          exportTypeBadge = `<span class="badge bg-success">SERVINGS</span> <small class="text-muted">${data.export_type.split('_')[1].toUpperCase()}</small>`;
+        } else {
+          exportTypeBadge = `<span class="badge bg-info">FOODS</span> <small class="text-muted">${data.export_type.toUpperCase()}</small>`;
+        }
+
         let html = `
                 <div class="row">
                     <div class="col-md-6">
@@ -275,7 +286,7 @@ block content %}
                             <tr><td><strong>Job ID:</strong></td><td><code>${
                               data.job_id
                             }</code></td></tr>
-                            <tr><td><strong>Export Type:</strong></td><td><span class="badge bg-info">${data.export_type.toUpperCase()}</span></td></tr>
+                            <tr><td><strong>Export Type:</strong></td><td>${exportTypeBadge}</td></tr>
                             <tr><td><strong>Status:</strong></td><td><span class="badge bg-${getStatusColor(
                               data.status
                             )}">${data.status}</span></td></tr>

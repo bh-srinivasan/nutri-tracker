@@ -24,16 +24,24 @@ block content %}
               class="btn btn-outline-info dropdown-toggle"
               data-bs-toggle="dropdown"
               aria-expanded="false"
-              title="Export and download food data"
+              title="Export and download data"
             >
-              <i class="fas fa-download"></i> Export Foods
+              <i class="fas fa-download"></i> Export Data
             </button>
             <ul class="dropdown-menu">
+              <li><h6 class="dropdown-header">Food Data</h6></li>
               <li>
                 <a class="dropdown-item" href="{{ url_for('admin.export_foods_page') }}">
-                  <i class="fas fa-file-csv me-2"></i>New Export
+                  <i class="fas fa-apple-alt me-2"></i>Export Foods
                 </a>
               </li>
+              <li><h6 class="dropdown-header">Serving Data</h6></li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('admin.export_servings_page') }}">
+                  <i class="fas fa-utensils me-2"></i>Export Servings
+                </a>
+              </li>
+              <li><hr class="dropdown-divider"></li>
               <li>
                 <a class="dropdown-item" href="{{ url_for('admin.export_jobs') }}">
                   <i class="fas fa-list me-2"></i>Export History

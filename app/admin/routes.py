@@ -14,6 +14,7 @@ from app.admin.forms import (
 from app.models import User, Food, MealLog, NutritionGoal, Challenge, UserChallenge, FoodServing
 from app.services.bulk_upload_processor import BulkUploadProcessor
 from app.services.food_export_service import FoodExportService
+from app.services.serving_export_service import ServingExportService
 from app.models import BulkUploadJob, ExportJob, ServingUploadJob, ServingUploadJobItem
 from flask_wtf.csrf import generate_csrf
 
@@ -1470,6 +1471,155 @@ def export_foods_page():
     except Exception as e:
         current_app.logger.error(
             f'[SECURITY] Error in export foods page for user {current_user.id}: {str(e)}',
+            exc_info=True
+        )
+        flash('An error occurred. Please try again.', 'danger')
+        return redirect(url_for('admin.foods'))
+
+
+@bp.route('/servings/export', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def export_servings_page():
+    """
+    Serving export interface with form handling.
+    
+    GET: Show export form with filters
+    POST: Process export request and start job
+    """
+    try:
+        from app.services.serving_export_service import ServingExportService
+        export_service = ServingExportService()
+        
+        if request.method == 'GET':
+            # Get statistics for the form
+            stats = export_service.get_export_statistics()
+            categories = export_service.get_available_categories()
+            units = export_service.get_available_units()
+            
+            return render_template(
+                'admin/export_servings.html',
+                title='Export Servings',
+                stats=stats,
+                categories=categories,
+                units=units
+            )
+            
+        elif request.method == 'POST':
+            # Security: Log export attempt
+            current_app.logger.info(
+                f"[AUDIT] Serving export form submitted by user {current_user.id} ({current_user.email}) "
+                f"from IP: {request.remote_addr} at {datetime.utcnow().isoformat()}"
+            )
+            
+            # Get and validate form data
+            format_type = request.form.get('format', 'servings_csv').lower().strip()
+            
+            # Security: Validate format parameter
+            if format_type not in ['servings_csv', 'servings_json']:
+                flash('Invalid export format requested.', 'danger')
+                return redirect(url_for('admin.export_servings_page'))
+            
+            # Build filters from form data
+            filters = {}
+            
+            # Food-based filters
+            # Category filter
+            category = request.form.get('category', '').strip()
+            if category:
+                filters['category'] = category[:50]  # Limit length
+            
+            # Brand filter
+            brand = request.form.get('brand', '').strip()
+            if brand:
+                filters['brand'] = brand[:50]  # Limit length
+            
+            # Name search filter
+            name_contains = request.form.get('name_contains', '').strip()
+            if name_contains:
+                filters['name_contains'] = name_contains[:100]  # Limit length
+            
+            # Verification status filter
+            is_verified = request.form.get('is_verified', '').strip()
+            if is_verified == 'true':
+                filters['is_verified'] = True
+            elif is_verified == 'false':
+                filters['is_verified'] = False
+            
+            # Serving-specific filters
+            # Unit filter
+            unit = request.form.get('unit', '').strip()
+            if unit:
+                filters['unit'] = unit[:20]  # Limit length
+            
+            # Serving name search filter
+            serving_name_contains = request.form.get('serving_name_contains', '').strip()
+            if serving_name_contains:
+                filters['serving_name_contains'] = serving_name_contains[:100]  # Limit length
+            
+            # Grams per unit range filters
+            grams_min = request.form.get('grams_min', '').strip()
+            if grams_min:
+                try:
+                    filters['grams_min'] = float(grams_min)
+                except ValueError:
+                    pass  # Invalid number, ignore
+            
+            grams_max = request.form.get('grams_max', '').strip()
+            if grams_max:
+                try:
+                    filters['grams_max'] = float(grams_max)
+                except ValueError:
+                    pass  # Invalid number, ignore
+            
+            # Date range filters
+            created_after = request.form.get('created_after', '').strip()
+            if created_after:
+                try:
+                    # Validate date format
+                    datetime.strptime(created_after, '%Y-%m-%d')
+                    filters['created_after'] = created_after
+                except ValueError:
+                    pass  # Invalid date, ignore
+            
+            created_before = request.form.get('created_before', '').strip()
+            if created_before:
+                try:
+                    # Validate date format and add time component
+                    datetime.strptime(created_before, '%Y-%m-%d')
+                    filters['created_before'] = created_before + ' 23:59:59'
+                except ValueError:
+                    pass  # Invalid date, ignore
+            
+            # Start async export
+            try:
+                job_id = export_service.start_export(
+                    format_type=format_type,
+                    filters=filters,
+                    user_id=current_user.id
+                )
+                
+                # Security: Log export job started
+                current_app.logger.info(
+                    f"[AUDIT] Serving export job {job_id} started for user {current_user.id} "
+                    f"with filters: {json.dumps(filters, default=str)}"
+                )
+                
+                flash(
+                    f'Export started successfully! Job ID: {job_id}. '
+                    f'You can monitor progress in the Export Jobs section.',
+                    'success'
+                )
+                return redirect(url_for('admin.export_jobs'))
+                
+            except Exception as e:
+                current_app.logger.error(f'Error starting serving export: {str(e)}', exc_info=True)
+                flash('Failed to start export. Please try again.', 'danger')
+                return redirect(url_for('admin.export_servings_page'))
+                
+    except Exception as e:
+        current_app.logger.error(
+            f'[SECURITY] Error in export servings page for user {current_user.id}: {str(e)}',
             exc_info=True
         )
         flash('An error occurred. Please try again.', 'danger')

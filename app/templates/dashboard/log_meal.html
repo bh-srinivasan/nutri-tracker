@@ -113,19 +113,34 @@
 
             <!-- Unit of Measure and Serving Size Selection -->
             <div id="servingSizeSection" class="mb-4" style="display: none">
-              <label class="form-label fw-bold">Select Unit Type and Serving Size</label>
-              <div class="row">
-                <div class="col-md-6">
-                  {{ form.unit_type.label(class="form-label") }}
-                  {{ form.unit_type(class="form-select", id="unitTypeSelect") }}
+              <label class="form-label fw-bold">Enter Quantity</label>
+              
+              <!-- Toggle Control for Servings vs Grams -->
+              <div class="row mb-3">
+                <div class="col-12">
+                  <div class="btn-group w-100" role="group" aria-label="Unit type toggle">
+                    <input type="radio" class="btn-check" name="unit-toggle" id="servings-toggle" checked>
+                    <label class="btn btn-outline-primary" for="servings-toggle">
+                      <i class="fas fa-utensils me-2"></i>Servings
+                    </label>
+                    
+                    <input type="radio" class="btn-check" name="unit-toggle" id="grams-toggle">
+                    <label class="btn btn-outline-primary" for="grams-toggle">
+                      <i class="fas fa-balance-scale me-2"></i>Grams
+                    </label>
+                  </div>
                   <div class="form-text">
                     <i class="fas fa-info-circle me-1"></i>
-                    Choose between grams or serving sizes
+                    Choose between predefined servings or custom grams
                   </div>
                 </div>
-                <div class="col-md-6" id="servingSelectContainer" style="display: none">
-                  <label for="servingSelect" class="form-label">Serving Size</label>
-                  <select class="form-select" id="servingSelect" name="serving_select">
+              </div>
+
+              <!-- Servings Mode -->
+              <div id="servings-mode" class="row">
+                <div class="col-md-6">
+                  <label for="serving-id" class="form-label">Serving Size</label>
+                  <select class="form-select" id="serving-id" name="serving_id">
                     <option value="">Choose serving size...</option>
                   </select>
                   <div class="form-text">
@@ -133,33 +148,53 @@
                     Select from available serving sizes
                   </div>
                 </div>
-              </div>
-              {{ form.serving_id(style="display: none;") }}
-            </div>
-
-            <!-- Quantity Input (Always Enabled) -->
-            <div class="row">
-              <div class="col-md-6">
-                <div class="mb-3">
-                  {{ form.quantity.label(class="form-label fw-bold") }}
+                <div class="col-md-6">
+                  <label for="serving-quantity" class="form-label">Quantity</label>
                   <div class="input-group">
-                    {{ form.quantity(class="form-control" + (" is-invalid" if form.quantity.errors else ""), 
-                                   id="quantity", placeholder="Enter quantity", step="0.1", min="0.1") }}
-                    <span class="input-group-text" id="quantityUnit">grams</span>
+                    <input type="number" class="form-control" id="serving-quantity" 
+                           placeholder="1.0" step="0.1" min="0.1" value="1.0">
+                    <span class="input-group-text" id="serving-unit">servings</span>
                   </div>
-                  {% if form.quantity.errors %}
-                  <div class="invalid-feedback">
-                    {% for error in form.quantity.errors %}
-                    <span>{{ error }}</span>
-                    {% endfor %}
-                  </div>
-                  {% endif %}
                   <div class="form-text">
-                    <i class="fas fa-balance-scale me-1"></i>
-                    Enter a positive number (supports decimals)
+                    <i class="fas fa-calculator me-1"></i>
+                    <span id="grams-equivalent">Select a serving to see grams equivalent</span>
                   </div>
                 </div>
               </div>
+
+              <!-- Grams Mode -->
+              <div id="grams-mode" class="row" style="display: none">
+                <div class="col-md-6">
+                  <label for="grams-quantity" class="form-label">Weight</label>
+                  <div class="input-group">
+                    <input type="number" class="form-control" id="grams-quantity" 
+                           placeholder="100" step="0.1" min="0.1">
+                    <span class="input-group-text">grams</span>
+                  </div>
+                  <div class="form-text">
+                    <i class="fas fa-balance-scale me-1"></i>
+                    Enter weight in grams (supports decimals)
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="mt-4 pt-2">
+                    <div class="badge bg-info fs-6" id="serving-equivalent">
+                      Enter grams to see serving equivalent
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Hidden form fields for backend -->
+              {{ form.unit_type(style="display: none;") }}
+              {{ form.serving_id(style="display: none;") }}
+            </div>
+
+            <!-- Quantity Input (Hidden - now handled in the toggle section above) -->
+            {{ form.quantity(style="display: none;") }}
+
+            <!-- Meal Type and Date -->
+            <div class="row">
               <div class="col-md-6">
                 <div class="mb-3">
                   {{ form.meal_type.label(class="form-label fw-bold") }} 
@@ -173,9 +208,6 @@
                   {% endif %}
                 </div>
               </div>
-            </div>
-
-            <div class="row">
               <div class="col-md-6">
                 <div class="mb-3">
                   {{ form.date.label(class="form-label fw-bold") }} 
@@ -232,7 +264,7 @@
 
             <!-- Submit Button -->
             <div class="d-grid">
-              {{ form.submit(class="btn btn-primary btn-lg", disabled=True, id="submitBtn") }}
+              {{ form.submit(class="btn btn-primary btn-lg", id="submitBtn") }}
             </div>
           </form>
         </div>

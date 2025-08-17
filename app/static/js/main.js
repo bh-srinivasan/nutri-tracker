@@ -665,6 +665,7 @@ NutriTracker.dashboard = {
 // Meal Logging Module
 NutriTracker.logMeal = {
     selectedFood: null,
+    currentMode: 'serving', // 'serving' or 'grams'
 
     /**
      * Initialize meal logging page
@@ -703,10 +704,12 @@ NutriTracker.logMeal = {
         const preselectedQuantity = document.getElementById('preselected-quantity');
         if (preselectedQuantity) {
             try {
+                console.log(`Debug: Found preselected-quantity element with content: "${preselectedQuantity.textContent}"`);
                 const quantity = JSON.parse(preselectedQuantity.textContent);
-                const qtyInput = document.getElementById('quantity') || document.getElementById('quantityInput');
-                if (qtyInput && quantity) {
-                    qtyInput.value = quantity;
+                console.log(`Debug: Parsed preselected quantity as: ${quantity}`);
+                if (quantity) {
+                    // Set the appropriate input based on current mode
+                    this.setQuantityValue(quantity);
                     this.updateNutritionPreview();
                     this.updateSubmitButton();
                 }
@@ -717,17 +720,150 @@ NutriTracker.logMeal = {
 
         // Set up event listeners
         this.setupEventListeners();
+        
+        // Initialize toggle state
+        this.initializeToggle();
+        
+        // Ensure submit button state is correct on load
+        this.updateSubmitButton();
+    },
+
+    /**
+     * Initialize the serving/grams toggle
+     */
+    initializeToggle: function() {
+        const servingsToggle = document.getElementById('servings-toggle');
+        const gramsToggle = document.getElementById('grams-toggle');
+        
+        if (servingsToggle && gramsToggle) {
+            servingsToggle.addEventListener('change', () => {
+                if (servingsToggle.checked) {
+                    this.switchToServingMode();
+                }
+            });
+            
+            gramsToggle.addEventListener('change', () => {
+                if (gramsToggle.checked) {
+                    this.switchToGramsMode();
+                }
+            });
+        }
+        
+        // Start in serving mode by default
+        this.switchToServingMode();
+    },
+
+    /**
+     * Switch to serving mode
+     */
+    switchToServingMode: function() {
+        this.currentMode = 'serving';
+        
+        const servingsMode = document.getElementById('servings-mode');
+        const gramsMode = document.getElementById('grams-mode');
+        const unitTypeField = document.getElementById('unit_type');
+        
+        if (servingsMode) servingsMode.style.display = 'block';
+        if (gramsMode) gramsMode.style.display = 'none';
+        if (unitTypeField) unitTypeField.value = 'serving';
+        
+        this.updateEquivalentDisplays();
+        this.updateNutritionPreview();
+        this.updateHiddenQuantityField(); // Update hidden field
+        this.updateSubmitButton();
+    },
+
+    /**
+     * Switch to grams mode  
+     */
+    switchToGramsMode: function() {
+        this.currentMode = 'grams';
+        
+        const servingsMode = document.getElementById('servings-mode');
+        const gramsMode = document.getElementById('grams-mode');
+        const unitTypeField = document.getElementById('unit_type');
+        
+        if (servingsMode) servingsMode.style.display = 'none';
+        if (gramsMode) gramsMode.style.display = 'block';
+        if (unitTypeField) unitTypeField.value = 'grams';
+        
+        this.updateEquivalentDisplays();
+        this.updateNutritionPreview();
+        this.updateHiddenQuantityField(); // Update hidden field
+        this.updateSubmitButton();
+    },
+
+    /**
+     * Set quantity value based on current mode
+     */
+    setQuantityValue: function(value) {
+        console.log(`Debug: setQuantityValue called with value = ${value}`);
+        if (this.currentMode === 'serving') {
+            const servingQuantity = document.getElementById('serving-quantity');
+            if (servingQuantity) {
+                console.log(`Debug: Setting serving-quantity from ${servingQuantity.value} to ${value}`);
+                servingQuantity.value = value;
+            }
+        } else {
+            const gramsQuantity = document.getElementById('grams-quantity');
+            if (gramsQuantity) gramsQuantity.value = value;
+        }
+        this.updateEquivalentDisplays();
     },
 
     /**
      * Set up event listeners for meal logging
      */
     setupEventListeners: function() {
-        // Quantity input changes - resilient selector
-        const quantityInput = document.getElementById('quantity') || document.getElementById('quantityInput');
-        if (quantityInput) {
-            quantityInput.addEventListener('input', () => {
+        // Serving quantity input changes
+        const servingQuantityInput = document.getElementById('serving-quantity');
+        if (servingQuantityInput) {
+            servingQuantityInput.addEventListener('input', () => {
+                this.updateEquivalentDisplays();
                 this.updateNutritionPreview();
+                this.updateHiddenQuantityField(); // Update hidden field
+                this.updateSubmitButton();
+            });
+        }
+
+        // Grams quantity input changes
+        const gramsQuantityInput = document.getElementById('grams-quantity');
+        if (gramsQuantityInput) {
+            gramsQuantityInput.addEventListener('input', () => {
+                this.updateEquivalentDisplays();
+                this.updateNutritionPreview();
+                this.updateHiddenQuantityField(); // Update hidden field
+                this.updateSubmitButton();
+            });
+        }
+
+        // Serving selection changes - UNIFIED to use #serving-id
+        const servingSelect = document.getElementById('serving-id');
+        if (servingSelect) {
+            servingSelect.addEventListener('change', () => {
+                console.log('Serving dropdown changed, value:', servingSelect.value);
+                const selectedServing = this.getSelectedServing();
+                console.log('Selected serving object:', selectedServing);
+                
+                if (selectedServing) {
+                    // Update hidden serving ID field
+                    const servingIdField = document.getElementById('serving_id');
+                    if (servingIdField) {
+                        servingIdField.value = selectedServing.id;
+                        console.log('Updated hidden serving_id field to:', selectedServing.id);
+                    }
+                    
+                    // Update serving unit display
+                    const servingUnit = document.getElementById('serving-unit');
+                    if (servingUnit) {
+                        servingUnit.textContent = selectedServing.unit + 's';
+                        console.log('Updated serving unit display to:', selectedServing.unit + 's');
+                    }
+                }
+                
+                this.updateEquivalentDisplays();
+                this.updateNutritionPreview();
+                this.updateHiddenQuantityField(); // Update hidden field
                 this.updateSubmitButton();
             });
         }
@@ -774,6 +910,12 @@ NutriTracker.logMeal = {
 
         // Initialize submit button state
         this.updateSubmitButton();
+
+        // Form submission handler
+        const mealLogForm = document.getElementById('mealLogForm');
+        if (mealLogForm) {
+            mealLogForm.addEventListener('submit', (event) => this.handleFormSubmit(event));
+        }
     },
 
     /**
@@ -862,6 +1004,10 @@ NutriTracker.logMeal = {
         const foodIdInput = document.getElementById('food_id');
         if (foodIdInput) foodIdInput.value = id;
         
+        // Set a default quantity value to prevent HTML5 validation error
+        const quantityInput = document.getElementById('quantity');
+        if (quantityInput) quantityInput.value = '100'; // Default 100g
+        
         // Update selected food display
         this.updateSelectedFoodDisplay(name, brand, description, calories, protein, carbs, fat, imageUrl);
         
@@ -872,11 +1018,226 @@ NutriTracker.logMeal = {
         const searchInput = document.getElementById('foodSearch');
         if (searchInput) searchInput.value = '';
         
+        // Load serving data for this food
+        this.loadServingData(id);
+        
+        // Show serving size section
+        const servingSizeSection = document.getElementById('servingSizeSection');
+        if (servingSizeSection) servingSizeSection.style.display = 'block';
+        
         // Calculate nutrition preview if quantity is set
         this.updateNutritionPreview();
         
         // Enable submit button when food is selected
         this.updateSubmitButton();
+    },
+
+    /**
+     * Load serving data for a food - UNIFIED IMPLEMENTATION
+     */
+    /**
+     * Load serving data for a food - UNIFIED IMPLEMENTATION
+     */
+    loadServingData: function(foodId) {
+        console.debug(`Loading serving data for food ID: ${foodId}`);
+        
+        // Show loading state
+        const servingSelect = document.getElementById('serving-id');
+        if (servingSelect) {
+            servingSelect.innerHTML = '<option value="">Loading servings...</option>';
+        }
+        
+        // Fetch real serving data from API with authentication
+        fetch(`/api/foods/${foodId}/servings`, { 
+            credentials: 'same-origin' 
+        })
+            .then(response => {
+                console.debug(`API response status: ${response.status}`);
+                if (!response.ok) {
+                    console.error(`HTTP error! status: ${response.status}`);
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.debug('API response data:', data);
+                
+                if (data.servings && data.servings.length > 0) {
+                    // Map API response to internal format
+                    const servings = data.servings.map(s => ({
+                        id: s.id,
+                        serving_name: s.description,
+                        unit: s.unit_type,
+                        grams_per_unit: s.size_in_grams,
+                        is_default: !!s.is_default
+                    }));
+                    
+                    console.debug(`Mapped ${servings.length} servings`);
+                    
+                    // Store servings and API data in selected food
+                    if (this.selectedFood) {
+                        this.selectedFood.servings = servings;
+                        this.selectedFood.default_serving_id = data.default_serving_id;
+                    }
+                    
+                    // Populate serving dropdown with default selection
+                    this.populateServingDropdown(servings, data.default_serving_id);
+                } else {
+                    console.warn('No servings data received from API');
+                    this.createFallbackServings();
+                }
+            })
+            .catch(error => {
+                console.error('Error loading serving data:', error);
+                this.createFallbackServings();
+            });
+    },
+
+    /**
+     * Create fallback servings when API fails
+     */
+    createFallbackServings: function() {
+        console.debug('Creating fallback servings due to API failure');
+        
+        const fallbackServings = [
+            { id: 1, serving_name: '100g', unit: 'g', grams_per_unit: 100, is_default: false },
+            { id: 2, serving_name: '1 cup', unit: 'cup', grams_per_unit: 240, is_default: false },
+            { id: 3, serving_name: '1 piece', unit: 'piece', grams_per_unit: 100, is_default: false }
+        ];
+        
+        if (this.selectedFood) {
+            this.selectedFood.servings = fallbackServings;
+        }
+        
+        this.populateServingDropdown(fallbackServings, null);
+        
+        // Show a warning to user
+        const servingSelect = document.getElementById('serving-id');
+        if (servingSelect && servingSelect.parentNode) {
+            const warning = document.createElement('div');
+            warning.className = 'text-warning small mt-1';
+            warning.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Using default servings - some serving sizes may not be available';
+            warning.id = 'serving-warning';
+            
+            // Remove any existing warning
+            const existingWarning = document.getElementById('serving-warning');
+            if (existingWarning) {
+                existingWarning.remove();
+            }
+            
+            servingSelect.parentNode.appendChild(warning);
+        }
+    },
+
+    /**
+     * Populate serving dropdown with options - UNIFIED IMPLEMENTATION
+     */
+    /**
+     * Populate serving dropdown with proper default selection - UNIFIED IMPLEMENTATION
+     */
+    populateServingDropdown: function(servings, defaultServingId) {
+        const servingSelect = document.getElementById('serving-id');
+        if (!servingSelect) {
+            console.error('Serving dropdown not found with ID: serving-id');
+            return;
+        }
+        
+        console.debug(`Populating dropdown with ${servings.length} servings`);
+        
+        // Clear and add placeholder option
+        servingSelect.innerHTML = '<option value="" disabled selected>Choose serving size...</option>';
+        
+        // Add serving options
+        servings.forEach((serving, index) => {
+            const option = document.createElement('option');
+            option.value = serving.id;
+            option.textContent = `${serving.serving_name} (${serving.grams_per_unit}g)`;
+            option.dataset.gramsPerUnit = serving.grams_per_unit;
+            option.dataset.unit = serving.unit;
+            option.dataset.servingName = serving.serving_name;
+            servingSelect.appendChild(option);
+        });
+        
+        // Auto-select default serving with priority logic
+        let selectedServing = null;
+        
+        // Priority 1: Look for serving marked as is_default
+        selectedServing = servings.find(s => s.is_default === true);
+        
+        // Priority 2: Use default_serving_id from API response
+        if (!selectedServing && defaultServingId) {
+            selectedServing = servings.find(s => s.id === defaultServingId);
+        }
+        
+        // Priority 3: Fall back to first serving
+        if (!selectedServing && servings.length > 0) {
+            selectedServing = servings[0];
+        }
+        
+        if (selectedServing) {
+            servingSelect.value = selectedServing.id;
+            console.debug(`Default selection made: ${selectedServing.serving_name}`);
+            
+            // Update hidden serving ID field
+            const servingIdField = document.getElementById('serving_id');
+            if (servingIdField) servingIdField.value = selectedServing.id;
+            
+            // Update serving unit display  
+            const servingUnit = document.getElementById('serving-unit');
+            if (servingUnit) servingUnit.textContent = selectedServing.unit + 's';
+            
+            // Trigger updates
+            this.updateEquivalentDisplays();
+            this.updateNutritionPreview();
+            this.updateHiddenQuantityField();
+            this.updateSubmitButton();
+        }
+    },
+
+    /**
+     * Update equivalent displays for both modes - UNIFIED IMPLEMENTATION
+     */
+    updateEquivalentDisplays: function() {
+        if (this.currentMode === 'serving') {
+            this.updateGramsEquivalent();
+        } else {
+            this.updateServingEquivalent();
+        }
+    },
+
+    /**
+     * Update grams equivalent display - UNIFIED IMPLEMENTATION
+     */
+    updateGramsEquivalent: function() {
+        const servingQuantity = document.getElementById('serving-quantity');
+        const gramsEquivalent = document.getElementById('grams-equivalent');
+        const selectedServing = this.getSelectedServing();
+        
+        if (!servingQuantity || !gramsEquivalent || !selectedServing) return;
+        
+        const quantity = parseFloat(servingQuantity.value) || 0;
+        const totalGrams = quantity * selectedServing.grams_per_unit;
+        
+        gramsEquivalent.textContent = `≈ ${totalGrams.toFixed(1)}g`;
+    },
+
+    /**
+     * Update serving equivalent display - UNIFIED IMPLEMENTATION
+     */
+    updateServingEquivalent: function() {
+        const gramsQuantity = document.getElementById('grams-quantity');
+        const servingEquivalent = document.getElementById('serving-equivalent');
+        
+        if (!gramsQuantity || !servingEquivalent || !this.selectedFood || !this.selectedFood.servings) return;
+        
+        const grams = parseFloat(gramsQuantity.value) || 0;
+        
+        // Use the first serving as reference for conversion
+        const referenceServing = this.selectedFood.servings[0];
+        if (referenceServing) {
+            const servingQuantity = grams / referenceServing.grams_per_unit;
+            servingEquivalent.textContent = `≈ ${servingQuantity.toFixed(2)} ${referenceServing.serving_name}`;
+        }
     },
 
     /**
@@ -927,22 +1288,49 @@ NutriTracker.logMeal = {
     updateNutritionPreview: function() {
         if (!this.selectedFood) return;
         
-        const quantityInput = document.getElementById('quantity') || document.getElementById('quantityInput');
-        const quantity = quantityInput ? parseFloat(quantityInput.value) || 0 : 0;
-        
         const previewDiv = document.getElementById('nutritionPreview');
         if (!previewDiv) return;
 
-        if (quantity <= 0) {
+        let totalGrams = 0;
+
+        if (this.currentMode === 'serving') {
+            const servingQuantityInput = document.getElementById('serving-quantity');
+            const selectedServing = this.getSelectedServing();
+            
+            if (servingQuantityInput && selectedServing) {
+                const servingQuantity = parseFloat(servingQuantityInput.value) || 0;
+                console.log(`Debug: Serving quantity input value = "${servingQuantityInput.value}" -> parsed as ${servingQuantity}`);
+                console.log(`Debug: Selected serving grams per unit = ${selectedServing.grams_per_unit}`);
+                totalGrams = servingQuantity * selectedServing.grams_per_unit;
+                console.log(`Serving calculation: ${servingQuantity} × ${selectedServing.grams_per_unit}g = ${totalGrams}g`);
+            }
+        } else {
+            const gramsQuantityInput = document.getElementById('grams-quantity');
+            if (gramsQuantityInput) {
+                totalGrams = parseFloat(gramsQuantityInput.value) || 0;
+                console.log(`Grams calculation: ${totalGrams}g`);
+            }
+        }
+
+        if (totalGrams <= 0) {
             previewDiv.style.display = 'none';
             return;
         }
         
-        const multiplier = quantity / 100;
+        // Calculate nutrition based on per-100g values
+        const multiplier = totalGrams / 100;
+        console.log(`Nutrition calculation: ${totalGrams}g ÷ 100 = ${multiplier} multiplier`);
+        console.log(`Food nutrition per 100g: ${this.selectedFood.calories} cal, ${this.selectedFood.protein}g protein`);
+        
+        const calculatedCalories = this.selectedFood.calories * multiplier;
+        const calculatedProtein = this.selectedFood.protein * multiplier;
+        
+        console.log(`Final calculation: ${this.selectedFood.calories} × ${multiplier} = ${calculatedCalories} calories`);
+        console.log(`Final calculation: ${this.selectedFood.protein} × ${multiplier} = ${calculatedProtein} protein`);
         
         const previewElements = {
-            previewCalories: Math.round(this.selectedFood.calories * multiplier),
-            previewProtein: (this.selectedFood.protein * multiplier).toFixed(1) + 'g',
+            previewCalories: Math.round(calculatedCalories),
+            previewProtein: calculatedProtein.toFixed(1) + 'g',
             previewCarbs: (this.selectedFood.carbs * multiplier).toFixed(1) + 'g',
             previewFat: (this.selectedFood.fat * multiplier).toFixed(1) + 'g'
         };
@@ -955,6 +1343,48 @@ NutriTracker.logMeal = {
         previewDiv.style.display = 'block';
     },
 
+    
+    /**
+     * Get the currently selected serving
+     */
+    getSelectedServing: function() {
+        const servingSelect = document.getElementById('serving-id');
+        if (!servingSelect || !servingSelect.value) return null;
+        
+        const servingId = parseInt(servingSelect.value);
+        return this.selectedFood && this.selectedFood.servings ? 
+               this.selectedFood.servings.find(s => s.id === servingId) : null;
+    },
+
+    /**
+     * Update the hidden quantity field with the calculated grams value
+     */
+    updateHiddenQuantityField: function() {
+        const quantityInput = document.getElementById('quantity');
+        if (!quantityInput) return;
+        
+        let totalGrams = 0;
+        
+        if (this.currentMode === 'serving') {
+            const servingQuantityInput = document.getElementById('serving-quantity');
+            const selectedServing = this.getSelectedServing();
+            
+            if (servingQuantityInput && selectedServing) {
+                const servingQuantity = parseFloat(servingQuantityInput.value) || 0;
+                totalGrams = servingQuantity * selectedServing.grams_per_unit;
+            }
+        } else {
+            const gramsQuantityInput = document.getElementById('grams-quantity');
+            if (gramsQuantityInput) {
+                totalGrams = parseFloat(gramsQuantityInput.value) || 0;
+            }
+        }
+        
+        // Always update the hidden field, even if 0
+        quantityInput.value = totalGrams;
+        console.log('Updated hidden quantity field to:', totalGrams, 'grams');
+    },
+
     /**
      * Update submit button state based on form validity
      */
@@ -965,10 +1395,19 @@ NutriTracker.logMeal = {
         // Check if food is selected
         const hasFoodSelected = this.selectedFood && this.selectedFood.id;
         
-        // Check if quantity is valid
-        const quantityInput = document.getElementById('quantity') || document.getElementById('quantityInput');
-        const quantity = quantityInput ? parseFloat(quantityInput.value) || 0 : 0;
-        const hasValidQuantity = quantity > 0;
+        // Check if quantity is valid based on current mode
+        let hasValidQuantity = false;
+        
+        if (this.currentMode === 'serving') {
+            const servingQuantity = document.getElementById('serving-quantity');
+            const selectedServing = this.getSelectedServing();
+            const quantity = servingQuantity ? parseFloat(servingQuantity.value) || 0 : 0;
+            hasValidQuantity = quantity > 0 && selectedServing;
+        } else {
+            const gramsQuantity = document.getElementById('grams-quantity');
+            const quantity = gramsQuantity ? parseFloat(gramsQuantity.value) || 0 : 0;
+            hasValidQuantity = quantity > 0;
+        }
         
         // Check if meal type is selected
         const mealTypeSelect = document.getElementById('meal_type');
@@ -983,11 +1422,115 @@ NutriTracker.logMeal = {
         if (!hasFoodSelected) {
             submitBtn.textContent = 'Select a Food First';
         } else if (!hasValidQuantity) {
-            submitBtn.textContent = 'Enter Quantity';
+            if (this.currentMode === 'serving') {
+                if (!this.getSelectedServing()) {
+                    submitBtn.textContent = 'Select Serving Size';
+                } else {
+                    submitBtn.textContent = 'Enter Serving Quantity';
+                }
+            } else {
+                submitBtn.textContent = 'Enter Weight in Grams';
+            }
         } else if (!hasMealType) {
             submitBtn.textContent = 'Select Meal Type';
         } else {
             submitBtn.textContent = 'Log Meal';
         }
+    },
+
+    /**
+     * Handle form submission
+     */
+    handleFormSubmit: function(event) {
+        console.log('Form submit event triggered');
+        
+        // Don't prevent default - let Flask handle the form submission
+        // But update the hidden form fields first
+        
+        if (!this.selectedFood || !this.selectedFood.id) {
+            event.preventDefault();
+            console.log('No food selected - preventing submission');
+            alert('Please select a food item first.');
+            return;
+        }
+        
+        console.log('Selected food:', this.selectedFood);
+        
+        // Get form data based on current mode
+        let quantityGrams;
+        let servingId = null;
+        let unitType = this.currentMode;
+        
+        console.log('Current mode:', unitType);
+        
+        if (this.currentMode === 'serving') {
+            const servingQuantity = document.getElementById('serving-quantity');
+            const selectedServing = this.getSelectedServing();
+            
+            console.log('Serving quantity element:', servingQuantity);
+            console.log('Selected serving:', selectedServing);
+            
+            if (!selectedServing || !servingQuantity || parseFloat(servingQuantity.value) <= 0) {
+                event.preventDefault();
+                console.log('Invalid serving data - preventing submission');
+                alert('Please select a serving size and enter a valid quantity.');
+                return;
+            }
+            
+            const quantity = parseFloat(servingQuantity.value);
+            quantityGrams = quantity * selectedServing.grams_per_unit;
+            servingId = selectedServing.id;
+            
+            console.log('Calculated grams from serving:', quantityGrams);
+        } else {
+            const gramsQuantity = document.getElementById('grams-quantity');
+            
+            if (!gramsQuantity || parseFloat(gramsQuantity.value) <= 0) {
+                event.preventDefault();
+                console.log('Invalid grams quantity - preventing submission');
+                alert('Please enter a valid weight in grams.');
+                return;
+            }
+            
+            quantityGrams = parseFloat(gramsQuantity.value);
+            console.log('Grams quantity:', quantityGrams);
+        }
+        
+        const mealTypeSelect = document.getElementById('meal_type');
+        if (!mealTypeSelect || !mealTypeSelect.value) {
+            event.preventDefault();
+            console.log('No meal type selected - preventing submission');
+            alert('Please select a meal type.');
+            return;
+        }
+        
+        console.log('Meal type:', mealTypeSelect.value);
+        
+        // Update hidden form fields before submission
+        const foodIdInput = document.getElementById('food_id');
+        const quantityInput = document.getElementById('quantity');
+        const unitTypeInput = document.getElementById('unit_type');
+        const servingIdInput = document.getElementById('serving_id');
+        
+        console.log('Updating hidden fields...');
+        if (foodIdInput) {
+            foodIdInput.value = this.selectedFood.id;
+            console.log('Set food_id to:', this.selectedFood.id);
+        }
+        if (quantityInput) {
+            quantityInput.value = quantityGrams;
+            console.log('Set quantity to:', quantityGrams);
+        }
+        if (unitTypeInput) {
+            unitTypeInput.value = unitType;
+            console.log('Set unit_type to:', unitType);
+        }
+        if (servingIdInput && servingId) {
+            servingIdInput.value = servingId;
+            console.log('Set serving_id to:', servingId);
+        }
+        
+        console.log('Form validation passed - allowing submission');
+        // Let the form submit normally
     }
 };
