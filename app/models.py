@@ -401,16 +401,104 @@ class FoodServing(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'))  # Optional user reference
     
-    # Constraints
+    # Enhanced constraints
     __table_args__ = (
         db.UniqueConstraint('food_id', 'serving_name', 'unit', name='uq_food_serving_name_unit'),
-        db.CheckConstraint('grams_per_unit > 0', name='ck_grams_per_unit_positive'),
+        db.CheckConstraint('grams_per_unit > 0 AND grams_per_unit <= 2000', name='ck_grams_per_unit_range'),
         db.Index('ix_food_serving_food_id', 'food_id'),
     )
     
     # Relationships
     food = db.relationship('Food', backref=db.backref('servings', lazy='dynamic'), foreign_keys=[food_id])
     creator = db.relationship('User', backref='created_servings')
+    
+    @staticmethod
+    def validate_grams_per_unit(grams):
+        """Validate grams per unit value."""
+        if grams is None:
+            return False, "Grams per unit is required"
+        
+        try:
+            grams_float = float(grams)
+        except (ValueError, TypeError):
+            return False, "Grams per unit must be a valid number"
+        
+        if grams_float <= 0:
+            return False, "Grams per unit must be greater than 0"
+        
+        if grams_float < 0.1:
+            return False, "Grams per unit must be at least 0.1 grams"
+        
+        if grams_float > 2000:
+            return False, "Grams per unit cannot exceed 2000 grams"
+        
+        return True, None
+    
+    @staticmethod
+    def validate_serving_name(serving_name):
+        """Validate serving name."""
+        if not serving_name or not serving_name.strip():
+            return False, "Serving name is required"
+        
+        serving_name = serving_name.strip()
+        
+        if len(serving_name) < 2:
+            return False, "Serving name must be at least 2 characters long"
+        
+        if len(serving_name) > 50:
+            return False, "Serving name cannot exceed 50 characters"
+        
+        return True, None
+    
+    @staticmethod
+    def validate_unit(unit):
+        """Validate unit field."""
+        if not unit or not unit.strip():
+            return False, "Unit is required"
+        
+        unit = unit.strip()
+        
+        if len(unit) < 1:
+            return False, "Unit must be at least 1 character long"
+        
+        if len(unit) > 20:
+            return False, "Unit cannot exceed 20 characters"
+        
+        return True, None
+    
+    @staticmethod
+    def check_duplicate(food_id, serving_name, unit, serving_id=None):
+        """Check if a serving with same food_id, serving_name, and unit already exists."""
+        query = FoodServing.query.filter_by(
+            food_id=food_id,
+            serving_name=serving_name.strip(),
+            unit=unit.strip()
+        )
+        
+        # Exclude current serving when editing
+        if serving_id:
+            query = query.filter(FoodServing.id != serving_id)
+        
+        existing = query.first()
+        return existing is not None
+    
+    @staticmethod
+    def create_default_serving(food_id, created_by=None):
+        """Create a default 100g serving for a food if no servings exist."""
+        existing_servings = FoodServing.query.filter_by(food_id=food_id).count()
+        
+        if existing_servings == 0:
+            default_serving = FoodServing(
+                food_id=food_id,
+                serving_name="100 g",
+                unit="g",
+                grams_per_unit=100.0,
+                created_by=created_by
+            )
+            db.session.add(default_serving)
+            return default_serving
+        
+        return None
     
     def __repr__(self):
         return f'<FoodServing {self.food.name if self.food else "Unknown"} - {self.serving_name}>'

@@ -1,5 +1,8 @@
 {% extends "base.html" %} {% block content %}
 <div class="container my-5">
+  <!-- Food Context for JavaScript -->
+  <div id="food-context" data-food-id="{{ food.id }}"></div>
+  
   <!-- Back to Food Management Button -->
   <div class="row mb-3">
     <div class="col-12">
@@ -227,38 +230,31 @@
                       
                       <!-- Custom Servings -->
                       {% for serving in servings %}
-                      <tr data-serving-id="{{ serving.id }}">
+                      <tr class="serving-row" data-serving-id="{{ serving.id }}">
                         <td class="serving-name">
                           {{ serving.serving_name }}
-                          {% if food.default_serving_id == serving.id %}
-                            <span class="badge bg-primary ms-2">Default</span>
-                          {% endif %}
+                          {% if food.default_serving_id == serving.id %}<span class="badge bg-primary ms-2">Default</span>{% endif %}
                         </td>
                         <td class="serving-unit">{{ serving.unit }}</td>
-                        <td class="serving-grams">{{ serving.grams_per_unit }}</td>
+                        <td class="serving-grams">{{ '%.1f'|format(serving.grams_per_unit) }}</td>
                         <td>
                           {% if food.default_serving_id == serving.id %}
-                            <button class="btn btn-sm btn-outline-secondary" 
-                                    data-serving-id="{{ serving.id }}" title="Unset default">
-                              <i class="fas fa-times me-1"></i>Unset Default
-                            </button>
+                          <button type="button" class="btn btn-sm btn-outline-secondary unset-default-serving-btn" data-serving-id="{{ serving.id }}" title="Unset default">
+                            <i class="fas fa-times me-1" style="pointer-events:none"></i>Unset Default
+                          </button>
                           {% else %}
-                            <button class="btn btn-sm btn-outline-primary" 
-                                    data-serving-id="{{ serving.id }}" title="Set as default">
-                              <i class="fas fa-check me-1"></i>Set Default
-                            </button>
+                          <button type="button" class="btn btn-sm btn-outline-primary set-default-serving-btn" data-serving-id="{{ serving.id }}" title="Set as default">
+                            <i class="fas fa-check me-1" style="pointer-events:none"></i>Set Default
+                          </button>
                           {% endif %}
                         </td>
                         <td>
                           <div class="btn-group btn-group-sm">
-                            <button class="btn btn-outline-secondary edit-serving-btn" 
-                                    data-serving-id="{{ serving.id }}" 
-                                    title="Edit">
-                              <i class="fas fa-edit"></i>
+                            <button type="button" class="btn btn-outline-secondary edit-serving-btn" data-serving-id="{{ serving.id }}" title="Edit">
+                              <i class="fas fa-edit" style="pointer-events:none"></i>
                             </button>
-                            <button class="btn btn-outline-danger delete-serving-btn" 
-                                    data-serving-id="{{ serving.id }}" title="Delete">
-                              <i class="fas fa-trash"></i>
+                            <button type="button" class="btn btn-outline-danger delete-serving-btn" data-serving-id="{{ serving.id }}" title="Delete">
+                              <i class="fas fa-trash" style="pointer-events:none"></i>
                             </button>
                           </div>
                         </td>
@@ -276,37 +272,60 @@
                   </table>
                 </div>
 
-                <!-- Add New Serving Form (outside main form to prevent nesting) -->
+                <!-- Add New Serving Form with Enhanced Validation -->
                 <div class="row mt-3">
                   <div class="col-12">
                     <h6 class="text-muted">Add New Serving</h6>
+                    <div class="alert alert-info alert-dismissible fade show d-none" id="servingValidationInfo">
+                      <i class="fas fa-info-circle me-2"></i>
+                      <strong>Validation Rules:</strong>
+                      <ul class="mb-0 mt-2">
+                        <li>Serving name and unit combination must be unique for this food</li>
+                        <li>Grams per unit must be between 0.1 and 2000 grams</li>
+                        <li>Only one default serving is allowed per food</li>
+                      </ul>
+                      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
                   </div>
                 </div>
                 <form id="add-serving-form">
                   <input type="hidden" data-food-id="{{ food.id }}">
                   <div class="row">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                       <div class="form-group">
                         <label class="form-label">Serving Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm" name="serving_name" 
-                               placeholder="e.g., 1 cup, 1 piece, 1 slice" maxlength="50">
+                               placeholder="e.g., 1 cup, 1 piece, 1 slice" maxlength="50" required>
                         <div class="invalid-feedback" id="servingNameError"></div>
+                        <div class="form-text">2-50 characters</div>
                       </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                       <div class="form-group">
                         <label class="form-label">Unit <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm" name="unit" 
-                               placeholder="e.g., cup, piece, slice" maxlength="20">
+                               placeholder="e.g., cup, piece, slice" maxlength="20" required>
                         <div class="invalid-feedback" id="servingUnitError"></div>
+                        <div class="form-text">1-20 characters</div>
                       </div>
                     </div>
                     <div class="col-md-3">
                       <div class="form-group">
                         <label class="form-label">Grams per unit <span class="text-danger">*</span></label>
                         <input type="number" class="form-control form-control-sm" name="grams_per_unit" 
-                               step="0.1" min="0.1" max="10000" placeholder="e.g., 250">
+                               step="0.1" min="0.1" max="2000" placeholder="e.g., 250" required>
                         <div class="invalid-feedback" id="servingGramsError"></div>
+                        <div class="form-text">0.1 - 2000 grams</div>
+                      </div>
+                    </div>
+                    <div class="col-md-2">
+                      <div class="form-group">
+                        <label class="form-label">Default</label>
+                        <div class="form-check mt-2">
+                          <input type="checkbox" class="form-check-input" name="is_default" id="isDefaultServing">
+                          <label class="form-check-label" for="isDefaultServing">Set as default</label>
+                        </div>
+                        <div class="form-text">Only one default allowed</div>
                       </div>
                     </div>
                     <div class="col-md-2">
@@ -317,6 +336,18 @@
                         </button>
                       </div>
                     </div>
+                  </div>
+                  
+                  <!-- Validation Summary -->
+                  <div class="alert alert-danger d-none mt-3" id="servingValidationError">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <span id="servingErrorMessage"></span>
+                  </div>
+                  
+                  <!-- Success Message -->
+                  <div class="alert alert-success d-none mt-3" id="servingSuccessMessage">
+                    <i class="fas fa-check-circle me-2"></i>
+                    <span id="servingSuccessText"></span>
                   </div>
                 </form>
               </div>
@@ -347,7 +378,7 @@
   </div>
 </div>
 
-<!-- Edit Serving Modal -->
+<!-- Edit Serving Modal with Enhanced Validation -->
 <div class="modal fade" id="editServingModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -356,41 +387,56 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
+        <!-- Validation Info -->
+        <div class="alert alert-info">
+          <i class="fas fa-info-circle me-2"></i>
+          <strong>Validation Rules:</strong> Serving name + unit must be unique, grams must be 0.1-2000
+        </div>
+        
         <form id="editServingForm">
           <input type="hidden" id="editServingId">
           <div class="mb-3">
             <label class="form-label">Serving Name <span class="text-danger">*</span></label>
-            <input type="text" class="form-control" id="editServingName" maxlength="50">
+            <input type="text" class="form-control" id="editServingName" maxlength="50" required>
             <div class="invalid-feedback" id="editServingNameError"></div>
+            <div class="form-text">2-50 characters</div>
           </div>
           <div class="mb-3">
             <label class="form-label">Unit <span class="text-danger">*</span></label>
-            <input type="text" class="form-control" id="editServingUnit" maxlength="20">
+            <input type="text" class="form-control" id="editServingUnit" maxlength="20" required>
             <div class="invalid-feedback" id="editServingUnitError"></div>
+            <div class="form-text">1-20 characters</div>
           </div>
           <div class="mb-3">
             <label class="form-label">Grams per unit <span class="text-danger">*</span></label>
-            <input type="number" class="form-control" id="editServingGrams" step="0.1" min="0.1" max="10000">
+            <input type="number" class="form-control" id="editServingGrams" step="0.1" min="0.1" max="2000" required>
             <div class="invalid-feedback" id="editServingGramsError"></div>
+            <div class="form-text">0.1 - 2000 grams</div>
+          </div>
+          <div class="mb-3">
+            <div class="form-check">
+              <input type="checkbox" class="form-check-input" id="editIsDefault">
+              <label class="form-check-label" for="editIsDefault">Set as default serving</label>
+            </div>
+            <div class="form-text">Only one default serving allowed per food</div>
+          </div>
+          
+          <!-- Error/Success Messages -->
+          <div class="alert alert-danger d-none" id="editServingError">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <span id="editServingErrorMessage"></span>
           </div>
         </form>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-primary" id="updateServingBtn">Update Serving</button>
+        <button type="button" class="btn btn-primary" id="updateServingBtn">
+          <i class="fas fa-save me-2"></i>Update Serving
+        </button>
       </div>
     </div>
   </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    if (typeof Admin !== 'undefined' && Admin.foods && Admin.foods.servings) {
-        Admin.foods.servings.bindEvents();
-    }
-});
-</script>
-
 {% endblock %}
 
 {% block scripts %}

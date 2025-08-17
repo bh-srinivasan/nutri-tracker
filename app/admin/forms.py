@@ -1,7 +1,7 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, FloatField, SelectField, TextAreaField, BooleanField, SubmitField, PasswordField
+from wtforms import StringField, FloatField, SelectField, TextAreaField, BooleanField, SubmitField, PasswordField, HiddenField
 from wtforms.validators import DataRequired, Length, NumberRange, Email, EqualTo, ValidationError, Optional
-from app.models import User, Food
+from app.models import User, Food, FoodServing
 
 class FoodForm(FlaskForm):
     """Form for adding/editing food items."""
@@ -178,3 +178,98 @@ class BulkFoodUploadForm(FlaskForm):
         Length(min=10, message='CSV data is too short')
     ], render_kw={'rows': 10, 'placeholder': 'name,brand,category,calories,protein,carbs,fat,fiber,sugar,sodium,serving_size'})
     submit = SubmitField('Upload Foods')
+
+class FoodServingForm(FlaskForm):
+    """Form for adding/editing food servings with comprehensive validation."""
+    food_id = HiddenField('Food ID', validators=[DataRequired()])
+    serving_name = StringField('Serving Name', validators=[
+        DataRequired(message='Serving name is required'), 
+        Length(min=2, max=50, message='Serving name must be between 2 and 50 characters')
+    ], render_kw={
+        'placeholder': 'e.g., 1 cup, 1 piece, 1 slice',
+        'maxlength': '50'
+    })
+    unit = StringField('Unit', validators=[
+        DataRequired(message='Unit is required'), 
+        Length(min=1, max=20, message='Unit must be between 1 and 20 characters')
+    ], render_kw={
+        'placeholder': 'e.g., cup, piece, slice',
+        'maxlength': '20'
+    })
+    grams_per_unit = FloatField('Grams per Unit', validators=[
+        DataRequired(message='Grams per unit is required'),
+        NumberRange(min=0.1, max=2000, message='Grams per unit must be between 0.1 and 2000 grams')
+    ], render_kw={
+        'step': '0.1',
+        'min': '0.1',
+        'max': '2000',
+        'placeholder': 'e.g., 250'
+    })
+    is_default = BooleanField('Set as Default Serving', default=False)
+    submit = SubmitField('Add Serving')
+
+    def __init__(self, food_id=None, serving_id=None, *args, **kwargs):
+        super(FoodServingForm, self).__init__(*args, **kwargs)
+        self.food_id_value = food_id
+        self.serving_id = serving_id
+        if food_id:
+            self.food_id.data = food_id
+
+    def validate_serving_name(self, serving_name):
+        """Validate serving name using model method."""
+        is_valid, message = FoodServing.validate_serving_name(serving_name.data)
+        if not is_valid:
+            raise ValidationError(message)
+
+    def validate_unit(self, unit):
+        """Validate unit using model method."""
+        is_valid, message = FoodServing.validate_unit(unit.data)
+        if not is_valid:
+            raise ValidationError(message)
+
+    def validate_grams_per_unit(self, grams_per_unit):
+        """Validate grams per unit using model method."""
+        is_valid, message = FoodServing.validate_grams_per_unit(grams_per_unit.data)
+        if not is_valid:
+            raise ValidationError(message)
+
+    def validate(self, extra_validators=None):
+        """Custom validation to check for duplicates."""
+        if not super().validate(extra_validators):
+            return False
+
+        # Check for duplicate serving
+        if self.food_id_value and self.serving_name.data and self.unit.data:
+            if FoodServing.check_duplicate(
+                self.food_id_value,
+                self.serving_name.data,
+                self.unit.data,
+                self.serving_id
+            ):
+                self.serving_name.errors.append(
+                    f'A serving with name "{self.serving_name.data}" and unit "{self.unit.data}" already exists for this food'
+                )
+                return False
+
+        return True
+
+class EditFoodServingForm(FoodServingForm):
+    """Form for editing existing food servings."""
+    submit = SubmitField('Update Serving')
+
+class DefaultServingForm(FlaskForm):
+    """Form for setting default serving for a food."""
+    food_id = HiddenField('Food ID', validators=[DataRequired()])
+    default_serving_id = SelectField('Default Serving', coerce=int, validators=[Optional()])
+    submit = SubmitField('Set Default Serving')
+
+    def __init__(self, food_id=None, *args, **kwargs):
+        super(DefaultServingForm, self).__init__(*args, **kwargs)
+        self.food_id_value = food_id
+        if food_id:
+            self.food_id.data = food_id
+            # Populate choices with current servings
+            servings = FoodServing.query.filter_by(food_id=food_id).order_by(FoodServing.serving_name).all()
+            choices = [('', 'No default serving (100g fallback)')]
+            choices.extend([(s.id, f'{s.serving_name} ({s.grams_per_unit}g)') for s in servings])
+            self.default_serving_id.choices = choices

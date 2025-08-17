@@ -4,12 +4,13 @@ import json
 from datetime import datetime, timedelta
 from flask import render_template, redirect, url_for, flash, request, jsonify, current_app, session
 from flask_login import login_required, current_user
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, text
 from app import db
 from app.admin import bp
 from app.admin.forms import (
     FoodForm, UserManagementForm, AdminPasswordForm, ResetUserPasswordForm,
-    ChallengeForm, BulkFoodUploadForm
+    ChallengeForm, BulkFoodUploadForm, FoodServingForm, EditFoodServingForm, 
+    DefaultServingForm
 )
 from app.models import User, Food, MealLog, NutritionGoal, Challenge, UserChallenge, FoodServing
 from app.services.bulk_upload_processor import BulkUploadProcessor
@@ -796,7 +797,7 @@ def delete_food(food_id):
 @login_required
 @admin_required
 def add_food_serving(food_id):
-    """Add a new serving to a food item."""
+    """Add a new serving to a food item with comprehensive validation."""
     try:
         food = Food.query.get_or_404(food_id)
         
@@ -804,27 +805,31 @@ def add_food_serving(food_id):
         serving_name = request.form.get('serving_name', '').strip()
         unit = request.form.get('unit', '').strip()
         grams_per_unit = request.form.get('grams_per_unit', '').strip()
+        is_default = request.form.get('is_default') == 'true'
         
-        # Validation
-        if not serving_name or not unit or not grams_per_unit:
-            return jsonify({'error': 'All fields are required'}), 400
+        # Enhanced validation using model methods
+        # Validate serving name
+        is_valid, error_msg = FoodServing.validate_serving_name(serving_name)
+        if not is_valid:
+            return jsonify({'error': error_msg}), 400
         
-        try:
-            grams_per_unit = float(grams_per_unit)
-            if grams_per_unit <= 0:
-                return jsonify({'error': 'Grams per unit must be greater than 0'}), 400
-        except ValueError:
-            return jsonify({'error': 'Invalid grams per unit value'}), 400
+        # Validate unit
+        is_valid, error_msg = FoodServing.validate_unit(unit)
+        if not is_valid:
+            return jsonify({'error': error_msg}), 400
         
-        # Check for duplicate serving name and unit for this food (case-insensitive)
-        existing_serving = FoodServing.query.filter(
-            FoodServing.food_id == food_id,
-            func.lower(FoodServing.serving_name) == func.lower(serving_name),
-            func.lower(FoodServing.unit) == func.lower(unit)
-        ).first()
+        # Validate grams per unit
+        is_valid, error_msg = FoodServing.validate_grams_per_unit(grams_per_unit)
+        if not is_valid:
+            return jsonify({'error': error_msg}), 400
         
-        if existing_serving:
-            return jsonify({'error': 'A serving with this name and unit already exists'}), 409
+        grams_per_unit = float(grams_per_unit)
+        
+        # Check for duplicate serving using enhanced method
+        if FoodServing.check_duplicate(food_id, serving_name, unit):
+            return jsonify({
+                'error': f'A serving with name "{serving_name}" and unit "{unit}" already exists for this food'
+            }), 409
         
         # Create new serving
         serving = FoodServing(
@@ -836,12 +841,21 @@ def add_food_serving(food_id):
         )
         
         db.session.add(serving)
+        
+        # Handle default serving logic
+        if is_default:
+            # Update food's default serving
+            food.default_serving_id = None  # Will be set after commit
+            db.session.flush()  # Flush to get serving.id
+            food.default_serving_id = serving.id
+        
         db.session.commit()
         
-        current_app.logger.info(f"Food serving added by user {current_user.id}: Food {food_id}, Serving '{serving_name}'")
+        current_app.logger.info(f"Food serving added by user {current_user.id}: Food {food_id}, Serving '{serving_name}' ({grams_per_unit}g)")
         
         return jsonify({
             'success': True,
+            'message': f'Serving "{serving_name}" added successfully',
             'serving': {
                 'id': serving.id,
                 'serving_name': serving.serving_name,
@@ -854,13 +868,18 @@ def add_food_serving(food_id):
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error adding serving to food {food_id}: {str(e)}")
+        return jsonify({'error': 'Failed to add serving. Please try again.'}), 500
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error adding serving to food {food_id}: {str(e)}")
         return jsonify({'error': 'Failed to add serving'}), 500
 
 @bp.route('/foods/<int:food_id>/servings/<int:serving_id>/edit', methods=['POST'])
 @login_required
 @admin_required
 def edit_food_serving(food_id, serving_id):
-    """Edit an existing serving."""
+    """Edit an existing serving with comprehensive validation."""
     try:
         food = Food.query.get_or_404(food_id)
         serving = FoodServing.query.filter_by(id=serving_id, food_id=food_id).first_or_404()
@@ -869,34 +888,64 @@ def edit_food_serving(food_id, serving_id):
         serving_name = request.form.get('serving_name', '').strip()
         unit = request.form.get('unit', '').strip()
         grams_per_unit = request.form.get('grams_per_unit', '').strip()
+        is_default = request.form.get('is_default') == 'true'
         
-        # Validation
-        if not serving_name or not unit or not grams_per_unit:
-            return jsonify({'error': 'All fields are required'}), 400
+        # Enhanced validation using model methods
+        # Validate serving name
+        is_valid, error_msg = FoodServing.validate_serving_name(serving_name)
+        if not is_valid:
+            return jsonify({'error': error_msg}), 400
         
-        try:
-            grams_per_unit = float(grams_per_unit)
-            if grams_per_unit <= 0:
-                return jsonify({'error': 'Grams per unit must be greater than 0'}), 400
-        except ValueError:
-            return jsonify({'error': 'Invalid grams per unit value'}), 400
+        # Validate unit
+        is_valid, error_msg = FoodServing.validate_unit(unit)
+        if not is_valid:
+            return jsonify({'error': error_msg}), 400
         
-        # Check for duplicate serving name (excluding current serving)
-        existing_serving = FoodServing.query.filter(
-            FoodServing.food_id == food_id,
-            FoodServing.serving_name == serving_name,
-            FoodServing.id != serving_id
-        ).first()
+        # Validate grams per unit
+        is_valid, error_msg = FoodServing.validate_grams_per_unit(grams_per_unit)
+        if not is_valid:
+            return jsonify({'error': error_msg}), 400
         
-        if existing_serving:
-            return jsonify({'error': 'A serving with this name already exists for this food'}), 400
+        grams_per_unit = float(grams_per_unit)
+        
+        # Check for duplicate serving (excluding current serving)
+        if FoodServing.check_duplicate(food_id, serving_name, unit, serving_id):
+            return jsonify({
+                'error': f'A serving with name "{serving_name}" and unit "{unit}" already exists for this food'
+            }), 409
         
         # Update serving
         serving.serving_name = serving_name
         serving.unit = unit
         serving.grams_per_unit = grams_per_unit
         
+        # Handle default serving logic
+        if is_default:
+            food.default_serving_id = serving_id
+        elif food.default_serving_id == serving_id:
+            # If this was the default and is_default is False, remove default
+            food.default_serving_id = None
+        
         db.session.commit()
+        
+        current_app.logger.info(f"Food serving updated by user {current_user.id}: Food {food_id}, Serving {serving_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Serving "{serving_name}" updated successfully',
+            'serving': {
+                'id': serving.id,
+                'serving_name': serving.serving_name,
+                'unit': serving.unit,
+                'grams_per_unit': serving.grams_per_unit,
+                'is_default': food.default_serving_id == serving.id
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error editing serving {serving_id} for food {food_id}: {str(e)}")
+        return jsonify({'error': 'Failed to update serving. Please try again.'}), 500
         
         current_app.logger.info(f"Food serving edited by user {current_user.id}: Food {food_id}, Serving {serving_id}")
         
@@ -992,6 +1041,57 @@ def unset_default_serving(food_id, serving_id):
         db.session.rollback()
         current_app.logger.error(f"Error unsetting default serving {serving_id} for food {food_id}: {str(e)}")
         return jsonify({'error': 'Failed to unset default serving'}), 500
+
+@bp.route('/foods/<int:food_id>/servings/ensure-default', methods=['POST'])
+@login_required
+@admin_required
+def ensure_default_serving(food_id):
+    """Ensure a food has a default serving, creating 100g fallback if none exists."""
+    try:
+        food = Food.query.get_or_404(food_id)
+        
+        # Check if food already has servings
+        servings_count = FoodServing.query.filter_by(food_id=food_id).count()
+        
+        if servings_count == 0:
+            # Create default 100g serving
+            default_serving = FoodServing.create_default_serving(food_id, current_user.id)
+            if default_serving:
+                food.default_serving_id = default_serving.id
+                db.session.commit()
+                
+                current_app.logger.info(f"Default 100g serving created by user {current_user.id} for food {food_id}")
+                
+                return jsonify({
+                    'success': True,
+                    'message': 'Default 100g serving created',
+                    'serving': {
+                        'id': default_serving.id,
+                        'serving_name': default_serving.serving_name,
+                        'unit': default_serving.unit,
+                        'grams_per_unit': default_serving.grams_per_unit,
+                        'is_default': True
+                    }
+                })
+        
+        # If servings exist but no default is set, suggest setting one
+        if not food.default_serving_id:
+            first_serving = FoodServing.query.filter_by(food_id=food_id).first()
+            if first_serving:
+                return jsonify({
+                    'success': False,
+                    'message': 'Food has servings but no default is set. Please select a default serving.'
+                })
+        
+        return jsonify({
+            'success': True,
+            'message': 'Food already has a default serving'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error ensuring default serving for food {food_id}: {str(e)}")
+        return jsonify({'error': 'Failed to ensure default serving'}), 500
 
 @bp.route('/foods/bulk-upload', methods=['GET'])
 @login_required

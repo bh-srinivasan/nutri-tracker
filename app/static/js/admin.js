@@ -1022,10 +1022,21 @@ Admin.foods = {
      * Food Servings Management Module
      */
     servings: {
+        // Validation constants
+        validationRules: {
+            servingName: { min: 2, max: 50 },
+            unit: { min: 1, max: 20 },
+            gramsPerUnit: { min: 0.1, max: 2000 }
+        },
+
         /**
          * Bind events for serving management
          */
         bindEvents: function() {
+            // Guard to prevent double binding
+            if (Admin.foods.servings._bound) return;
+            Admin.foods.servings._bound = true;
+
             // Bind add serving form submit
             const addServingForm = document.getElementById('add-serving-form');
             if (addServingForm) {
@@ -1034,49 +1045,216 @@ Admin.foods = {
                     const foodId = this.querySelector('[data-food-id]').getAttribute('data-food-id');
                     Admin.foods.servings.add(foodId, this);
                 });
+
+                // Add real-time validation for add form
+                const addNameField = addServingForm.querySelector('input[name="serving_name"]');
+                const addUnitField = addServingForm.querySelector('input[name="unit"]');
+                const addGramsField = addServingForm.querySelector('input[name="grams_per_unit"]');
+
+                if (addNameField) {
+                    addNameField.addEventListener('input', () => Admin.foods.servings.validateField(addNameField, 'name'));
+                    addNameField.addEventListener('blur', () => Admin.foods.servings.validateField(addNameField, 'name'));
+                }
+                if (addUnitField) {
+                    addUnitField.addEventListener('input', () => Admin.foods.servings.validateField(addUnitField, 'unit'));
+                    addUnitField.addEventListener('blur', () => Admin.foods.servings.validateField(addUnitField, 'unit'));
+                }
+                if (addGramsField) {
+                    addGramsField.addEventListener('input', () => Admin.foods.servings.validateField(addGramsField, 'grams'));
+                    addGramsField.addEventListener('blur', () => Admin.foods.servings.validateField(addGramsField, 'grams'));
+                }
             }
 
-            // Bind button clicks using event delegation
+            // Single document-level click listener using .closest() and button classes
             document.addEventListener('click', function(e) {
-                const servingId = e.target.getAttribute('data-serving-id') || 
-                                e.target.closest('[data-serving-id]')?.getAttribute('data-serving-id');
-                
-                if (!servingId) return;
+                // Delete button
+                const delBtn = e.target.closest('.delete-serving-btn');
+                if (delBtn) {
+                    e.preventDefault();
+                    const servingId = delBtn.dataset.servingId || delBtn.getAttribute('data-serving-id');
+                    const foodId = document.querySelector('[data-food-id]')?.getAttribute('data-food-id');
+                    if (servingId && foodId) {
+                        Admin.foods.servings.remove(foodId, servingId);
+                    }
+                    return;
+                }
 
-                const foodId = document.querySelector('[data-food-id]').getAttribute('data-food-id');
+                // Edit button
+                const editBtn = e.target.closest('.edit-serving-btn');
+                if (editBtn) {
+                    e.preventDefault();
+                    const servingId = editBtn.dataset.servingId || editBtn.getAttribute('data-serving-id');
+                    const foodId = document.querySelector('[data-food-id]')?.getAttribute('data-food-id');
+                    if (servingId && foodId) {
+                        Admin.foods.servings.edit(foodId, servingId);
+                    }
+                    return;
+                }
 
                 // Set Default button
-                if (e.target.textContent.includes('Set Default') || 
-                    e.target.closest('button')?.textContent.includes('Set Default')) {
+                const setBtn = e.target.closest('.set-default-serving-btn');
+                if (setBtn) {
                     e.preventDefault();
-                    Admin.foods.servings.setDefault(foodId, servingId);
+                    const servingId = setBtn.dataset.servingId || setBtn.getAttribute('data-serving-id');
+                    const foodId = document.querySelector('[data-food-id]')?.getAttribute('data-food-id');
+                    if (servingId && foodId) {
+                        Admin.foods.servings.setDefault(foodId, servingId);
+                    }
+                    return;
                 }
 
-                // Unset Default button  
-                if (e.target.textContent.includes('Unset Default') || 
-                    e.target.closest('button')?.textContent.includes('Unset Default')) {
+                // Unset Default button
+                const unsetBtn = e.target.closest('.unset-default-serving-btn');
+                if (unsetBtn) {
                     e.preventDefault();
-                    Admin.foods.servings.unsetDefault(foodId, servingId);
-                }
-
-                // Edit button - check for class or text
-                if (e.target.classList.contains('edit-serving-btn') || 
-                    e.target.closest('.edit-serving-btn') ||
-                    e.target.textContent.trim() === 'Edit' || 
-                    e.target.closest('button')?.textContent.trim() === 'Edit') {
-                    e.preventDefault();
-                    Admin.foods.servings.edit(foodId, servingId);
-                }
-
-                // Delete button - check for class or text
-                if (e.target.classList.contains('delete-serving-btn') || 
-                    e.target.closest('.delete-serving-btn') ||
-                    e.target.textContent.trim() === 'Delete' || 
-                    e.target.closest('button')?.textContent.trim() === 'Delete') {
-                    e.preventDefault();
-                    Admin.foods.servings.remove(foodId, servingId);
+                    const servingId = unsetBtn.dataset.servingId || unsetBtn.getAttribute('data-serving-id');
+                    const foodId = document.querySelector('[data-food-id]')?.getAttribute('data-food-id');
+                    if (servingId && foodId) {
+                        Admin.foods.servings.unsetDefault(foodId, servingId);
+                    }
+                    return;
                 }
             });
+        },
+
+        /**
+         * Validate form field
+         */
+        validateField: function(field, type) {
+            const value = field.value.trim();
+            let error = null;
+
+            switch(type) {
+                case 'name':
+                    error = this.validateServingName(value);
+                    if (!error && value) {
+                        // Check for duplicates if unit field also has value
+                        const form = field.closest('form');
+                        const unitField = form.querySelector('input[name="unit"]');
+                        if (unitField && unitField.value.trim()) {
+                            if (this.checkDuplicateServing(value, unitField.value.trim())) {
+                                error = 'This serving name and unit combination already exists';
+                            }
+                        }
+                    }
+                    break;
+                case 'unit':
+                    error = this.validateUnit(value);
+                    if (!error && value) {
+                        // Check for duplicates if name field also has value
+                        const form = field.closest('form');
+                        const nameField = form.querySelector('input[name="serving_name"]');
+                        if (nameField && nameField.value.trim()) {
+                            if (this.checkDuplicateServing(nameField.value.trim(), value)) {
+                                error = 'This serving name and unit combination already exists';
+                            }
+                        }
+                    }
+                    break;
+                case 'grams':
+                    error = this.validateGramsPerUnit(value);
+                    break;
+            }
+
+            if (error) {
+                this.showFieldError(field, error);
+            } else if (value) {
+                this.clearFieldError(field);
+            }
+
+            return !error;
+        },
+
+        /**
+         * Validate serving name
+         */
+        validateServingName: function(name) {
+            if (!name || name.length < this.validationRules.servingName.min) {
+                return `Serving name must be at least ${this.validationRules.servingName.min} characters`;
+            }
+            if (name.length > this.validationRules.servingName.max) {
+                return `Serving name must be no more than ${this.validationRules.servingName.max} characters`;
+            }
+            return null;
+        },
+
+        /**
+         * Validate unit
+         */
+        validateUnit: function(unit) {
+            if (!unit || unit.length < this.validationRules.unit.min) {
+                return `Unit must be at least ${this.validationRules.unit.min} character`;
+            }
+            if (unit.length > this.validationRules.unit.max) {
+                return `Unit must be no more than ${this.validationRules.unit.max} characters`;
+            }
+            return null;
+        },
+
+        /**
+         * Validate grams per unit
+         */
+        validateGramsPerUnit: function(grams) {
+            const num = parseFloat(grams);
+            if (isNaN(num) || num < this.validationRules.gramsPerUnit.min) {
+                return `Grams per unit must be at least ${this.validationRules.gramsPerUnit.min}`;
+            }
+            if (num > this.validationRules.gramsPerUnit.max) {
+                return `Grams per unit must be no more than ${this.validationRules.gramsPerUnit.max}`;
+            }
+            return null;
+        },
+
+        /**
+         * Check for duplicate serving
+         */
+        checkDuplicateServing: function(name, unit, currentId = null) {
+            const tbody = document.getElementById('servings-body');
+            if (!tbody) return false;
+
+            const rows = tbody.querySelectorAll('tr[data-serving-id]');
+            for (const row of rows) {
+                const rowId = row.getAttribute('data-serving-id');
+                if (currentId && rowId === currentId) continue; // Skip current row when editing
+                
+                const rowName = row.querySelector('.serving-name').textContent.replace('Default', '').trim();
+                const rowUnit = row.querySelector('.serving-unit').textContent.trim();
+                
+                if (rowName.toLowerCase() === name.toLowerCase() && 
+                    rowUnit.toLowerCase() === unit.toLowerCase()) {
+                    return true;
+                }
+            }
+            return false;
+        },
+
+        /**
+         * Show field error
+         */
+        showFieldError: function(field, message) {
+            field.classList.add('is-invalid');
+            field.classList.remove('is-valid');
+            
+            let feedback = field.parentElement.querySelector('.invalid-feedback');
+            if (!feedback) {
+                feedback = document.createElement('div');
+                feedback.className = 'invalid-feedback';
+                field.parentElement.appendChild(feedback);
+            }
+            feedback.textContent = message;
+        },
+
+        /**
+         * Clear field error
+         */
+        clearFieldError: function(field) {
+            field.classList.remove('is-invalid');
+            field.classList.add('is-valid');
+            
+            const feedback = field.parentElement.querySelector('.invalid-feedback');
+            if (feedback) {
+                feedback.textContent = '';
+            }
         },
 
         /**
@@ -1084,12 +1262,36 @@ Admin.foods = {
          */
         add: async function(foodId, formEl) {
             try {
+                // Validate all fields first
+                const nameField = formEl.querySelector('input[name="serving_name"]');
+                const unitField = formEl.querySelector('input[name="unit"]');
+                const gramsField = formEl.querySelector('input[name="grams_per_unit"]');
+
+                let hasErrors = false;
+                
+                if (!this.validateField(nameField, 'name')) hasErrors = true;
+                if (!this.validateField(unitField, 'unit')) hasErrors = true;
+                if (!this.validateField(gramsField, 'grams')) hasErrors = true;
+
+                // Check for duplicates
+                const name = nameField.value.trim();
+                const unit = unitField.value.trim();
+                if (!hasErrors && this.checkDuplicateServing(name, unit)) {
+                    NutriTracker.utils.showToast('This serving name and unit combination already exists', 'danger');
+                    return;
+                }
+
+                if (hasErrors) {
+                    NutriTracker.utils.showToast('Please fix the validation errors above', 'danger');
+                    return;
+                }
+
                 const formData = new FormData(formEl);
                 // Add CSRF token
                 const csrfToken = document.querySelector('input[name="csrf_token"]').value;
                 formData.append('csrf_token', csrfToken);
 
-                const response = await fetch(`/admin/foods/${foodId}/servings/add`, {
+                const response = await fetch(`/admin/add_food_serving`, {
                     method: 'POST',
                     body: formData
                 });
@@ -1097,15 +1299,13 @@ Admin.foods = {
                 const data = await response.json();
 
                 if (response.ok && data.success) {
-                    // Success - prepend new row to servings table
-                    Admin.foods.servings.prependServingRow(data.serving);
-                    formEl.reset(); // Clear form
-                    NutriTracker.utils.showToast('Serving added successfully!', 'success');
+                    // Success - reload page to show updated servings
+                    window.location.reload();
                 } else if (response.status === 400) {
                     // Show validation error
-                    NutriTracker.utils.showToast(data.error || 'Invalid serving data', 'danger');
+                    NutriTracker.utils.showToast(data.message || 'Invalid serving data', 'danger');
                 } else {
-                    throw new Error(data.error || 'Failed to add serving');
+                    throw new Error(data.message || 'Failed to add serving');
                 }
             } catch (error) {
                 console.error('Error adding serving:', error);
@@ -1131,7 +1331,7 @@ Admin.foods = {
                 const data = await response.json();
 
                 if (response.ok && data.success) {
-                    Admin.foods.servings.updateDefaultBadges(servingId);
+                    this.updateDefaultBadges(servingId);
                     NutriTracker.utils.showToast('Default serving updated!', 'success');
                 } else {
                     throw new Error(data.error || 'Failed to set default serving');
@@ -1160,7 +1360,7 @@ Admin.foods = {
                 const data = await response.json();
 
                 if (response.ok && data.success) {
-                    Admin.foods.servings.updateDefaultBadges(null); // No serving is default
+                    this.updateDefaultBadges(null); // No serving is default
                     NutriTracker.utils.showToast('Default serving removed. System default (100 g) is now active.', 'success');
                 } else {
                     throw new Error(data.error || 'Failed to unset default serving');
@@ -1182,22 +1382,231 @@ Admin.foods = {
             const unitCell = row.querySelector('.serving-unit');
             const gramsCell = row.querySelector('.serving-grams');
 
-            // Get current values
-            const currentName = nameCell.textContent.trim();
+            // Get current values (remove any badges)
+            const currentName = nameCell.textContent.replace('Default', '').trim();
             const currentUnit = unitCell.textContent.trim();
             const currentGrams = gramsCell.textContent.trim();
 
-            // Create inline edit form
-            nameCell.innerHTML = `<input type="text" class="form-control form-control-sm" value="${currentName}" maxlength="50">`;
-            unitCell.innerHTML = `<input type="text" class="form-control form-control-sm" value="${currentUnit}" maxlength="20">`;
-            gramsCell.innerHTML = `<input type="number" class="form-control form-control-sm" value="${currentGrams}" step="0.1" min="0.1" max="10000">`;
+            // Create inline edit form with validation
+            nameCell.innerHTML = `
+                <input type="text" class="form-control form-control-sm" value="${currentName}" 
+                       maxlength="50" data-original="${currentName}">
+                <div class="invalid-feedback"></div>
+            `;
+            unitCell.innerHTML = `
+                <input type="text" class="form-control form-control-sm" value="${currentUnit}" 
+                       maxlength="20" data-original="${currentUnit}">
+                <div class="invalid-feedback"></div>
+            `;
+            gramsCell.innerHTML = `
+                <input type="number" class="form-control form-control-sm" value="${currentGrams}" 
+                       step="0.1" min="0.1" max="2000" data-original="${currentGrams}">
+                <div class="invalid-feedback"></div>
+            `;
+
+            // Add real-time validation to edit fields
+            const nameInput = nameCell.querySelector('input');
+            const unitInput = unitCell.querySelector('input');
+            const gramsInput = gramsCell.querySelector('input');
+
+            nameInput.addEventListener('input', () => this.validateEditField(nameInput, 'name', servingId));
+            nameInput.addEventListener('blur', () => this.validateEditField(nameInput, 'name', servingId));
+            unitInput.addEventListener('input', () => this.validateEditField(unitInput, 'unit', servingId));
+            unitInput.addEventListener('blur', () => this.validateEditField(unitInput, 'unit', servingId));
+            gramsInput.addEventListener('input', () => this.validateEditField(gramsInput, 'grams', servingId));
+            gramsInput.addEventListener('blur', () => this.validateEditField(gramsInput, 'grams', servingId));
 
             // Update action buttons
             const actionsCell = row.querySelector('td:last-child .btn-group');
             actionsCell.innerHTML = `
-                <button class="btn btn-sm btn-success" onclick="Admin.foods.servings.saveEdit(${foodId}, ${servingId})">Save</button>
-                <button class="btn btn-sm btn-secondary" onclick="Admin.foods.servings.cancelEdit(${servingId}, '${currentName}', '${currentUnit}', '${currentGrams}')">Cancel</button>
+                <button class="btn btn-sm btn-success" onclick="Admin.foods.servings.saveEdit(${foodId}, ${servingId})">
+                    <i class="fas fa-save me-1"></i>Save
+                </button>
+                <button class="btn btn-sm btn-secondary" onclick="Admin.foods.servings.cancelEdit(${servingId}, '${currentName}', '${currentUnit}', '${currentGrams}')">
+                    <i class="fas fa-times me-1"></i>Cancel
+                </button>
             `;
+        },
+
+        /**
+         * Validate edit field
+         */
+        validateEditField: function(field, type, currentId) {
+            const value = field.value.trim();
+            let error = null;
+
+            switch(type) {
+                case 'name':
+                    error = this.validateServingName(value);
+                    if (!error && value) {
+                        // Check for duplicates
+                        const row = field.closest('tr');
+                        const unitInput = row.querySelector('.serving-unit input');
+                        if (unitInput && unitInput.value.trim()) {
+                            if (this.checkDuplicateServing(value, unitInput.value.trim(), currentId)) {
+                                error = 'This serving name and unit combination already exists';
+                            }
+                        }
+                    }
+                    break;
+                case 'unit':
+                    error = this.validateUnit(value);
+                    if (!error && value) {
+                        // Check for duplicates
+                        const row = field.closest('tr');
+                        const nameInput = row.querySelector('.serving-name input');
+                        if (nameInput && nameInput.value.trim()) {
+                            if (this.checkDuplicateServing(nameInput.value.trim(), value, currentId)) {
+                                error = 'This serving name and unit combination already exists';
+                            }
+                        }
+                    }
+                    break;
+                case 'grams':
+                    error = this.validateGramsPerUnit(value);
+                    break;
+            }
+
+            if (error) {
+                this.showFieldError(field, error);
+            } else if (value) {
+                this.clearFieldError(field);
+            }
+
+            return !error;
+        },
+
+        /**
+         * Save inline edit
+         */
+        saveEdit: async function(foodId, servingId) {
+            const row = document.querySelector(`tr[data-serving-id="${servingId}"]`);
+            if (!row) return;
+
+            const nameInput = row.querySelector('.serving-name input');
+            const unitInput = row.querySelector('.serving-unit input');
+            const gramsInput = row.querySelector('.serving-grams input');
+
+            const servingName = nameInput.value.trim();
+            const unit = unitInput.value.trim();
+            const gramsPerUnit = gramsInput.value.trim();
+
+            // Validate all fields
+            let hasErrors = false;
+            
+            if (!this.validateEditField(nameInput, 'name', servingId)) hasErrors = true;
+            if (!this.validateEditField(unitInput, 'unit', servingId)) hasErrors = true;
+            if (!this.validateEditField(gramsInput, 'grams', servingId)) hasErrors = true;
+
+            if (hasErrors) {
+                NutriTracker.utils.showToast('Please fix the validation errors', 'danger');
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('serving_id', servingId);
+                formData.append('serving_name', servingName);
+                formData.append('unit', unit);
+                formData.append('grams_per_unit', gramsPerUnit);
+                formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
+
+                const response = await fetch('/admin/edit_food_serving', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Update cells with new values
+                    row.querySelector('.serving-name').textContent = servingName;
+                    row.querySelector('.serving-unit').textContent = unit;
+                    row.querySelector('.serving-grams').textContent = gramsPerUnit;
+
+                    // Restore action buttons
+                    this.restoreActionButtons(row, servingId);
+                    
+                    NutriTracker.utils.showToast('Serving updated successfully!', 'success');
+                } else {
+                    throw new Error(data.message || 'Failed to update serving');
+                }
+            } catch (error) {
+                console.error('Error updating serving:', error);
+                NutriTracker.utils.showToast('Failed to update serving', 'danger');
+            }
+        },
+
+        /**
+         * Cancel inline edit
+         */
+        cancelEdit: function(servingId, originalName, originalUnit, originalGrams) {
+            const row = document.querySelector(`tr[data-serving-id="${servingId}"]`);
+            if (!row) return;
+
+            // Restore original values
+            row.querySelector('.serving-name').textContent = originalName;
+            row.querySelector('.serving-unit').textContent = originalUnit;
+            row.querySelector('.serving-grams').textContent = originalGrams;
+
+            // Restore action buttons
+            this.restoreActionButtons(row, servingId);
+        },
+
+        /**
+         * Remove serving
+         */
+        remove: async function(foodId, servingId) {
+            console.debug('servings.remove() → foodId=%s, servingId=%s', foodId, servingId);
+            
+            const row = document.querySelector(`tr[data-serving-id="${servingId}"]`);
+            if (!row) return;
+            
+            // In-flight guard to prevent double execution
+            if (row.dataset.deleting === '1') return;
+            row.dataset.deleting = '1';
+
+            const servingName = row.querySelector('.serving-name').textContent.replace('Default', '').trim();
+            
+            if (!confirm(`Are you sure you want to delete the serving "${servingName}"?`)) {
+                delete row.dataset.deleting;
+                return;
+            }
+
+            try {
+                const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+                
+                const response = await fetch(`/admin/foods/${foodId}/servings/${servingId}/delete`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Remove row from table
+                    row.remove();
+                    NutriTracker.utils.showToast('Serving deleted successfully!', 'success');
+                } else if (response.status === 409) {
+                    // Handle conflict - serving is referenced
+                    console.debug('delete response: status=%s, data=%o', response.status, data);
+                    NutriTracker.utils.showToast(data.error || 'Cannot delete serving as it is used in meal logs', 'warning');
+                } else {
+                    console.debug('delete response: status=%s, data=%o', response.status, data);
+                    throw new Error(data.error || 'Failed to delete serving');
+                }
+            } catch (error) {
+                console.error('Error deleting serving:', error);
+                NutriTracker.utils.showToast('Failed to delete serving', 'danger');
+            } finally {
+                // Clear the guard if the row still exists
+                if (row && document.body.contains(row)) {
+                    delete row.dataset.deleting;
+                }
+            }
         },
 
         /**
@@ -1267,49 +1676,7 @@ Admin.foods = {
             row.querySelector('.serving-grams').textContent = originalGrams;
 
             // Restore action buttons
-            Admin.foods.servings.restoreActionButtons(row, servingId);
-        },
-
-        /**
-         * Remove serving
-         */
-        remove: async function(foodId, servingId) {
-            const row = document.querySelector(`tr[data-serving-id="${servingId}"]`);
-            if (!row) return;
-
-            const servingName = row.querySelector('.serving-name').textContent.trim();
-            
-            if (!confirm(`Are you sure you want to delete the serving "${servingName}"?`)) {
-                return;
-            }
-
-            try {
-                const csrfToken = document.querySelector('input[name="csrf_token"]').value;
-                
-                const response = await fetch(`/admin/foods/${foodId}/servings/${servingId}/delete`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrfToken,
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                const data = await response.json();
-
-                if (response.ok && data.success) {
-                    // Remove row from table
-                    row.remove();
-                    NutriTracker.utils.showToast('Serving deleted successfully!', 'success');
-                } else if (response.status === 409) {
-                    // Handle conflict - serving is referenced
-                    NutriTracker.utils.showToast(data.error || 'Cannot delete serving as it is used in meal logs', 'warning');
-                } else {
-                    throw new Error(data.error || 'Failed to delete serving');
-                }
-            } catch (error) {
-                console.error('Error deleting serving:', error);
-                NutriTracker.utils.showToast('Failed to delete serving', 'danger');
-            }
+            this.restoreActionButtons(row, servingId);
         },
 
         /**
@@ -1600,6 +1967,13 @@ document.addEventListener('DOMContentLoaded', function() {
             this.closest('form').submit();
         }, 500));
     });
+    
+    // Initialize serving management for food edit pages
+    try {
+        Admin.foods.servings.bindEvents();
+    } catch (e) {
+        console.warn('servings.bindEvents failed:', e);
+    }
 });
 
 // Export for global access
