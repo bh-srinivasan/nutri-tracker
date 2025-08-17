@@ -252,7 +252,7 @@
                                 </thead>
                                 <tbody>
                                     {% for food in foods %}
-                                    <tr>
+                                    <tr data-food-id="{{ food.id }}">
                                         <td>{{ food.id }}</td>
                                         <td>
                                             <div class="d-flex align-items-center">
@@ -281,20 +281,16 @@
                                         </td>
                                         <td>{{ food.created_at.strftime('%Y-%m-%d') }}</td>
                                         <td>
-                                            <div class="btn-group btn-group-sm" role="group">
-                                                <a href="{{ url_for('admin.edit_food', food_id=food.id) }}"
-                                                   class="btn btn-outline-primary edit-food-btn"
-                                                   title="Edit Food">
-                                                    <i class="fas fa-edit"></i>
-                                                </a>
-                                                <button type="button" class="btn btn-outline-{{ 'warning' if food.is_verified else 'success' }} toggle-food-status-btn"
-                                                        data-food-id="{{ food.id }}" data-is-verified="{{ food.is_verified }}"
-                                                        title="{{ 'Mark Pending' if food.is_verified else 'Verify' }} Food">
-                                                    <i class="fas fa-{{ 'question' if food.is_verified else 'check' }}"></i>
+                                            <div class="btn-group btn-group-sm">
+                                                <button type="button"
+                                                        class="btn btn-outline-secondary edit-food-btn"
+                                                        data-food-id="{{ food.id }}" title="Edit">
+                                                    <i class="fas fa-edit" style="pointer-events:none"></i>
                                                 </button>
-                                                <button type="button" class="btn btn-outline-danger delete-food-btn"
-                                                        data-food-id="{{ food.id }}" data-food-name="{{ food.name }}" title="Delete Food">
-                                                    <i class="fas fa-trash"></i>
+                                                <button type="button"
+                                                        class="btn btn-outline-danger delete-food-btn"
+                                                        data-food-id="{{ food.id }}" title="Delete">
+                                                    <i class="fas fa-trash" style="pointer-events:none"></i>
                                                 </button>
                                             </div>
                                         </td>
@@ -655,4 +651,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Food management JavaScript functions will be added in static/js/admin.js
 });
 </script>
+
+<!-- Admin JavaScript (after core scripts) -->
+<script src="{{ url_for('static', filename='js/admin.js') }}" defer></script>
 {% endblock %}

@@ -402,6 +402,55 @@ def get_user(user_id):
         'last_login': user.last_login.isoformat() if user.last_login else None
     })
 
+@bp.route('/admin/foods/<int:food_id>', methods=['DELETE'])
+@api_login_required
+def delete_food_admin_api(food_id):
+    """Delete a food item (Admin only)."""
+    if not current_user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    try:
+        # Validate food exists
+        food = Food.query.get(food_id)
+        if not food:
+            return jsonify({'error': 'Food not found'}), 404
+        
+        # Check referential integrity - prevent deletion if food is referenced in meal logs
+        meal_log_count = MealLog.query.filter_by(food_id=food_id).count()
+        
+        if meal_log_count > 0:
+            return jsonify({
+                'error': f'Cannot delete "{food.name}" as it is used in {meal_log_count} meal logs.'
+            }), 409
+        
+        # Store food name for response
+        food_name = food.name
+        
+        # Delete all dependent records first (in case cascade isn't configured)
+        # 1. Delete FoodServing records
+        FoodServing.query.filter_by(food_id=food_id).delete()
+        
+        # 2. Delete FoodNutrition records  
+        from app.models import FoodNutrition
+        FoodNutrition.query.filter_by(food_id=food_id).delete()
+        
+        # 3. Delete BulkUploadJobItem records (if any reference this food)
+        from app.models import BulkUploadJobItem
+        BulkUploadJobItem.query.filter_by(food_id=food_id).delete()
+        
+        # Delete the food
+        db.session.delete(food)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Food "{food_name}" deleted successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to delete food'}), 500
+
 
 def serialize_food_for_api_v2(food: Food) -> dict:
     """Extended serialization for API v2 with serving information."""

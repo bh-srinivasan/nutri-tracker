@@ -941,10 +941,25 @@ Admin.foods = {
      * Delete food
      */
     delete: async function(foodId) {
+        console.debug('Admin.foods.delete →', foodId);
+        
+        // Initialize deleting set if not exists
+        if (!Admin.foods._deleting) {
+            Admin.foods._deleting = new Set();
+        }
+        
+        // Guard against repeated requests
+        if (Admin.foods._deleting.has(foodId)) {
+            console.debug('Delete already in progress for food:', foodId);
+            return;
+        }
+        
         NutriTracker.ui.confirmAction(
             'Are you sure you want to delete this food? This action cannot be undone.',
             async () => {
                 try {
+                    Admin.foods._deleting.add(foodId);
+                    
                     const response = await fetch(`/api/admin/foods/${foodId}`, {
                         method: 'DELETE',
                         headers: {
@@ -952,15 +967,43 @@ Admin.foods = {
                         }
                     });
                     
-                    if (response.ok) {
-                        NutriTracker.utils.showToast('Food deleted successfully', 'success');
-                        location.reload();
+                    console.debug('delete response status:', response.status);
+                    
+                    if (response.ok || response.status === 204) {
+                        // Success - remove table row or reload
+                        const tableRow = document.querySelector(`tr[data-food-id="${foodId}"]`);
+                        if (tableRow) {
+                            tableRow.remove();
+                            NutriTracker.utils.showToast('Food deleted successfully', 'success');
+                        } else {
+                            // Fallback to reload if row not found
+                            location.reload();
+                        }
+                    } else if (response.status === 409) {
+                        // Conflict - show specific error message
+                        const errorData = await response.json();
+                        const message = errorData.error || 'Cannot delete food - it is being used.';
+                        NutriTracker.utils.showToast(message, 'warning');
                     } else {
-                        throw new Error('Failed to delete food');
+                        // Other errors - get more details
+                        console.error('Delete failed with status:', response.status);
+                        try {
+                            const errorData = await response.json();
+                            console.error('Error details:', errorData);
+                            const message = errorData.error || 'Failed to delete food';
+                            NutriTracker.utils.showToast(message, 'danger');
+                        } catch (parseError) {
+                            console.error('Could not parse error response:', parseError);
+                            const errorText = await response.text();
+                            console.error('Raw error response:', errorText);
+                            NutriTracker.utils.showToast('Failed to delete food', 'danger');
+                        }
                     }
                 } catch (error) {
                     console.error('Error deleting food:', error);
                     NutriTracker.utils.showToast('Error deleting food', 'danger');
+                } finally {
+                    Admin.foods._deleting.delete(foodId);
                 }
             }
         );
@@ -1801,6 +1844,9 @@ Admin.foods = {
 
 // Initialize admin functionality
 document.addEventListener('DOMContentLoaded', function() {
+    // Console aid for debugging delete buttons
+    console.debug('[Manage Foods] delete-food-btn count:', document.querySelectorAll('.delete-food-btn').length);
+    
     // Initialize form field indicators for better UX
     setTimeout(() => {
         Admin.users.initializeFormFieldIndicators();
@@ -1899,59 +1945,64 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Event delegation for user management buttons
-    document.addEventListener('click', function(e) {
-        // Edit User buttons
-        if (e.target.closest('.edit-user-btn')) {
-            const userId = e.target.closest('.edit-user-btn').dataset.userId;
-            Admin.users.edit(userId);
-        }
+    // Event delegation for user management buttons (single-fire guard)
+    if (!Admin.foods._boundFoodButtons) {
+        Admin.foods._boundFoodButtons = true;
         
-        // Reset Password buttons
-        if (e.target.closest('.reset-password-btn')) {
-            const btn = e.target.closest('.reset-password-btn');
-            const userId = btn.dataset.userId;
-            const username = btn.dataset.username;
-            if (userId && username) {
-                Admin.users.openPasswordResetModal(userId, username);
-            } else {
-                console.error('Missing user data for password reset:', {userId, username});
-                NutriTracker.utils.showToast('Error: Missing user information', 'danger');
+        document.addEventListener('click', function(e) {
+            // Edit User buttons
+            if (e.target.closest('.edit-user-btn')) {
+                const userId = e.target.closest('.edit-user-btn').dataset.userId;
+                Admin.users.edit(userId);
             }
-        }
-        
-        // Toggle User Status buttons
-        if (e.target.closest('.toggle-user-status-btn')) {
-            const userId = e.target.closest('.toggle-user-status-btn').dataset.userId;
-            Admin.users.toggleStatus(userId);
-        }
-        
-        // Edit Food buttons
-        if (e.target.closest('.edit-food-btn')) {
-            const foodId = e.target.closest('.edit-food-btn').dataset.foodId;
-            Admin.foods.edit(foodId);
-        }
-        
-        // Toggle Food Status buttons
-        if (e.target.closest('.toggle-food-status-btn')) {
-            const foodId = e.target.closest('.toggle-food-status-btn').dataset.foodId;
-            Admin.foods.toggleStatus(foodId);
-        }
-        
-        // Delete Food buttons
-        if (e.target.closest('.delete-food-btn')) {
-            const foodId = e.target.closest('.delete-food-btn').dataset.foodId;
-            Admin.foods.delete(foodId);
-        }
-        
-        // Reset Password buttons
-        if (e.target.closest('.reset-password-btn')) {
-            const btn = e.target.closest('.reset-password-btn');
-            const userId = btn.dataset.userId;
-            const username = btn.dataset.username;
-            Admin.users.openPasswordResetModal(userId, username);
-        }
-    });
+            
+            // Reset Password buttons
+            if (e.target.closest('.reset-password-btn')) {
+                const btn = e.target.closest('.reset-password-btn');
+                const userId = btn.dataset.userId;
+                const username = btn.dataset.username;
+                if (userId && username) {
+                    Admin.users.openPasswordResetModal(userId, username);
+                } else {
+                    console.error('Missing user data for password reset:', {userId, username});
+                    NutriTracker.utils.showToast('Error: Missing user information', 'danger');
+                }
+            }
+            
+            // Toggle User Status buttons
+            if (e.target.closest('.toggle-user-status-btn')) {
+                const userId = e.target.closest('.toggle-user-status-btn').dataset.userId;
+                Admin.users.toggleStatus(userId);
+            }
+            
+            // Edit Food buttons
+            if (e.target.closest('.edit-food-btn')) {
+                const foodId = e.target.closest('.edit-food-btn').dataset.foodId;
+                Admin.foods.edit(foodId);
+            }
+            
+            // Toggle Food Status buttons
+            if (e.target.closest('.toggle-food-status-btn')) {
+                const foodId = e.target.closest('.toggle-food-status-btn').dataset.foodId;
+                Admin.foods.toggleStatus(foodId);
+            }
+            
+            // Delete Food buttons
+            if (e.target.closest('.delete-food-btn')) {
+                const btn = e.target.closest('.delete-food-btn');
+                const foodId = btn.dataset.foodId;
+                Admin.foods.delete(foodId);
+            }
+            
+            // Reset Password buttons (duplicate for legacy compatibility)
+            if (e.target.closest('.reset-password-btn')) {
+                const btn = e.target.closest('.reset-password-btn');
+                const userId = btn.dataset.userId;
+                const username = btn.dataset.username;
+                Admin.users.openPasswordResetModal(userId, username);
+            }
+        });
+    }
 
     // Password reset form submission
     const resetPasswordForm = document.getElementById('resetPasswordForm');
