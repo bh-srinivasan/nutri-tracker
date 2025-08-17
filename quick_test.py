@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 
-from app import create_app
-from app.models import *
-from datetime import date
+import requests
+import time
 
-app = create_app()
-
-with app.app_context():
-    # Test the fix
+print("=== TESTING LIVE API ENDPOINT ===")
+try:
+    response = requests.delete('http://127.0.0.1:5001/api/admin/foods/1', timeout=3)
+    print(f'Status: {response.status_code}')
+    print(f'Response: {response.text}')
+    print('✅ API endpoint exists and is working!')
+except requests.exceptions.ConnectionError:
+    print('❌ Server not responding')
+except Exception as e:
+    print(f'Error: {e}')
     peanuts = Food.query.filter(Food.name.ilike('%peanut%')).first()
     user = User.query.first()
     
