@@ -264,6 +264,65 @@ block content %}
               </div>
             </div>
 
+            <!-- Goal Timing Section -->
+            <h6 class="mb-3 mt-4">
+              <i class="fas fa-calendar-alt"></i> Goal Timeline <span class="text-muted small">(Optional)</span>
+            </h6>
+            
+            <div class="row mb-4">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  {{ form.target_duration.label(class="form-label") }}
+                  {{ form.target_duration(class="form-select", onchange="console.log('🔥 ONCHANGE TRIGGERED!'); updateTargetDate()") }}
+                  <div class="form-text">
+                    Choose how long you want to work on this goal. You can also set a custom date below.
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  {{ form.target_date.label(class="form-label") }}
+                  <div class="input-group">
+                    {{ form.target_date(class="form-control" + (" is-invalid" if form.target_date.errors else ""), onchange="handleManualDateChange()") }}
+                    <button type="button" class="btn btn-outline-secondary" id="clearDateBtn" onclick="clearTargetDate()" title="Clear target date">
+                      <i class="fas fa-times"></i>
+                    </button>
+                  </div>
+                  <div class="form-text">
+                    This is when you aim to complete the goal. You can set it manually or let us calculate it based on the duration above.
+                  </div>
+                  {% if form.target_date.errors %}
+                  <div class="invalid-feedback d-block">
+                    {% for error in form.target_date.errors %}
+                    <span>{{ error }}</span>
+                    {% endfor %}
+                  </div>
+                  {% endif %}
+                  
+                  <!-- Past date validation error -->
+                  <div id="pastDateError" class="alert alert-danger mt-2" style="display: none;">
+                    <i class="fas fa-exclamation-triangle"></i> Target date cannot be in the past. Please select a future date.
+                  </div>
+                  
+                  <!-- Dynamic feedback messages -->
+                  <div id="dateAutoFillMessage" class="alert alert-info mt-2" style="display: none;">
+                    <i class="fas fa-info-circle"></i> <span id="autoFillText">Auto-filled based on selected duration. You can change this date if you prefer.</span>
+                  </div>
+                  <div id="dateCustomMessage" class="alert alert-success mt-2" style="display: none;">
+                    <i class="fas fa-check-circle"></i> <span id="customText">Custom date set. We won't change this unless you update the duration again.</span>
+                  </div>
+                  <div id="dateClearedMessage" class="alert alert-warning mt-2" style="display: none;">
+                    <i class="fas fa-info-circle"></i> Target date removed. You can set it again anytime.
+                  </div>
+                  <div id="dateResetOption" class="mt-2" style="display: none;">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetToDurationDate()">
+                      <i class="fas fa-undo"></i> Reset to duration-based date
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Manual Goal Setting -->
             <h6 class="mb-3">Daily Nutrition Targets:</h6>
             <div class="row">
@@ -355,65 +414,6 @@ block content %}
                     {% endfor %}
                   </div>
                   {% endif %}
-                </div>
-              </div>
-            </div>
-
-            <!-- Goal Timing Section -->
-            <h6 class="mb-3 mt-4">
-              <i class="fas fa-calendar-alt"></i> Goal Timeline <span class="text-muted small">(Optional)</span>
-            </h6>
-            
-            <div class="row mb-4">
-              <div class="col-md-6">
-                <div class="mb-3">
-                  {{ form.target_duration.label(class="form-label") }}
-                  {{ form.target_duration(class="form-select", onchange="console.log('🔥 ONCHANGE TRIGGERED!'); updateTargetDate()") }}
-                  <div class="form-text">
-                    Choose how long you want to work on this goal. You can also set a custom date below.
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="mb-3">
-                  {{ form.target_date.label(class="form-label") }}
-                  <div class="input-group">
-                    {{ form.target_date(class="form-control" + (" is-invalid" if form.target_date.errors else ""), onchange="handleManualDateChange()") }}
-                    <button type="button" class="btn btn-outline-secondary" id="clearDateBtn" onclick="clearTargetDate()" title="Clear target date">
-                      <i class="fas fa-times"></i>
-                    </button>
-                  </div>
-                  <div class="form-text">
-                    This is when you aim to complete the goal. You can set it manually or let us calculate it based on the duration above.
-                  </div>
-                  {% if form.target_date.errors %}
-                  <div class="invalid-feedback d-block">
-                    {% for error in form.target_date.errors %}
-                    <span>{{ error }}</span>
-                    {% endfor %}
-                  </div>
-                  {% endif %}
-                  
-                  <!-- Past date validation error -->
-                  <div id="pastDateError" class="alert alert-danger mt-2" style="display: none;">
-                    <i class="fas fa-exclamation-triangle"></i> Target date cannot be in the past. Please select a future date.
-                  </div>
-                  
-                  <!-- Dynamic feedback messages -->
-                  <div id="dateAutoFillMessage" class="alert alert-info mt-2" style="display: none;">
-                    <i class="fas fa-info-circle"></i> <span id="autoFillText">Auto-filled based on selected duration. You can change this date if you prefer.</span>
-                  </div>
-                  <div id="dateCustomMessage" class="alert alert-success mt-2" style="display: none;">
-                    <i class="fas fa-check-circle"></i> <span id="customText">Custom date set. We won't change this unless you update the duration again.</span>
-                  </div>
-                  <div id="dateClearedMessage" class="alert alert-warning mt-2" style="display: none;">
-                    <i class="fas fa-info-circle"></i> Target date removed. You can set it again anytime.
-                  </div>
-                  <div id="dateResetOption" class="mt-2" style="display: none;">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetToDurationDate()">
-                      <i class="fas fa-undo"></i> Reset to duration-based date
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>

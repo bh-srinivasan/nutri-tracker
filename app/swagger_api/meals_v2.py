@@ -37,10 +37,10 @@ class MealLogV2(Resource):
         Log meals by weight - perfect for precise tracking:
         ```json
         {
-          "food_id": 123,
-          "grams": 150.0,
-          "meal_type": "lunch",
-          "date": "2025-08-14"
+          "food_id": 42,
+          "grams": 70.0,
+          "meal_type": "breakfast",
+          "date": "2025-08-18"
         }
         ```
         
@@ -48,11 +48,50 @@ class MealLogV2(Resource):
         Log meals by serving size - user-friendly and intuitive:
         ```json
         {
-          "food_id": 123,
-          "serving_id": 456,
-          "quantity": 1.5,
-          "meal_type": "dinner",
-          "date": "2025-08-14"
+          "food_id": 42,
+          "serving_id": 84,
+          "quantity": 2.0,
+          "meal_type": "breakfast",
+          "date": "2025-08-18"
+        }
+        ```
+        
+        **Example Response for Serving-Based Input:**
+        ```json
+        {
+          "message": "Meal logged successfully",
+          "meal_log": {
+            "id": 1001,
+            "food_id": 42,
+            "serving_id": 84,
+            "quantity": 2.0,
+            "original_quantity": 2.0,
+            "unit_type": "serving",
+            "logged_grams": 70.0,
+            "meal_type": "breakfast",
+            "date": "2025-08-18",
+            "nutrition": {
+              "calories": 40.6,
+              "protein": 1.75,
+              "carbs": 8.4,
+              "fat": 0.07,
+              "fiber": 0.63,
+              "sugar": 0.35,
+              "sodium": 3.5
+            },
+            "food_info": {
+              "name": "Idli",
+              "brand": "Traditional",
+              "category": "Indian Breakfast"
+            },
+            "serving_info": {
+              "id": 84,
+              "serving_name": "1 piece (medium)",
+              "unit": "piece",
+              "grams_per_unit": 35
+            },
+            "created_at": "2025-08-18T10:30:00Z"
+          }
         }
         ```
         

@@ -49,78 +49,78 @@ def swagger_login_required(f):
 
 # Define models for API v2 (matching actual endpoints)
 food_v2_model = api.model('FoodV2', {
-    'id': fields.Integer(required=True, description='Food ID'),
-    'name': fields.String(required=True, description='Food name'),
-    'brand': fields.String(description='Brand name'),
-    'category': fields.String(description='Food category'),
-    'description': fields.String(description='Food description'),
-    'calories_per_100g': fields.Float(required=True, description='Calories per 100g'),
-    'protein_per_100g': fields.Float(required=True, description='Protein in grams per 100g'),
-    'carbs_per_100g': fields.Float(required=True, description='Carbohydrates in grams per 100g'),
-    'fat_per_100g': fields.Float(required=True, description='Fat in grams per 100g'),
-    'fiber_per_100g': fields.Float(description='Fiber in grams per 100g'),
-    'sugar_per_100g': fields.Float(description='Sugar in grams per 100g'),
-    'sodium_per_100g': fields.Float(description='Sodium in mg per 100g'),
-    'verified': fields.Boolean(description='Whether the food is verified'),
+    'id': fields.Integer(required=True, description='Food ID', example=42),
+    'name': fields.String(required=True, description='Food name', example='Idli'),
+    'brand': fields.String(description='Brand name', example='Traditional'),
+    'category': fields.String(description='Food category', example='Indian Breakfast'),
+    'description': fields.String(description='Food description', example='Steamed rice and lentil cake'),
+    'calories_per_100g': fields.Float(required=True, description='Calories per 100g', example=58.0),
+    'protein_per_100g': fields.Float(required=True, description='Protein in grams per 100g', example=2.5),
+    'carbs_per_100g': fields.Float(required=True, description='Carbohydrates in grams per 100g', example=12.0),
+    'fat_per_100g': fields.Float(required=True, description='Fat in grams per 100g', example=0.1),
+    'fiber_per_100g': fields.Float(description='Fiber in grams per 100g', example=0.9),
+    'sugar_per_100g': fields.Float(description='Sugar in grams per 100g', example=0.5),
+    'sodium_per_100g': fields.Float(description='Sodium in mg per 100g', example=5.0),
+    'verified': fields.Boolean(description='Whether the food is verified', example=True),
     'servings': fields.List(fields.Nested(api.model('ServingV2', {
-        'id': fields.Integer(description='Serving ID'),
-        'serving_name': fields.String(description='Serving name (e.g., "1 cup", "1 piece")'),
-        'unit': fields.String(description='Unit of measurement'),
-        'grams_per_unit': fields.Float(description='Grams per unit')
-    }))),
-    'default_serving_id': fields.Integer(description='ID of default serving for this food')
+        'id': fields.Integer(description='Serving ID', example=84),
+        'serving_name': fields.String(description='Serving name (e.g., "1 cup", "1 piece")', example='1 piece (medium)'),
+        'unit': fields.String(description='Unit of measurement', example='piece'),
+        'grams_per_unit': fields.Float(description='Grams per unit', example=35.0)
+    })), description='Available serving sizes for this food'),
+    'default_serving_id': fields.Integer(description='ID of default serving for this food', example=84)
 })
 
 # Input models for v2 API
 meal_log_grams_input = api.model('MealLogGramsInput', {
-    'food_id': fields.Integer(required=True, description='Food ID'),
-    'grams': fields.Float(required=True, description='Amount in grams'),
-    'meal_type': fields.String(required=True, description='Type of meal', enum=['breakfast', 'lunch', 'dinner', 'snack']),
-    'date': fields.Date(description='Date of meal (YYYY-MM-DD, defaults to today)')
+    'food_id': fields.Integer(required=True, description='Food ID', example=42),
+    'grams': fields.Float(required=True, description='Amount in grams', example=70.0),
+    'meal_type': fields.String(required=True, description='Type of meal', enum=['breakfast', 'lunch', 'dinner', 'snack'], example='breakfast'),
+    'date': fields.Date(description='Date of meal (YYYY-MM-DD, defaults to today)', example='2025-08-18')
 })
 
 meal_log_serving_input = api.model('MealLogServingInput', {
-    'food_id': fields.Integer(required=True, description='Food ID'),
-    'serving_id': fields.Integer(required=True, description='Serving ID'),
-    'quantity': fields.Float(required=True, description='Number of servings (e.g., 1.5 for 1.5 servings)'),
-    'meal_type': fields.String(required=True, description='Type of meal', enum=['breakfast', 'lunch', 'dinner', 'snack']),
-    'date': fields.Date(description='Date of meal (YYYY-MM-DD, defaults to today)')
+    'food_id': fields.Integer(required=True, description='Food ID', example=42),
+    'serving_id': fields.Integer(required=True, description='Serving ID', example=84),
+    'quantity': fields.Float(required=True, description='Number of servings (e.g., 1.5 for 1.5 servings)', example=2.0),
+    'meal_type': fields.String(required=True, description='Type of meal', enum=['breakfast', 'lunch', 'dinner', 'snack'], example='breakfast'),
+    'date': fields.Date(description='Date of meal (YYYY-MM-DD, defaults to today)', example='2025-08-18')
 })
 
 # Response models for v2 API
 meal_log_response = api.model('MealLogResponse', {
-    'message': fields.String(description='Success message'),
+    'message': fields.String(description='Success message', example='Meal logged successfully'),
     'meal_log': fields.Nested(api.model('MealLogData', {
-        'id': fields.Integer(description='Meal log ID'),
-        'food_id': fields.Integer(description='Food ID'),
-        'serving_id': fields.Integer(description='Serving ID (if serving-based)'),
-        'quantity': fields.Float(description='Quantity logged'),
-        'original_quantity': fields.Float(description='Original quantity as entered'),
-        'unit_type': fields.String(description='Input type: "grams" or "serving"'),
-        'logged_grams': fields.Float(description='Total grams consumed'),
-        'meal_type': fields.String(description='Meal type'),
-        'date': fields.Date(description='Date of meal'),
+        'id': fields.Integer(description='Meal log ID', example=1001),
+        'food_id': fields.Integer(description='Food ID', example=42),
+        'serving_id': fields.Integer(description='Serving ID (if serving-based)', example=84),
+        'quantity': fields.Float(description='Quantity logged', example=2.0),
+        'original_quantity': fields.Float(description='Original quantity as entered', example=2.0),
+        'unit_type': fields.String(description='Input type: "grams" or "serving"', example='serving'),
+        'logged_grams': fields.Float(description='Total grams consumed', example=70.0),
+        'meal_type': fields.String(description='Meal type', example='breakfast'),
+        'date': fields.Date(description='Date of meal', example='2025-08-18'),
         'nutrition': fields.Nested(api.model('NutritionData', {
-            'calories': fields.Float(description='Total calories'),
-            'protein': fields.Float(description='Total protein (g)'),
-            'carbs': fields.Float(description='Total carbohydrates (g)'),
-            'fat': fields.Float(description='Total fat (g)'),
-            'fiber': fields.Float(description='Total fiber (g)'),
-            'sugar': fields.Float(description='Total sugar (g)'),
-            'sodium': fields.Float(description='Total sodium (mg)')
+            'calories': fields.Float(description='Total calories', example=40.6),
+            'protein': fields.Float(description='Total protein (g)', example=1.75),
+            'carbs': fields.Float(description='Total carbohydrates (g)', example=8.4),
+            'fat': fields.Float(description='Total fat (g)', example=0.07),
+            'fiber': fields.Float(description='Total fiber (g)', example=0.63),
+            'sugar': fields.Float(description='Total sugar (g)', example=0.35),
+            'sodium': fields.Float(description='Total sodium (mg)', example=3.5)
         })),
         'food_info': fields.Nested(api.model('FoodInfo', {
-            'name': fields.String(description='Food name'),
-            'brand': fields.String(description='Brand name'),
-            'category': fields.String(description='Food category')
+            'name': fields.String(description='Food name', example='Idli'),
+            'brand': fields.String(description='Brand name', example='Traditional'),
+            'category': fields.String(description='Food category', example='Indian Breakfast')
         })),
         'serving_info': fields.Nested(api.model('ServingInfo', {
-            'id': fields.Integer(description='Serving ID'),
-            'serving_name': fields.String(description='Serving name'),
-            'unit': fields.String(description='Unit of measurement'),
-            'grams_per_unit': fields.Float(description='Grams per unit')
+            'id': fields.Integer(description='Serving ID', example=84),
+            'serving_name': fields.String(description='Serving name', example='1 piece (medium)'),
+            'unit': fields.String(description='Unit of measurement', example='piece'),
+            'grams_per_unit': fields.Float(description='Grams per unit', example=35.0)
         }), description='Serving info (only present for serving-based logs)'),
-        'created_at': fields.DateTime(description='When meal log was created')
+        'created_at': fields.DateTime(description='When meal log was created', example='2025-08-18T10:30:00Z')
     }))
 })
 

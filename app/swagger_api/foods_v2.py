@@ -39,21 +39,34 @@ class FoodSearchV2(Resource):
         {
           "foods": [
             {
-              "id": 123,
-              "name": "Chicken Breast",
-              "brand": "Fresh Farm",
-              "category": "Protein",
-              "calories_per_100g": 165,
-              "protein_per_100g": 31,
+              "id": 42,
+              "name": "Idli",
+              "brand": "Traditional",
+              "category": "Indian Breakfast",
+              "description": "Steamed rice and lentil cake",
+              "calories_per_100g": 58,
+              "protein_per_100g": 2.5,
+              "carbs_per_100g": 12.0,
+              "fat_per_100g": 0.1,
+              "fiber_per_100g": 0.9,
+              "sugar_per_100g": 0.5,
+              "sodium_per_100g": 5,
+              "verified": true,
               "servings": [
                 {
-                  "id": 456,
+                  "id": 84,
                   "serving_name": "1 piece (medium)",
-                  "unit": "piece", 
-                  "grams_per_unit": 150
+                  "unit": "piece",
+                  "grams_per_unit": 35
+                },
+                {
+                  "id": 85,
+                  "serving_name": "1 piece (large)",
+                  "unit": "piece",
+                  "grams_per_unit": 50
                 }
               ],
-              "default_serving_id": 456
+              "default_serving_id": 84
             }
           ],
           "pagination": {
@@ -170,31 +183,34 @@ class FoodDetailV2(Resource):
         **Example Response:**
         ```json
         {
-          "id": 123,
-          "name": "Chicken Breast",
-          "brand": "Fresh Farm",
-          "category": "Protein",
-          "description": "Skinless chicken breast",
-          "calories_per_100g": 165,
-          "protein_per_100g": 31,
-          "carbs_per_100g": 0,
-          "fat_per_100g": 3.6,
+          "id": 42,
+          "name": "Idli",
+          "brand": "Traditional",
+          "category": "Indian Breakfast",
+          "description": "Steamed rice and lentil cake",
+          "calories_per_100g": 58,
+          "protein_per_100g": 2.5,
+          "carbs_per_100g": 12.0,
+          "fat_per_100g": 0.1,
+          "fiber_per_100g": 0.9,
+          "sugar_per_100g": 0.5,
+          "sodium_per_100g": 5,
           "verified": true,
           "servings": [
             {
-              "id": 456,
+              "id": 84,
               "serving_name": "1 piece (medium)",
               "unit": "piece",
-              "grams_per_unit": 150
+              "grams_per_unit": 35
             },
             {
-              "id": 457,
-              "serving_name": "1 cup, diced",
-              "unit": "cup",
-              "grams_per_unit": 140
+              "id": 85,
+              "serving_name": "1 piece (large)",
+              "unit": "piece",
+              "grams_per_unit": 50
             }
           ],
-          "default_serving_id": 456
+          "default_serving_id": 84
         }
         ```
         """

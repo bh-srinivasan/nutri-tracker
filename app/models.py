@@ -283,11 +283,27 @@ class MealLog(db.Model):
         return self.logged_grams if hasattr(self, 'logged_grams') and self.logged_grams is not None else self.quantity
     
     def get_display_quantity_and_unit(self):
-        """Get the display-friendly quantity and unit for this meal log."""
-        if self.unit_type == 'serving' and self.serving:
-            return f"{self.original_quantity} {self.serving.serving_name}"
-        else:
-            return f"{self.original_quantity}g"
+        """
+        Returns a safe, human-friendly quantity+unit.
+        - serving => "<q> <serving_name>"
+        - grams   => "<q> g"
+        - fallback => "<logged_grams> g"
+        """
+        def fmt(n):
+            return f"{int(n)}" if n is not None and float(n).is_integer() else f"{n:g}"
+
+        if getattr(self, "unit_type", None) == "serving" and getattr(self, "serving", None):
+            q = fmt(getattr(self, "original_quantity", 0))
+            name = (self.serving.serving_name or "").strip()
+            # For serving names that start with "1 " (like "1 small idli"), 
+            # remove the "1 " prefix since we'll show our own quantity
+            if name.startswith(("1 ", "1\u00A0")):
+                name = name[2:].strip()
+            return f"{q} {name}"
+        if getattr(self, "unit_type", None) == "grams":
+            return f"{fmt(getattr(self, 'original_quantity', 0))} g"
+        # Fallback to logged_grams
+        return f"{fmt(getattr(self, 'logged_grams', 0))} g"
     
     def __repr__(self):
         return f'<MealLog {self.user.username} - {self.food.name}>'
@@ -405,7 +421,6 @@ class FoodServing(db.Model):
     __table_args__ = (
         db.UniqueConstraint('food_id', 'serving_name', 'unit', name='uq_food_serving_name_unit'),
         db.CheckConstraint('grams_per_unit > 0 AND grams_per_unit <= 2000', name='ck_grams_per_unit_range'),
-        db.Index('ix_food_serving_food_id', 'food_id'),
     )
     
     # Relationships
