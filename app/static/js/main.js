@@ -1357,32 +1357,29 @@ NutriTracker.logMeal = {
     },
 
     /**
-     * Update the hidden quantity field with the calculated grams value
+     * Update the hidden quantity field with the serving count or grams value
      */
     updateHiddenQuantityField: function() {
         const quantityInput = document.getElementById('quantity');
         if (!quantityInput) return;
         
-        let totalGrams = 0;
-        
         if (this.currentMode === 'serving') {
             const servingQuantityInput = document.getElementById('serving-quantity');
-            const selectedServing = this.getSelectedServing();
             
-            if (servingQuantityInput && selectedServing) {
+            if (servingQuantityInput) {
                 const servingQuantity = parseFloat(servingQuantityInput.value) || 0;
-                totalGrams = servingQuantity * selectedServing.grams_per_unit;
+                // For serving mode, keep the serving count in quantity field
+                quantityInput.value = servingQuantity;
+                console.log('Updated hidden quantity field to:', servingQuantity, 'servings');
             }
         } else {
             const gramsQuantityInput = document.getElementById('grams-quantity');
             if (gramsQuantityInput) {
-                totalGrams = parseFloat(gramsQuantityInput.value) || 0;
+                const totalGrams = parseFloat(gramsQuantityInput.value) || 0;
+                quantityInput.value = totalGrams;
+                console.log('Updated hidden quantity field to:', totalGrams, 'grams');
             }
         }
-        
-        // Always update the hidden field, even if 0
-        quantityInput.value = totalGrams;
-        console.log('Updated hidden quantity field to:', totalGrams, 'grams');
     },
 
     /**

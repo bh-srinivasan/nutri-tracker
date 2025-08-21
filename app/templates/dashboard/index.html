@@ -186,7 +186,7 @@ content %}
                   >
                   {% endif %}
                   <br />
-                  <small class="text-muted">{{ meal.quantity }}g</small>
+                  <small class="text-muted">{{ meal.get_display_quantity_and_unit() }}</small>
                 </div>
               </div>
               <div class="text-end">

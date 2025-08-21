@@ -160,12 +160,16 @@ def log_meal():
             # Serving-based submission: resolve FoodServing and compute logged_grams
             serving = FoodServing.query.get(form.serving_id.data)
             if serving and serving.food_id == food.id:
-                # Calculate logged_grams from serving
+                # Ensure quantity is a serving count, not grams accidentally posted
+                # If value looks like grams (e.g., multiple of grams_per_unit and fairly large), convert back to servings
+                if original_quantity >= serving.grams_per_unit and abs((original_quantity / serving.grams_per_unit) - round(original_quantity / serving.grams_per_unit)) < 1e-6:
+                    original_quantity = original_quantity / serving.grams_per_unit
+                # Now compute
                 logged_grams = original_quantity * serving.grams_per_unit
                 
                 # Use nutrition service to compute nutrients
                 from app.services.nutrition import compute_nutrition
-                nutrition_result = compute_nutrition(food, serving=serving, quantity=original_quantity)
+                nutrition_result = compute_nutrition(food, grams=logged_grams)
                 
                 calories = nutrition_result['calories']
                 protein = nutrition_result['protein']
@@ -198,7 +202,7 @@ def log_meal():
         if edit_meal:
             meal_log = edit_meal
             meal_log.food_id = food.id
-            meal_log.quantity = original_quantity
+            meal_log.quantity = logged_grams  # keep legacy field in grams
             meal_log.original_quantity = original_quantity
             meal_log.unit_type = form.unit_type.data
             meal_log.serving_id = serving_id
@@ -218,7 +222,7 @@ def log_meal():
             meal_log = MealLog(
                 user_id=current_user.id,
                 food_id=food.id,
-                quantity=original_quantity,
+                quantity=logged_grams,  # keep legacy field in grams
                 original_quantity=original_quantity,
                 unit_type=form.unit_type.data,
                 serving_id=serving_id,
@@ -483,7 +487,7 @@ def reports():
     top_foods = db.session.query(
         Food.name,
         func.count(MealLog.id).label('log_count'),
-        func.sum(MealLog.quantity).label('total_quantity')
+        func.sum(MealLog.logged_grams).label('total_quantity')
     ).join(MealLog).filter(
         MealLog.user_id == current_user.id,
         MealLog.date >= start_date
@@ -552,7 +556,7 @@ def export_data():
                 meal_log.meal_type.title(),
                 meal_log.food.name,
                 meal_log.food.brand or '',
-                f"{meal_log.quantity:.1f}g" if meal_log.quantity else "0.0g",
+                meal_log.get_display_quantity_and_unit() if meal_log else "",
                 f"{meal_log.calories:.1f}" if meal_log.calories else "0.0",
                 f"{meal_log.protein:.1f}" if meal_log.protein else "0.0",
                 f"{meal_log.carbs:.1f}" if meal_log.carbs else "0.0",

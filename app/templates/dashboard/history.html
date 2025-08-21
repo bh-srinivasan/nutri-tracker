@@ -90,7 +90,7 @@
                                             </div>
                                         </div>
                                     </td>
-                                    <td>{{ log.quantity }}g</td>
+                                    <td>{{ log.get_display_quantity_and_unit() }}</td>
                                     <td>{{ "%.0f"|format(log.calories or 0) }}</td>
                                     <td>{{ "%.1f"|format(log.protein or 0) }}g</td>
                                     <td>
