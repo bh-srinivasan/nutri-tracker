@@ -125,7 +125,7 @@ block content %}
           </h5>
         </div>
         <div class="card-body">
-          <form method="POST">
+          <form method="POST" novalidate>
             {{ form.hidden_tag() }}
 
             <!-- Personal Information for Goal Calculation -->
@@ -134,7 +134,7 @@ block content %}
                 <div class="mb-3">
                   {{ form.weight.label(class="form-label") }}
                   <div class="input-group">
-                    {{ form.weight(class="form-control" + (" is-invalid" if
+                    {{ form.weight(id="weight", class="form-control" + (" is-invalid" if
                     form.weight.errors else "")) }}
                     <span class="input-group-text">kg</span>
                   </div>
@@ -152,7 +152,7 @@ block content %}
                   {{ form.target_weight.label(class="form-label") }}
                   <span class="text-muted small">(Optional)</span>
                   <div class="input-group">
-                    {{ form.target_weight(class="form-control", placeholder="Enter your target weight") }}
+                    {{ form.target_weight(id="target_weight", class="form-control", placeholder="Enter your target weight") }}
                     <span class="input-group-text">kg</span>
                   </div>
                   {% if form.target_weight.errors %}
@@ -171,7 +171,7 @@ block content %}
                 <div class="mb-3">
                   {{ form.height.label(class="form-label") }}
                   <div class="input-group">
-                    {{ form.height(class="form-control" + (" is-invalid" if
+                    {{ form.height(id="height", class="form-control" + (" is-invalid" if
                     form.height.errors else "")) }}
                     <span class="input-group-text">cm</span>
                   </div>
@@ -190,7 +190,7 @@ block content %}
               <div class="col-md-4">
                 <div class="mb-3">
                   {{ form.age.label(class="form-label") }} {{
-                  form.age(class="form-control" + (" is-invalid" if
+                  form.age(id="age", class="form-control" + (" is-invalid" if
                   form.age.errors else "")) }} {% if form.age.errors %}
                   <div class="invalid-feedback">
                     {% for error in form.age.errors %}
@@ -203,7 +203,7 @@ block content %}
               <div class="col-md-4">
                 <div class="mb-3">
                   {{ form.gender.label(class="form-label") }} {{
-                  form.gender(class="form-select" + (" is-invalid" if
+                  form.gender(id="gender", class="form-select" + (" is-invalid" if
                   form.gender.errors else "")) }} {% if form.gender.errors %}
                   <div class="invalid-feedback">
                     {% for error in form.gender.errors %}
@@ -216,7 +216,7 @@ block content %}
               <div class="col-md-4">
                 <div class="mb-3">
                   {{ form.activity_level.label(class="form-label") }} {{
-                  form.activity_level(class="form-select" + (" is-invalid" if
+                  form.activity_level(id="activity_level", class="form-select" + (" is-invalid" if
                   form.activity_level.errors else "")) }} {% if
                   form.activity_level.errors %}
                   <div class="invalid-feedback">
@@ -233,7 +233,7 @@ block content %}
               <div class="col-md-6">
                 <div class="mb-3">
                   {{ form.goal_type.label(class="form-label") }} {{
-                  form.goal_type(class="form-select" + (" is-invalid" if
+                  form.goal_type(id="goal_type", class="form-select" + (" is-invalid" if
                   form.goal_type.errors else "")) }} {% if form.goal_type.errors %}
                   <div class="invalid-feedback">
                     {% for error in form.goal_type.errors %}
@@ -245,21 +245,15 @@ block content %}
               </div>
               <div class="col-md-6">
                 <div class="mb-3">
-                  <label class="form-label">Auto-Calculate Goals</label>
-                  <div>
-                    <button
-                      type="button"
-                      class="btn btn-outline-info"
-                      onclick="calculateGoals()"
-                    >
-                      <i class="fas fa-calculator"></i> Calculate Recommended
-                      Goals
+                  <div class="d-flex align-items-center gap-2 my-3">
+                    <strong>Auto-Calculate Goals</strong>
+                    <button type="button" id="btnCalculateGoals" class="btn btn-outline-primary btn-sm">
+                      Calculate Recommended Goals
                     </button>
+                    <span id="durationHint" class="text-muted">
+                      Duration affects calories. Set Target Weight or we'll use a default weekly pace.
+                    </span>
                   </div>
-                  <small class="text-muted"
-                    >This will calculate goals based on your information
-                    above.</small
-                  >
                 </div>
               </div>
             </div>
@@ -273,7 +267,7 @@ block content %}
               <div class="col-md-6">
                 <div class="mb-3">
                   {{ form.target_duration.label(class="form-label") }}
-                  {{ form.target_duration(class="form-select", onchange="console.log('🔥 ONCHANGE TRIGGERED!'); updateTargetDate()") }}
+                  {{ form.target_duration(id="target_duration", class="form-select", onchange="updateTargetDate();") }}
                   <div class="form-text">
                     Choose how long you want to work on this goal. You can also set a custom date below.
                   </div>
@@ -283,7 +277,7 @@ block content %}
                 <div class="mb-3">
                   {{ form.target_date.label(class="form-label") }}
                   <div class="input-group">
-                    {{ form.target_date(class="form-control" + (" is-invalid" if form.target_date.errors else ""), onchange="handleManualDateChange()") }}
+                    {{ form.target_date(id="target_date", class="form-control" + (" is-invalid" if form.target_date.errors else ""), onchange="handleManualDateChange()") }}
                     <button type="button" class="btn btn-outline-secondary" id="clearDateBtn" onclick="clearTargetDate()" title="Clear target date">
                       <i class="fas fa-times"></i>
                     </button>
@@ -477,466 +471,170 @@ block content %}
   </div>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
 <script>
-  function calculateGoals() {
-    const weight = parseFloat(document.getElementById("weight").value);
-    const height = parseFloat(document.getElementById("height").value);
-    const age = parseInt(document.getElementById("age").value);
-    const gender = document.getElementById("gender").value;
-    const activityLevel = document.getElementById("activity_level").value;
-    const goal = document.getElementById("goal_type").value;
+(function () {
+  // ------- Tunable defaults (used when no target weight is set) -------
+  const DEFAULT_LOSS_KG_PER_WEEK = 0.5;   // decrease per week
+  const DEFAULT_GAIN_KG_PER_WEEK = 0.25;  // increase per week
+  const KCAL_PER_KG = 7700;
 
-    if (!weight || !height || !age || !gender || !activityLevel || !goal) {
-      if (typeof NutriTracker !== 'undefined' && NutriTracker.utils && NutriTracker.utils.showToast) {
-        NutriTracker.utils.showToast(
-          "Please fill in all personal information fields first.",
-          "warning"
-        );
-      } else {
-        alert("Please fill in all personal information fields first.");
-      }
-      return;
-    }
+  // ------- helpers -------
+  const durationDaysMap = { '2_weeks':14,'1_month':30,'2_months':60,'3_months':90,'6_months':180,'1_year':365 };
+  const byId = id => document.getElementById(id);
+  const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
+  function parseNum(el){
+    if(!el) return NaN;
+    const raw = String(el.value||'').replace(/,/g,'').trim();
+    const cleaned = raw.replace(/\s*(kg|cm|g|grams|kcal|calories)?$/i,'').trim();
+    const n = parseFloat(cleaned);
+    return Number.isFinite(n) ? n : NaN;
+  }
+  const getNum = id => parseNum(byId(id));
+  const getVal = id => byId(id)?.value || '';
 
-    // Calculate BMR using Mifflin-St Jeor Equation
-    let bmr;
-    if (gender === "male") {
-      bmr = 10 * weight + 6.25 * height - 5 * age + 5;
-    } else {
-      bmr = 10 * weight + 6.25 * height - 5 * age - 161;
-    }
-
-    // Activity multipliers
-    const activityMultipliers = {
-      sedentary: 1.2,
-      lightly_active: 1.375,
-      moderately_active: 1.55,
-      very_active: 1.725,
-      extremely_active: 1.9,
+  function setNum(id,v){
+    const el = byId(id);
+    if(!el || !Number.isFinite(v)) return;
+    const val = Math.round(v);
+    const write = ()=>{ el.value = String(val);
+      el.dispatchEvent(new Event('input',{bubbles:true}));
+      el.dispatchEvent(new Event('change',{bubbles:true}));
     };
+    write(); setTimeout(write,50); setTimeout(write,300);
+  }
 
-    let tdee = bmr * activityMultipliers[activityLevel];
+  // Accept both current + legacy keys
+  const activityMap = { sedentary:1.2, light:1.375, moderate:1.55, high:1.725, very_high:1.9, active:1.725, very_active:1.9 };
 
-    // Adjust for goal
-    if (goal === "weight_loss") {
-      tdee -= 500; // 500 calorie deficit for ~1 lb/week weight loss
-    } else if (goal === "weight_gain") {
-      tdee += 500; // 500 calorie surplus for weight gain
+  function calcBMR({gender,weight,height,age}){
+    return (gender==='male')
+      ? 10*weight + 6.25*height - 5*age + 5
+      : 10*weight + 6.25*height - 5*age - 161;
+  }
+
+  function daysFromDurationOrDate(){
+    const dur = getVal('target_duration');
+    const dateStr = getVal('target_date');
+    const today = new Date(); const base = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    if(dateStr){
+      const dd = Math.ceil((new Date(dateStr) - base)/86400000);
+      if (dd > 0) return dd;
+    }
+    return durationDaysMap[dur] || null;
+  }
+
+  function dailyAdjustFromDefaults(goalType, days){
+    if(!days || days <= 0) return 0;
+    if(goalType === 'lose') {
+      const totalKg = - (DEFAULT_LOSS_KG_PER_WEEK * (days/7));
+      return clamp((totalKg * KCAL_PER_KG) / days, -1000, 1000);
+    }
+    if(goalType === 'gain') {
+      const totalKg =   (DEFAULT_GAIN_KG_PER_WEEK * (days/7));
+      return clamp((totalKg * KCAL_PER_KG) / days, -1000, 1000);
+    }
+    return 0; // maintain
+  }
+
+  function calculateGoals(){
+    const weight   = getNum('weight');
+    const height   = getNum('height');
+    const age      = getNum('age');
+    const gender   = getVal('gender');
+    const activity = getVal('activity_level');
+    const goalType = getVal('goal_type');
+
+    if([weight,height,age].some(Number.isNaN) || !gender || !activity || !goalType){
+      alert('Fill weight, height, age, gender, activity level, and goal type first.');
+      return;
     }
 
-    // Calculate macros
-    const protein = Math.round(weight * 2.2); // 1g per lb of body weight
-    const fat = Math.round((tdee * 0.25) / 9); // 25% of calories from fat
-    const carbs = Math.round((tdee - protein * 4 - fat * 9) / 4); // Remaining calories from carbs
-    const fiber = Math.round((tdee / 1000) * 14); // 14g per 1000 calories
+    const bmr = calcBMR({gender,weight,height,age});
+    const mult = activityMap[activity] ?? 1.2;
+    const tdee = bmr * mult;
 
-    // Fill in the form
-    document.getElementById("targetCalories").value = Math.round(tdee);
-    document.getElementById("targetProtein").value = protein;
-    document.getElementById("targetCarbs").value = carbs;
-    document.getElementById("targetFat").value = fat;
-    document.getElementById("targetFiber").value = fiber;
+    const days = daysFromDurationOrDate();
+    const targetWt = getNum('target_weight');
 
-    if (typeof NutriTracker !== 'undefined' && NutriTracker.utils && NutriTracker.utils.showToast) {
-      NutriTracker.utils.showToast("Goals calculated successfully!", "success");
+    let dailyAdjust = 0;
+    if(Number.isFinite(targetWt) && days && days > 0){
+      const deltaKg = targetWt - weight; // negative => loss
+      dailyAdjust = clamp((deltaKg * KCAL_PER_KG) / days, -1000, 1000);
     } else {
-      alert("Goals calculated successfully!");
-    }
-  }
-
-  // Goal timing functionality
-  console.log('🚀 GOAL TIMING JAVASCRIPT LOADING...'); // Debug log
-  console.log('⏰ Current time:', new Date().toLocaleTimeString()); // Debug log
-  
-  let userEditedDate = false; // Track if user manually edited the date
-  let lastDurationBasedDate = null; // Store the last auto-calculated date
-  let programmaticChange = false; // Flag to prevent handleManualDateChange during programmatic updates
-  
-  // Duration to days mapping
-  const durationToDays = {
-    '2_weeks': 14,
-    '1_month': 30,
-    '2_months': 60,
-    '3_months': 90,
-    '6_months': 180,
-    '1_year': 365
-  };
-
-  // Days to duration mapping (reverse lookup)
-  const daysToDuration = {
-    '14': '2_weeks',
-    '30': '1_month',
-    '60': '2_months',
-    '90': '3_months',
-    '180': '6_months',
-    '365': '1_year'
-  };
-
-  // Function to find the closest duration for a given number of days
-  function findClosestDuration(days) {
-    console.log('Finding closest duration for days:', days); // Debug log
-    
-    let closestDuration = null;
-    let minDifference = Infinity;
-    
-    for (const [duration, durationDays] of Object.entries(durationToDays)) {
-      const difference = Math.abs(days - durationDays);
-      if (difference < minDifference && difference <= 3) { // Allow 3-day tolerance
-        minDifference = difference;
-        closestDuration = duration;
+      // duration-aware even WITHOUT target weight: use default weekly pace
+      const byPace = dailyAdjustFromDefaults(goalType, days);
+      if (byPace !== 0) dailyAdjust = byPace;
+      else {
+        // keep legacy ±500 only if we have neither target weight nor a recognized goal pace
+        if(goalType==='lose') dailyAdjust = -500;
+        else if(goalType==='gain') dailyAdjust = +500;
       }
     }
-    
-    console.log('Closest duration found:', closestDuration, 'with difference:', minDifference); // Debug log
-    return closestDuration;
-  }
 
-  function updateTargetDate() {
-    console.log('🎯🎯🎯 UPDATE TARGET DATE FUNCTION CALLED!!! 🎯🎯🎯'); // Enhanced debug log
-    console.log('⏰ Function call time:', new Date().toLocaleTimeString()); // Debug log
-    console.log('updateTargetDate function called'); // Original debug log
-    const durationSelect = document.getElementById('target_duration');
-    const dateInput = document.getElementById('target_date');
-    
-    if (!durationSelect) {
-      console.error('Duration select element not found with id: target_duration');
-      return;
-    }
-    
-    if (!dateInput) {
-      console.error('Date input element not found with id: target_date');
-      return;
-    }
-    
-    const duration = durationSelect.value;
-    
-    console.log('Duration selected:', duration); // Debug log
-    console.log('Duration element:', durationSelect); // Debug log
-    console.log('Date element:', dateInput); // Debug log
-    
-    hideAllMessages();
-    
-    if (!duration) {
-      // If no duration selected, don't auto-fill date
-      console.log('No duration selected, returning'); // Debug log
-      return;
-    }
-    
-    // Handle custom duration - don't auto-calculate date
-    if (duration === 'custom') {
-      console.log('Custom duration selected, not auto-calculating date'); // Debug log
-      showAutoFillMessage();
-      const autoFillTextElement = document.getElementById('autoFillText');
-      if (autoFillTextElement) {
-        autoFillTextElement.textContent = 'Custom timeframe selected. Please set your target date manually.';
-      }
-      return;
-    }
-    
-    if (userEditedDate && duration !== 'custom') {
-      // Ask user if they want to override their manual edit
-      if (!confirm('This will override your manually set date. Do you want to continue?')) {
-        console.log('User cancelled override'); // Debug log
-        return;
-      }
-      // User confirmed, so reset the flag
-      userEditedDate = false;
-    }
-    
-    // Calculate new date
-    const today = new Date();
-    const days = durationToDays[duration];
-    
-    if (!days) {
-      console.error('No days found for duration:', duration);
-      return;
-    }
-    
-    const targetDate = new Date(today);
-    targetDate.setDate(today.getDate() + days);
-    
-    console.log('Calculated target date:', targetDate); // Debug log
-    
-    // Format date for input (YYYY-MM-DD)
-    const formattedDate = targetDate.toISOString().split('T')[0];
-    
-    // Set flag to prevent handleManualDateChange from triggering
-    programmaticChange = true;
-    dateInput.value = formattedDate;
-    lastDurationBasedDate = formattedDate;
-    
-    // Reset the flag after a short delay to allow the change event to fire
-    setTimeout(() => {
-      programmaticChange = false;
-    }, 100);
-    
-    console.log('Formatted date set:', formattedDate); // Debug log
-    
-    // Reset user edit flag since this is a duration-based update
-    userEditedDate = false;
-    
-    // Show auto-fill message
-    showAutoFillMessage();
-    
-    // Update message text
-    const durationText = durationSelect.options[durationSelect.selectedIndex].text;
-    const autoFillTextElement = document.getElementById('autoFillText');
-    if (autoFillTextElement) {
-      autoFillTextElement.textContent = `Target date updated based on selected duration (${durationText}).`;
-    }
-  }
+    let calories = clamp(tdee + dailyAdjust, 800, 5000);
+    const protein = clamp(weight * 2.2, 10, 300);
+    const fat     = clamp((calories * 0.25) / 9, 0, 200);
+    const carbs   = clamp((calories - protein*4 - fat*9) / 4, 0, 500);
+    const fiber   = clamp((calories / 1000) * 14, 0, 100);
 
-  function handleManualDateChange() {
-    // Skip processing if this is a programmatic change
-    if (programmaticChange) {
-      console.log('Skipping handleManualDateChange - programmatic change'); // Debug log
-      return;
-    }
-    
-    const dateInput = document.getElementById('target_date');
-    const durationSelect = document.getElementById('target_duration');
-    const selectedDate = dateInput.value;
-    
-    console.log('handleManualDateChange called - user manual change'); // Debug log
-    
-    hideAllMessages();
-    
-    if (!selectedDate) {
-      // Date was cleared
-      return;
-    }
-    
-    // Check if date is in the past
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const targetDate = new Date(selectedDate);
-    
-    if (targetDate < today) {
-      showPastDateError();
-      return;
-    }
-    
-    // Calculate days difference
-    const timeDiff = targetDate.getTime() - today.getTime();
-    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
-    
-    // Check if it matches a predefined duration (with 2-day tolerance)
-    let matchingDuration = null;
-    for (const [days, duration] of Object.entries(daysToDuration)) {
-      if (Math.abs(daysDiff - parseInt(days)) <= 2) {
-        matchingDuration = duration;
-        break;
-      }
-    }
-    
-    if (matchingDuration) {
-      // Update duration dropdown to match
-      durationSelect.value = matchingDuration;
-      userEditedDate = false; // This is now synced
-      
-      showCustomMessage("We've updated the duration to match your new target date.");
-    } else {
-      // Set to custom timeframe
-      durationSelect.value = 'custom';
-      userEditedDate = true;
-      
-      showCustomMessage("Custom date set. We won't change this unless you update the duration again.");
-      showResetOption();
-    }
-  }
-  
-  function clearTargetDate() {
-    const dateInput = document.getElementById('target_date');
-    const durationSelect = document.getElementById('target_duration');
-    
-    if (!dateInput || !durationSelect) {
-      console.error('clearTargetDate: Required elements not found');
-      return;
-    }
-    
-    // Set flag to prevent handleManualDateChange from triggering
-    programmaticChange = true;
-    
-    // Clear both fields
-    dateInput.value = '';
-    durationSelect.value = '';
-    
-    // Reset flags
-    userEditedDate = false;
-    lastDurationBasedDate = null;
-    
-    // Reset the flag after a short delay
-    setTimeout(() => {
-      programmaticChange = false;
-    }, 100);
-    
-    // Hide all messages and show cleared message
-    hideAllMessages();
-    showClearedMessage();
-  }
-  
-  function resetToDurationDate() {
-    const dateInput = document.getElementById('target_date');
-    
-    if (!dateInput) {
-      console.error('resetToDurationDate: Date input element not found');
-      return;
-    }
-    
-    if (lastDurationBasedDate) {
-      // Set flag to prevent handleManualDateChange from triggering
-      programmaticChange = true;
-      dateInput.value = lastDurationBasedDate;
-      userEditedDate = false;
-      
-      // Reset the flag after a short delay
-      setTimeout(() => {
-        programmaticChange = false;
-      }, 100);
-      
-      hideAllMessages();
-      showAutoFillMessage();
-      const autoFillTextElement = document.getElementById('autoFillText');
-      if (autoFillTextElement) {
-        autoFillTextElement.textContent = 'Target date reset to match the selected duration.';
-      }
-    }
-  }
+    setNum('targetCalories', calories);
+    setNum('targetProtein',  protein);
+    setNum('targetFat',      fat);
+    setNum('targetCarbs',    carbs);
+    setNum('targetFiber',    fiber);
 
-  // Helper functions for showing/hiding messages
-  function hideAllMessages() {
-    // Hide all messages with null checks to prevent errors
-    const pastDateError = document.getElementById('pastDateError');
-    if (pastDateError) pastDateError.style.display = 'none';
-    
-    const dateAutoFillMessage = document.getElementById('dateAutoFillMessage');
-    if (dateAutoFillMessage) dateAutoFillMessage.style.display = 'none';
-    
-    const dateCustomMessage = document.getElementById('dateCustomMessage');
-    if (dateCustomMessage) dateCustomMessage.style.display = 'none';
-    
-    const dateClearedMessage = document.getElementById('dateClearedMessage');
-    if (dateClearedMessage) dateClearedMessage.style.display = 'none';
-    
-    const dateResetOption = document.getElementById('dateResetOption');
-    if (dateResetOption) dateResetOption.style.display = 'none';
-  }
-
-  function showPastDateError() {
-    hideAllMessages();
-    const pastDateError = document.getElementById('pastDateError');
-    if (pastDateError) pastDateError.style.display = 'block';
-  }
-
-  function showAutoFillMessage() {
-    hideAllMessages();
-    const dateAutoFillMessage = document.getElementById('dateAutoFillMessage');
-    if (dateAutoFillMessage) dateAutoFillMessage.style.display = 'block';
-  }
-
-  function showCustomMessage(message) {
-    hideAllMessages();
-    const customMessageDiv = document.getElementById('dateCustomMessage');
-    if (customMessageDiv) {
-      customMessageDiv.style.display = 'block';
-      if (message) {
-        const customText = document.getElementById('customText');
-        if (customText) customText.textContent = message;
-      }
-    }
-  }
-
-  function showClearedMessage() {
-    hideAllMessages();
-    const dateClearedMessage = document.getElementById('dateClearedMessage');
-    if (dateClearedMessage) dateClearedMessage.style.display = 'block';
-  }
-
-  function showResetOption() {
-    const dateResetOption = document.getElementById('dateResetOption');
-    if (dateResetOption) dateResetOption.style.display = 'block';
-  }
-
-  function validateGoalForm() {
-    const dateInput = document.getElementById('target_date');
-    const selectedDate = dateInput.value;
-
-  // Initialize on page load
-  document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM Content Loaded'); // Debug log
-    
-    // Test function accessible from console
-    window.testUpdateTargetDate = updateTargetDate;
-    
-    // Make sure the function is globally available
-    window.updateTargetDate = updateTargetDate;
-    
-    // Set up form validation
-    const form = document.querySelector('form');
-    if (form) {
-      form.addEventListener('submit', function(e) {
-        if (!validateGoalForm()) {
-          e.preventDefault();
-          return false;
-        }
-      });
-    }
-    
-    // Add event listener for manual date changes
-    const dateInput = document.getElementById('target_date');
-    if (dateInput) {
-      dateInput.addEventListener('change', handleManualDateChange);
-    }
-    
-    // Duration dropdown event listener is handled by inline onchange attribute
-    // to avoid conflicts, so we don't add another addEventListener here
-    
-    // Check if there's an existing date to determine if it was user-edited
-    console.log('Date input found:', dateInput); // Debug log
-    console.log('Duration select found:', document.getElementById('target_duration')); // Debug log
-    
-    const durationSelect = document.getElementById('target_duration');
-    if (dateInput && dateInput.value && durationSelect && durationSelect.value) {
-      // There's both a date and duration, calculate if they match
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const targetDate = new Date(dateInput.value);
-      const timeDiff = targetDate.getTime() - today.getTime();
-      const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
-      
-      const expectedDays = durationToDays[durationSelect.value];
-      
-      if (expectedDays && Math.abs(daysDiff - expectedDays) > 3) { // Allow 3-day tolerance
-        userEditedDate = true;
-        // Auto-select custom for existing dates that don't match predefined durations
-        const matchingDuration = findClosestDuration(daysDiff);
-        if (!matchingDuration) {
-          durationSelect.value = 'custom';
-        }
+    const hint = byId('durationHint');
+    if(hint){
+      if(Number.isFinite(targetWt) && days) {
+        hint.textContent = `Using duration-aware plan: Δ${(targetWt-weight).toFixed(1)}kg over ${days} days`;
+      } else if (days) {
+        const pace = (goalType==='lose') ? `-${DEFAULT_LOSS_KG_PER_WEEK} kg/week`
+                   : (goalType==='gain') ? `+${DEFAULT_GAIN_KG_PER_WEEK} kg/week`
+                   : `0 kg/week`;
+        hint.textContent = `Using default pace (${pace}) over ${days} days`;
       } else {
-        lastDurationBasedDate = dateInput.value;
-      }
-    } else if (dateInput && dateInput.value && (!durationSelect || !durationSelect.value || durationSelect.value === '')) {
-      // Date without duration indicates manual entry - set to custom
-      userEditedDate = true;
-      if (durationSelect) {
-        durationSelect.value = 'custom';
+        hint.textContent = `Using legacy ±500 kcal/day (set duration or date for duration-aware plan)`;
       }
     }
-  });
-    if (selectedDate) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const targetDate = new Date(selectedDate);
-      
-      if (targetDate < today) {
-        showPastDateError();
-        dateInput.focus();
-        return false; // Prevent form submission
-      }
-    }
-    
-    return true; // Allow form submission
+
+    console.info('[Goals] tdee=', Math.round(tdee), 'dailyAdjust=', Math.round(dailyAdjust), 'cal=', Math.round(calories));
   }
+
+  // --- date helpers and wiring (also trigger recalc) ---
+  function updateTargetDate(){
+    const dur = getVal('target_duration');
+    const dateEl = byId('target_date'); if(!dateEl) { calculateGoals(); return; }
+    const days = durationDaysMap[dur];
+    if(!days){ calculateGoals(); return; }
+    const now = new Date();
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + days);
+    try { dateEl.valueAsDate = d; } catch(e){}
+    const yyyy=d.getFullYear(), mm=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0');
+    dateEl.value = `${yyyy}-${mm}-${dd}`;
+    dateEl.dispatchEvent(new Event('input',{bubbles:true}));
+    dateEl.dispatchEvent(new Event('change',{bubbles:true}));
+    calculateGoals(); // auto-recalc on duration change
+  }
+  function handleManualDateChange(){ calculateGoals(); }
+
+  window.updateTargetDate = updateTargetDate;
+  window.handleManualDateChange = handleManualDateChange;
+  window.calculateGoals = calculateGoals;
+
+  function wire(){
+    const btn = byId('btnCalculateGoals');
+    if(btn){ btn.onclick = null; btn.addEventListener('click', calculateGoals, { passive:true }); }
+    // Live recalc on relevant changes
+    ['weight','height','age','gender','activity_level','goal_type','target_weight']
+      .map(byId).filter(Boolean).forEach(el => el.addEventListener('change', calculateGoals));
+    byId('target_duration')?.addEventListener('change', updateTargetDate);
+    byId('target_date')?.addEventListener('change', handleManualDateChange);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', wire, { once:true });
+  else wire();
+})();
 </script>
 {% endblock %}

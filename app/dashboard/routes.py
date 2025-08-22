@@ -672,40 +672,85 @@ def calculate_logging_streak(user_id):
     
     return streak
 
-def calculate_recommended_nutrition(user):
-    """Calculate recommended nutrition based on user profile."""
-    if not all([user.age, user.gender, user.height, user.weight]):
-        return {
-            'calories': 2000,
-            'protein': 50,
-            'carbs': 250,
-            'fat': 65,
-            'fiber': 25
-        }
-    
-    # Calculate TDEE
-    tdee = user.calculate_tdee()
-    if not tdee:
-        tdee = 2000
-    
-    # Adjust based on goal
-    current_goal = user.get_current_nutrition_goal()
-    if current_goal:
-        if current_goal.goal_type == 'lose':
-            calories = tdee - 500  # 500 calorie deficit
-        elif current_goal.goal_type == 'gain':
-            calories = tdee + 500  # 500 calorie surplus
-        else:
-            calories = tdee
+def calculate_recommended_nutrition(user,
+                                    weight=None, height=None, age=None, gender=None,
+                                    activity_level=None, goal_type=None,
+                                    target_weight=None, target_duration=None, target_date=None):
+    """
+    Duration-aware recommended nutrition:
+    - If target_weight AND (target_duration or target_date) are provided,
+      compute daily kcal adjustment from total kg change over selected days.
+    - Else fallback to ±500 kcal for lose/gain (or maintain).
+    """
+    # Pull defaults from user if not provided
+    weight = weight if weight is not None else getattr(user, 'weight', None)
+    height = height if height is not None else getattr(user, 'height', None)
+    age    = age    if age    is not None else getattr(user, 'age', None)
+    gender = gender if gender is not None else getattr(user, 'gender', None)
+    activity_level = activity_level if activity_level is not None else getattr(user, 'activity_level', None)
+
+    # Goal type fallback: use current goal if missing
+    if goal_type is None:
+        current_goal = user.get_current_nutrition_goal()
+        goal_type = current_goal.goal_type if current_goal else 'maintain'
+
+    # Basic guards
+    if not all([weight, height, age, gender, activity_level]):
+        return {'calories': 2000, 'protein': 50, 'carbs': 250, 'fat': 65, 'fiber': 25}
+
+    # BMR/TDEE
+    if gender.lower() == 'male':
+        bmr = 10 * weight + 6.25 * height - 5 * age + 5
     else:
-        calories = tdee
-    
-    # Calculate macros (protein: 0.8-1.2g per kg, carbs: 45-65%, fat: 20-35%)
-    protein = user.weight * 1.0  # 1g per kg body weight
-    fat = calories * 0.25 / 9  # 25% of calories from fat
-    carbs = (calories - (protein * 4) - (fat * 9)) / 4  # Remaining calories from carbs
-    fiber = calories / 80  # Rough estimate
-    
+        bmr = 10 * weight + 6.25 * height - 5 * age - 161
+
+    # Accept both new and legacy activity keys
+    activity_multipliers = {
+        'sedentary': 1.2, 'light': 1.375, 'moderate': 1.55,
+        'high': 1.725, 'very_high': 1.9,
+        'active': 1.725, 'very_active': 1.9
+    }
+    mult = activity_multipliers.get(activity_level, 1.2)
+    tdee = bmr * mult
+
+    # Duration-aware adjustment
+    KCAL_PER_KG = 7700
+    daily_adjust = 0
+
+    # Compute days from duration or explicit date
+    days = None
+    if target_date:
+        try:
+            days = (target_date - date.today()).days
+            if days <= 0:
+                days = None
+        except Exception:
+            days = None
+
+    if days is None and target_duration:
+        duration_map = {'2_weeks':14,'1_month':30,'2_months':60,'3_months':90,'6_months':180,'1_year':365}
+        days = duration_map.get(target_duration)
+
+    if target_weight is not None and days:
+        delta_kg = target_weight - weight
+        daily_adjust = max(-1000, min(1000, (delta_kg * KCAL_PER_KG) / days))
+    else:
+        if goal_type == 'lose':
+            daily_adjust = -500
+        elif goal_type == 'gain':
+            daily_adjust = 500
+        else:
+            daily_adjust = 0
+
+    calories = tdee + daily_adjust
+    calories = max(800, min(5000, calories))
+
+    # Macros
+    protein = max(10, min(300, weight * 2.2))
+    fat     = max(0, min(200, (calories * 0.25) / 9))
+    carbs   = max(0, min(500, (calories - protein * 4 - fat * 9) / 4))
+    fiber   = max(0, min(100, calories / 1000 * 14))
+
     return {
         'calories': round(calories),
         'protein': round(protein),
