@@ -651,6 +651,55 @@ def join_challenge(challenge_id):
     flash(f'Successfully joined "{challenge.name}" challenge!', 'success')
     return redirect(url_for('dashboard.challenges'))
 
+
+@bp.route('/api/calc-goals', methods=['POST'])
+@login_required
+def api_calc_goals():
+    """API endpoint for calculating nutrition goals."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Extract data from request
+        weight = data.get('weight')
+        height = data.get('height')
+        age = data.get('age')
+        gender = data.get('gender')
+        activity_level = data.get('activity_level')
+        goal_type = data.get('goal_type')
+        target_weight = data.get('target_weight')
+        target_duration = data.get('target_duration')
+        target_date_str = data.get('target_date')
+        
+        # Parse target_date if provided
+        target_date = None
+        if target_date_str:
+            try:
+                target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                pass  # Ignore invalid date format
+        
+        # Calculate recommended nutrition using existing function
+        recommended = calculate_recommended_nutrition(
+            user=current_user,
+            weight=weight,
+            height=height,
+            age=age,
+            gender=gender,
+            activity_level=activity_level,
+            goal_type=goal_type,
+            target_weight=target_weight,
+            target_duration=target_duration,
+            target_date=target_date
+        )
+        
+        return jsonify(recommended)
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 # Helper functions
 def calculate_logging_streak(user_id):
     """Calculate consecutive days of meal logging."""

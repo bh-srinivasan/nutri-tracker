@@ -22,7 +22,194 @@ This analysis examines what happens when a non-admin user clicks the **"Calculat
   <button type="button" id="btnCalculateGoals" class="btn btn-outline-primary btn-sm">
     Calculate Recommended Goals
   </button>
-  <span class="text-muted">This will calculate goals based on your information above.</span>
+  <span class="text-muted"># Calculate Estimated Goals Button Analysis
+
+## Overview
+
+This document analyzes what happens when a non-admin user clicks the "Calculate Estimated Goals" button on the Goals screen in the Nutri Tracker application.
+
+## Current Implementation Status
+
+⚠️ **Important**: The current streamlined template has a **simplified JavaScript implementation** that only provides basic chip synchronization. The full `calculateGoals()` function was present in the previous version but was removed during the UI streamlining process.
+
+## Frontend Template Structure
+
+### File Location
+- **Template**: `app/templates/dashboard/nutrition_goals.html`
+
+### Button Implementation
+```html
+<button type="button" id="btnCalculateGoals" class="btn btn-primary">
+  <i class="bi bi-lightning-charge"></i> Calculate Estimated Goals
+</button>
+```
+
+### Current JavaScript Behavior (Simplified Version)
+```javascript
+const btn = document.getElementById('btnCalculateGoals');
+if (btn) {
+  btn.addEventListener('click', () => {
+    (window.calculateGoals ? window.calculateGoals : () => {})();
+    // animate chips after updates
+    syncChips();
+    showToast('Targets updated based on your inputs.');
+  });
+}
+```
+
+**Current Status**: The button currently calls `window.calculateGoals` if it exists, otherwise does nothing. Only chip synchronization and toast notification occur.
+
+## Backend Calculation Logic
+
+### File Location
+- **Backend Route**: `app/dashboard/routes.py` (lines 675-761)
+
+### Function: `calculate_recommended_nutrition()`
+
+#### Parameters
+```python
+def calculate_recommended_nutrition(user,
+                                    weight=None, height=None, age=None, gender=None,
+                                    activity_level=None, goal_type=None,
+                                    target_weight=None, target_duration=None, target_date=None):
+```
+
+#### Calculation Process
+
+1. **Input Validation**
+   - Uses user profile data as defaults if parameters not provided
+   - Requires: weight, height, age, gender, activity_level
+   - Returns default values if missing: `{'calories': 2000, 'protein': 50, 'carbs': 250, 'fat': 65, 'fiber': 25}`
+
+2. **BMR Calculation (Mifflin-St Jeor Equation)**
+   ```python
+   # Male
+   bmr = 10 * weight + 6.25 * height - 5 * age + 5
+   
+   # Female  
+   bmr = 10 * weight + 6.25 * height - 5 * age - 161
+   ```
+
+3. **TDEE Calculation**
+   ```python
+   activity_multipliers = {
+       'sedentary': 1.2, 'light': 1.375, 'moderate': 1.55,
+       'high': 1.725, 'very_high': 1.9,
+       'active': 1.725, 'very_active': 1.9
+   }
+   tdee = bmr * activity_multiplier
+   ```
+
+4. **Duration-Aware Calorie Adjustment**
+   
+   **If target_weight AND timeline provided:**
+   ```python
+   KCAL_PER_KG = 7700
+   delta_kg = target_weight - current_weight
+   daily_adjust = max(-1000, min(1000, (delta_kg * KCAL_PER_KG) / days))
+   ```
+   
+   **Otherwise (legacy method):**
+   ```python
+   if goal_type == 'lose':
+       daily_adjust = -500
+   elif goal_type == 'gain':
+       daily_adjust = 500
+   else:
+       daily_adjust = 0  # maintain
+   ```
+
+5. **Final Calorie Target**
+   ```python
+   calories = max(800, min(5000, tdee + daily_adjust))
+   ```
+
+6. **Macronutrient Distribution**
+   ```python
+   protein = max(10, min(300, weight * 2.2))           # 2.2g per kg bodyweight
+   fat = max(0, min(200, (calories * 0.25) / 9))       # 25% of calories
+   carbs = max(0, min(500, (calories - protein*4 - fat*9) / 4))  # Remaining calories
+   fiber = max(0, min(100, calories / 1000 * 14))      # 14g per 1000 calories
+   ```
+
+## User Experience Flow
+
+### Current User Journey
+1. User fills out personal information (weight, height, age, gender, activity level)
+2. User selects goal type (lose, maintain, gain)
+3. User optionally sets target weight and timeline
+4. User clicks "Calculate Estimated Goals" button
+5. **Currently**: Only chip synchronization and toast notification occur
+6. User can manually enter nutrition targets
+7. User submits form to save goals
+
+### Expected Behavior (Needs Implementation)
+1. Button should trigger client-side calculation using the same logic as backend
+2. Automatically populate the nutrition target fields
+3. Update live preview chips
+4. Provide helpful hint text about the calculation method used
+
+## Duration-Aware Features
+
+### Timeline Options
+```python
+duration_map = {
+    '2_weeks': 14, '1_month': 30, '2_months': 60, 
+    '3_months': 90, '6_months': 180, '1_year': 365
+}
+```
+
+### Calculation Modes
+1. **Precise Mode**: Target weight + timeline = precise daily calorie adjustment
+2. **Default Mode**: Uses default weekly pace (lose: -0.5kg/week, gain: +0.25kg/week)  
+3. **Legacy Mode**: Simple ±500 calories for lose/gain goals
+
+## Related Files
+
+### Core Template Files
+- [`app/templates/dashboard/nutrition_goals.html`](./app/templates/dashboard/nutrition_goals.html) - Main goals template
+- [`app/templates/base.html`](./app/templates/base.html) - Base template with Bootstrap and global styles
+
+### Backend Files  
+- [`app/dashboard/routes.py`](./app/dashboard/routes.py) - Main route handler and calculation logic (lines 675-761)
+- [`app/dashboard/forms.py`](./app/dashboard/forms.py) - Form definitions and validation
+- [`app/models.py`](./app/models.py) - User and NutritionGoal model definitions
+
+### Database Models
+- `User` model - Stores personal information (weight, height, age, etc.)
+- `NutritionGoal` model - Stores nutrition targets and goal settings
+
+### Supporting Files
+- [`config.py`](./config.py) - Application configuration
+- [`app/__init__.py`](./app/__init__.py) - Flask application factory
+- [`requirements.txt`](./requirements.txt) - Python dependencies
+
+## Recommendations
+
+### 1. Restore Full JavaScript Calculation
+The `calculateGoals()` function should be re-implemented in the frontend to match the backend logic for immediate user feedback.
+
+### 2. Form Integration
+The calculation should automatically populate form fields when triggered.
+
+### 3. User Feedback
+Better visual feedback and explanation of how calculations are performed.
+
+### 4. Validation
+Client-side validation to ensure required fields are filled before calculation.
+
+## Technical Notes
+
+- All calculations are clamped to safe ranges (calories: 800-5000, macros: reasonable limits)
+- The system supports both metric units (kg, cm) consistently
+- Duration-aware calculations provide more precise results than simple ±500 calorie adjustments
+- Backend calculation is already robust and well-tested, frontend needs to match this logic
+
+---
+
+**File Analysis Date**: August 22, 2025  
+**Application Version**: Latest commit in master branch  
+**Status**: Frontend calculation needs re-implementation after UI streamlining</span>
 </div>
 ```
 

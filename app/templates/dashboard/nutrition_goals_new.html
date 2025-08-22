@@ -187,55 +187,54 @@
     return 0;
   }
 
-  async function calculateGoals(){
-    // Build payload from current inputs
-    const payload = {
-      weight:         getNum('weight'),
-      height:         getNum('height'),
-      age:            getNum('age'),
-      gender:         getVal('gender'),
-      activity_level: getVal('activity_level'),
-      goal_type:      getVal('goal_type'),
-      target_weight:  getNum('target_weight'),
-      target_duration:getVal('target_duration'),
-      target_date:    getVal('target_date') // 'YYYY-MM-DD' from <input type="date">
-    };
+  function calculateGoals(){
+    const weight=getNum('weight'), height=getNum('height'), age=getNum('age');
+    const gender=getVal('gender'), activity=getVal('activity_level'), goalType=getVal('goal_type');
+    if([weight,height,age].some(Number.isNaN) || !gender || !activity || !goalType){
+      alert('Fill weight, height, age, gender, activity level, and goal type first.'); return;
+    }
+    const bmr  = calcBMR({gender,weight,height,age});
+    const mult = activityMap[activity] ?? 1.2;
+    const tdee = bmr * mult;
 
-    // Basic presence check before calling server
-    if ([payload.weight, payload.height, payload.age].some(Number.isNaN) ||
-        !payload.gender || !payload.activity_level || !payload.goal_type) {
-      alert('Fill weight, height, age, gender, activity level, and goal type first.');
-      return;
+    const days = daysFromDurationOrDate();
+    const targetWt = getNum('target_weight');
+    let dailyAdjust = 0;
+
+    if(Number.isFinite(targetWt) && days && days>0){
+      const deltaKg = targetWt - weight;                 // negative for loss
+      dailyAdjust = clamp((deltaKg*KCAL_PER_KG)/days, -1000, 1000);
+    } else {
+      const byPace = dailyAdjustDefault(goalType, days);
+      dailyAdjust = (byPace !== 0) ? byPace : (goalType==='lose' ? -500 : goalType==='gain' ? 500 : 0);
     }
 
-    // Try to send CSRF if present (safe if CSRFProtect is enabled later)
-    const csrf = (document.querySelector('input[name="csrf_token"]') || {}).value;
-    const headers = { 'Content-Type': 'application/json' };
-    if (csrf) headers['X-CSRFToken'] = csrf;
+    let calories = clamp(tdee + dailyAdjust, 800, 5000);
+    const protein = clamp(weight*2.2, 10, 300);
+    const fat     = clamp((calories*0.25)/9, 0, 200);
+    const carbs   = clamp((calories - protein*4 - fat*9)/4, 0, 500);
+    const fiber   = clamp((calories/1000)*14, 0, 100);
 
-    try {
-      const res = await fetch('{{ url_for("dashboard.api_calc_goals") }}', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) throw new Error('Server responded ' + res.status);
-      const data = await res.json();
+    setNum('targetCalories', calories);
+    setNum('targetProtein',  protein);
+    setNum('targetFat',      fat);
+    setNum('targetCarbs',    carbs);
+    setNum('targetFiber',    fiber);
 
-      // Update fields with server-calculated numbers
-      setNum('targetCalories', data.calories);
-      setNum('targetProtein',  data.protein);
-      setNum('targetCarbs',    data.carbs);
-      setNum('targetFat',      data.fat);
-      setNum('targetFiber',    data.fiber);
-
-      console.info('[Goals/API] Updated from server:', data);
-    } catch (err) {
-      console.warn('[Goals/API] Falling back to client calculation:', err);
-      // Optional: call the previous client-side logic as a fallback
-      // If you kept it under another name (e.g., clientCalculateGoals), call it here.
-      alert('Could not reach the server to compute goals. Please try again.');
+    const hint = byId('durationHint');
+    if(hint){
+      if(Number.isFinite(targetWt) && days) {
+        hint.textContent = `Using duration-aware plan: Δ${(targetWt-weight).toFixed(1)}kg over ${days} days`;
+      } else if (days) {
+        const pace = (goalType==='lose') ? `-${DEFAULT_LOSS_KG_PER_WEEK} kg/week`
+                   : (goalType==='gain') ? `+${DEFAULT_GAIN_KG_PER_WEEK} kg/week` : `0 kg/week`;
+        hint.textContent = `Using default pace (${pace}) over ${days} days`;
+      } else {
+        hint.textContent = `Using legacy ±500 kcal/day (set duration or date for duration-aware plan)`;
+      }
     }
+
+    console.info('[Goals] calc ->', { tdee: Math.round(tdee), dailyAdjust: Math.round(dailyAdjust), calories: Math.round(calories) });
   }
 
   // Date helpers (also trigger calc)
